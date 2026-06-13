@@ -9,6 +9,7 @@
   const scripts = [
     "game/RuleConfig.js",
     "game/Tile.js",
+    "game/HandAnalysis.js",
     "game/Wall.js",
     "game/Player.js",
     "game/GameEngine.js",
