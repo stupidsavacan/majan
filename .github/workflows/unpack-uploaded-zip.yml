@@ -3,25 +3,68 @@ name: Unpack uploaded ZIP
 on:
   push:
     paths:
-      - 'uploads/**/*.zip'
-      - 'uploads/*.zip'
+      - "uploads/**/*.zip"
+      - "uploads/*.zip"
+      - ".github/workflows/unpack-uploaded-zip.yml"
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unpack-uploaded-zip
+  cancel-in-progress: false
 
 jobs:
   unpack:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare output directory
-        run: mkdir -p extracted-zips
+        with:
+          fetch-depth: 0
+
       - name: Unpack zip files
+        shell: bash
         run: |
-          for zip_file in uploads/*.zip uploads/**/*.zip; do
-            [ -f "$zip_file" ] || continue
+          set -euo pipefail
+
+          rm -rf extracted-zips
+          mkdir -p extracted-zips
+
+          while IFS= read -r -d '' zip_file; do
             name="$(basename "$zip_file" .zip)"
-            mkdir -p "extracted-zips/$name"
-            unzip -q -o "$zip_file" -d "extracted-zips/$name"
-          done
+            destination="extracted-zips/$name"
+            temporary_directory="$(mktemp -d)"
+
+            unzip -q -o "$zip_file" -d "$temporary_directory"
+            mkdir -p "$destination"
+
+            mapfile -d '' entries < <(find "$temporary_directory" -mindepth 1 -maxdepth 1 -print0)
+            if [ "${#entries[@]}" -eq 1 ] && [ -d "${entries[0]}" ]; then
+              cp -a "${entries[0]}/." "$destination/"
+            else
+              cp -a "$temporary_directory/." "$destination/"
+            fi
+
+            rm -rf "$temporary_directory"
+          done < <(find uploads -type f -iname "*.zip" -print0)
+
+      - name: Commit extracted files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git add extracted-zips
+          if git diff --cached --quiet; then
+            echo "No extracted-file changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Unpack uploaded ZIP files"
+          git push
+
       - name: Upload extracted files
         uses: actions/upload-artifact@v4
         with:
