@@ -29,7 +29,6 @@
 - `src/main.js`
 - `src/styles/main.css`
 - `uploads/README.md`
-- `scripts/unpack-uploaded-zips.sh`
 - `.github/workflows/unpack-uploaded-zip.yml`
 
 ## 起動方法
