@@ -5,6 +5,7 @@
   const RuleConfig = Sanma.RuleConfig;
   const TileUtil = Sanma.TileUtil;
   const HandAnalysis = Sanma.HandAnalysis;
+  const YakuAnalysis = Sanma.YakuAnalysis;
 
   const windLabels = { east: "東", south: "南", west: "西" };
 
@@ -13,13 +14,7 @@
       this.ruleConfig = RuleConfig.createRuleConfig(ruleConfig);
       this.seed = seed || "";
       this.onChange = typeof onChange === "function" ? onChange : function noop() {};
-      this.round = {
-        roundWind: "east",
-        handNumber: 1,
-        honba: 0,
-        riichiSticks: 0,
-        dealerIndex: 0,
-      };
+      this.round = { roundWind: "east", handNumber: 1, honba: 0, riichiSticks: 0, dealerIndex: 0 };
       this.players = [];
       this.wall = null;
       this.turnIndex = 0;
@@ -47,52 +42,25 @@
     }
 
     dealInitialHands() {
-      for (let draw = 0; draw < 13; draw += 1) {
-        for (const player of this.players) {
-          player.receiveTile(this.wall.draw());
-        }
-      }
+      for (let draw = 0; draw < 13; draw += 1) for (const player of this.players) player.receiveTile(this.wall.draw());
       this.players[this.round.dealerIndex].receiveTile(this.wall.draw());
     }
 
-    get humanPlayer() {
-      return this.players.find((player) => player.isHuman);
-    }
-
-    getCurrentPlayer() {
-      return this.players[this.turnIndex];
-    }
+    get humanPlayer() { return this.players.find((player) => player.isHuman); }
+    getCurrentPlayer() { return this.players[this.turnIndex]; }
 
     discardHumanTile(instanceId) {
-      if (this.phase !== "human-discard" || this.turnIndex !== 0) {
-        this.addLog("現在はあなたの打牌番ではありません。");
-        this.emitChange();
-        return;
-      }
-
+      if (this.phase !== "human-discard" || this.turnIndex !== 0) { this.addLog("現在はあなたの打牌番ではありません。"); this.emitChange(); return; }
       const discarded = this.humanPlayer.discardTileByInstanceId(instanceId);
-      if (!discarded) {
-        this.addLog("その牌は手牌にありません。");
-        this.emitChange();
-        return;
-      }
-
+      if (!discarded) { this.addLog("その牌は手牌にありません。"); this.emitChange(); return; }
       this.addLog(`あなたが ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
       const tenpai = HandAnalysis.analyzeTenpai(this.humanPlayer.hand, this.ruleConfig);
-      if (tenpai.isTenpai) {
-        this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
-      }
+      if (tenpai.isTenpai) this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
       this.advanceAfterDiscard();
     }
 
     advanceAfterDiscard() {
-      if (this.wall.remainingCount() <= 0) {
-        this.phase = "round-ended";
-        this.addLog("山がなくなりました。Phase 1では流局表示のみです。");
-        this.emitChange();
-        return;
-      }
-
+      if (this.wall.remainingCount() <= 0) { this.phase = "round-ended"; this.addLog("山がなくなりました。Phase 1では流局表示のみです。"); this.emitChange(); return; }
       this.turnIndex = (this.turnIndex + 1) % this.players.length;
       this.phase = "cpu-running";
       this.emitChange();
@@ -100,25 +68,16 @@
     }
 
     runCpuUntilHumanTurn() {
-      // Synchronous and intentionally simple for Phase 1. Later phases can replace this with call windows.
       while (this.turnIndex !== 0 && this.wall.remainingCount() > 0) {
         const player = this.getCurrentPlayer();
         const drawn = this.wall.draw();
         player.receiveTile(drawn);
         this.addLog(`${player.name} がツモりました。`);
-        const discardIndex = this.chooseCpuDiscardIndex(player);
-        const discarded = player.discardTileAt(discardIndex);
+        const discarded = player.discardTileAt(this.chooseCpuDiscardIndex(player));
         this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
         this.turnIndex = (this.turnIndex + 1) % this.players.length;
       }
-
-      if (this.wall.remainingCount() <= 0) {
-        this.phase = "round-ended";
-        this.addLog("山がなくなりました。Phase 1では流局表示のみです。");
-        this.emitChange();
-        return;
-      }
-
+      if (this.wall.remainingCount() <= 0) { this.phase = "round-ended"; this.addLog("山がなくなりました。Phase 1では流局表示のみです。"); this.emitChange(); return; }
       if (this.turnIndex === 0) {
         const drawn = this.wall.draw();
         this.humanPlayer.receiveTile(drawn);
@@ -129,15 +88,9 @@
     }
 
     chooseCpuDiscardIndex(player) {
-      // Phase 1 requirement: CPU may be temporary random discard. Keep log format for future heuristic replacement.
       const index = Math.floor(Math.random() * player.hand.length);
       const tile = player.hand[index];
-      this.cpuThinkingLog.unshift({
-        player: player.name,
-        phase: "Phase 1 random discard",
-        choice: TileUtil.getTileAriaLabel(tile),
-        hand: player.hand.map(TileUtil.getTileShortLabel).join(" "),
-      });
+      this.cpuThinkingLog.unshift({ player: player.name, phase: "Phase 1 random discard", choice: TileUtil.getTileAriaLabel(tile), hand: player.hand.map(TileUtil.getTileShortLabel).join(" ") });
       this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
       return index;
     }
@@ -151,14 +104,26 @@
       this.emitChange();
     }
 
-    getRoundLabel() {
-      return `${windLabels[this.round.roundWind]}${this.round.handNumber}局`;
-    }
+    getRoundLabel() { return `${windLabels[this.round.roundWind]}${this.round.handNumber}局`; }
 
     getState() {
       const humanHand = this.humanPlayer ? this.humanPlayer.hand : [];
       const humanAgariAnalysis = HandAnalysis.analyzeAgari(humanHand, this.ruleConfig);
       const humanTenpaiAnalysis = HandAnalysis.analyzeTenpai(humanHand, this.ruleConfig);
+      const humanYakuAnalysis = YakuAnalysis.analyzeYaku({
+        tiles: humanHand,
+        ruleConfig: this.ruleConfig,
+        agariResult: humanAgariAnalysis,
+        context: {
+          winType: "debug",
+          isMenzen: this.humanPlayer.melds.length === 0,
+          seatWind: this.humanPlayer.seatWind,
+          roundWind: this.round.roundWind,
+          isRiichi: this.humanPlayer.hasRiichi,
+          doraIndicators: this.wall.doraIndicators,
+          kitaDoraCount: this.humanPlayer.kitaTiles.length,
+        },
+      });
       return {
         ruleConfig: this.ruleConfig,
         ruleSummary: RuleConfig.describeRuleConfig(this.ruleConfig),
@@ -174,6 +139,7 @@
         cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
         humanAgariAnalysis,
         humanTenpaiAnalysis,
+        humanYakuAnalysis,
         seed: this.seed,
       };
     }
@@ -184,9 +150,7 @@
       this.logs = this.logs.slice(0, 80);
     }
 
-    emitChange() {
-      this.onChange(this.getState());
-    }
+    emitChange() { this.onChange(this.getState()); }
   }
 
   Sanma.GameEngine = GameEngine;
