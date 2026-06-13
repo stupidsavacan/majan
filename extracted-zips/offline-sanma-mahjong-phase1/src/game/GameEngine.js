@@ -4,6 +4,7 @@
   const Wall = Sanma.Wall;
   const RuleConfig = Sanma.RuleConfig;
   const TileUtil = Sanma.TileUtil;
+  const HandAnalysis = Sanma.HandAnalysis;
 
   const windLabels = { east: "東", south: "南", west: "西" };
 
@@ -77,6 +78,10 @@
       }
 
       this.addLog(`あなたが ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
+      const tenpai = HandAnalysis.analyzeTenpai(this.humanPlayer.hand, this.ruleConfig);
+      if (tenpai.isTenpai) {
+        this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
+      }
       this.advanceAfterDiscard();
     }
 
@@ -151,6 +156,9 @@
     }
 
     getState() {
+      const humanHand = this.humanPlayer ? this.humanPlayer.hand : [];
+      const humanAgariAnalysis = HandAnalysis.analyzeAgari(humanHand, this.ruleConfig);
+      const humanTenpaiAnalysis = HandAnalysis.analyzeTenpai(humanHand, this.ruleConfig);
       return {
         ruleConfig: this.ruleConfig,
         ruleSummary: RuleConfig.describeRuleConfig(this.ruleConfig),
@@ -164,6 +172,8 @@
         turnIndex: this.turnIndex,
         logs: this.logs.slice(0, 12),
         cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
+        humanAgariAnalysis,
+        humanTenpaiAnalysis,
         seed: this.seed,
       };
     }
