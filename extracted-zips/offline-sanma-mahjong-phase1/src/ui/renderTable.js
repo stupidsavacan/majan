@@ -126,7 +126,7 @@
     );
 
     const hand = el("div", "tile-row human-hand");
-    player.hand.forEach((tile) => {
+    (player.hand || []).filter(Boolean).forEach((tile) => {
       const tileNode = RenderTiles.createTileButton(tile, { small: false });
       tileNode.disabled = !canDiscard;
       tileNode.addEventListener("click", () => handlers.onDiscard(tile.instanceId));
@@ -167,7 +167,7 @@
     panel.appendChild(el("h2", "section-title", "呼び出し操作"));
     panel.appendChild(el("div", "call-window-message", "他家の捨て牌に対する操作を選んでください。"));
     const tileRow = el("div", "tile-row tile-row-center");
-    RenderTiles.renderTileRow(tileRow, [callWindow.tile], { small: false });
+    RenderTiles.renderTileRow(tileRow, callWindow.tile ? [callWindow.tile] : [], { small: false });
     panel.appendChild(tileRow);
     const actions = el("div", "call-window-actions");
     callWindow.actions.forEach((action) => {

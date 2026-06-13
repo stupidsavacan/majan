@@ -133,10 +133,18 @@
       while (this.turnIndex !== 0 && this.wall.remainingCount() > 0) {
         const player = this.getCurrentPlayer();
         const drawn = this.wall.draw();
+        if (!drawn) {
+          this.endRoundForInvalidDraw(`${player.name}のツモ牌を取得できませんでした。`);
+          return;
+        }
         player.receiveTile(drawn);
         this.addLog(`${player.name} がツモりました。`);
         const discardIndex = this.chooseCpuDiscardIndex(player);
         const discarded = player.discardTileAt(discardIndex);
+        if (!discarded) {
+          this.endRoundForInvalidDraw(`${player.name}の打牌を取得できませんでした。`);
+          return;
+        }
         this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
         this.lastDiscard = { playerIndex: player.id, tile: discarded };
         const windowState = CallWindow.create(this, this.humanPlayer.id);
@@ -159,6 +167,10 @@
 
       if (this.turnIndex === 0) {
         const drawn = this.wall.draw();
+        if (!drawn) {
+          this.endRoundForInvalidDraw("あなたのツモ牌を取得できませんでした。");
+          return;
+        }
         this.humanPlayer.receiveTile(drawn);
         this.lastDiscard = null;
         this.phase = "human-discard";
@@ -181,9 +193,20 @@
       return index;
     }
 
+    endRoundForInvalidDraw(reason) {
+      this.phase = "round-ended";
+      this.callWindow = null;
+      this.addLog(`${reason} 安全のため局を終了します。`);
+      this.emitChange();
+    }
+
     drawForHumanManually() {
       if (this.phase !== "human-draw") return;
       const drawn = this.wall.draw();
+      if (!drawn) {
+        this.endRoundForInvalidDraw("あなたのツモ牌を取得できませんでした。");
+        return;
+      }
       this.humanPlayer.receiveTile(drawn);
       this.phase = "human-discard";
       this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。`);
@@ -212,6 +235,11 @@
         scoreResult: analysis.score,
         context: analysis.context,
       });
+      if (!settlement.applied) {
+        this.addLog(settlement.reason);
+        this.emitChange();
+        return;
+      }
       this.phase = "win-ended";
       this.round.riichiSticks = 0;
       this.winResult = {
@@ -243,6 +271,11 @@
         scoreResult: analysis.scoreResult,
         context: analysis.context,
       });
+      if (!settlement.applied) {
+        this.addLog(settlement.reason);
+        this.emitChange();
+        return;
+      }
       this.phase = "win-ended";
       this.round.riichiSticks = 0;
       this.callWindow = null;
@@ -280,6 +313,26 @@
         return;
       }
       if (actionId !== "pon" && actionId !== "chi") return;
+      if (!option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
+        this.addLog("鳴き情報が不正なため、操作をスキップしました。");
+        this.skipHumanCall();
+        return;
+      }
+
+      const discarder = this.players[option.fromPlayerIndex];
+      const discardIndex = discarder && Array.isArray(discarder.discards)
+        ? discarder.discards.findIndex((tile) => tile && tile.instanceId === option.tile.instanceId)
+        : -1;
+      const isCurrentDiscard = this.lastDiscard
+        && this.lastDiscard.playerIndex === option.fromPlayerIndex
+        && this.lastDiscard.tile
+        && this.lastDiscard.tile.instanceId === option.tile.instanceId;
+      if (discardIndex < 0 || !isCurrentDiscard) {
+        this.addLog("対象の捨て牌が河にないため、鳴きを取り消しました。");
+        this.callWindow = null;
+        this.continueAfterDiscard(option.fromPlayerIndex);
+        return;
+      }
 
       const consumed = [];
       option.consumeInstanceIds.forEach((instanceId) => {
@@ -293,9 +346,7 @@
         return;
       }
 
-      const discarder = this.players[option.fromPlayerIndex];
-      const discardIndex = discarder.discards.findIndex((tile) => tile.instanceId === option.tile.instanceId);
-      if (discardIndex >= 0) discarder.discards.splice(discardIndex, 1);
+      discarder.discards.splice(discardIndex, 1);
       const meldTiles = consumed.concat(option.tile).sort(TileUtil.compareTiles);
       this.humanPlayer.melds.push({
         type: actionId,
