@@ -1,42 +1,16 @@
 (function attachRenderTiles(global) {
-  const Sanma = global.Sanma = global.Sanma || {};
-  const TileUtil = Sanma.TileUtil;
-
-  function createTileButton(tile, options) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = [
-      "tile",
-      `tile-${tile.suit}`,
-      tile.isRed ? "tile-red" : "",
-      options && options.small ? "tile-small" : "",
-      options && options.faceDown ? "tile-back" : "",
-    ].filter(Boolean).join(" ");
-    button.dataset.instanceId = tile.instanceId;
-    button.setAttribute("aria-label", TileUtil.getTileAriaLabel(tile));
-
-    const main = document.createElement("span");
-    main.className = "tile-main";
-    main.textContent = tile.suit === "z" ? TileUtil.getTileLabel(tile) : String(tile.rank);
-
-    const suit = document.createElement("span");
-    suit.className = "tile-suit";
-    suit.textContent = tile.suit === "z" ? "" : TileUtil.suitLabels[tile.suit];
-
-    const red = document.createElement("span");
-    red.className = "tile-red-dot";
-    red.textContent = tile.isRed ? "●" : "";
-
-    button.append(main, suit, red);
-    return button;
-  }
-
-  function renderTileRow(container, tiles, options) {
-    container.innerHTML = "";
-    const fragment = document.createDocumentFragment();
-    tiles.forEach((tile) => fragment.appendChild(createTileButton(tile, options)));
-    container.appendChild(fragment);
-  }
-
-  Sanma.RenderTiles = { createTileButton, renderTileRow };
+  const Sanma = global.Sanma = global.Sanma || {}; const TileUtil = Sanma.TileUtil; const ns = "http://www.w3.org/2000/svg";
+  const colors = { black: "#202020", blue: "#2455a4", green: "#168252", red: "#c73333", white: "#ffffff", line: "#0b5131" };
+  const pin = { 1:[[40,56]],2:[[25,34],[55,78]],3:[[25,30],[40,56],[55,82]],4:[[24,31],[56,31],[24,81],[56,81]],5:[[24,28],[56,28],[40,56],[24,84],[56,84]],6:[[25,25],[55,25],[25,56],[55,56],[25,87],[55,87]],7:[[25,23],[55,23],[25,50],[55,50],[40,67],[25,89],[55,89]],8:[[25,19],[55,19],[25,44],[55,44],[25,68],[55,68],[25,93],[55,93]],9:[[20,22],[40,22],[60,22],[20,56],[40,56],[60,56],[20,90],[40,90],[60,90]] };
+  const sou = { 1:[[40,56]],2:[[28,36],[52,76]],3:[[28,30],[40,56],[52,82]],4:[[27,34],[53,34],[27,78],[53,78]],5:[[27,29],[53,29],[40,56],[27,83],[53,83]],6:[[27,25],[53,25],[27,56],[53,56],[27,87],[53,87]],7:[[27,22],[53,22],[27,48],[53,48],[40,66],[27,91],[53,91]],8:[[27,19],[53,19],[27,44],[53,44],[27,69],[53,69],[27,94],[53,94]],9:[[20,22],[40,22],[60,22],[20,56],[40,56],[60,56],[20,90],[40,90],[60,90]] };
+  function svgElement(tag, attributes) { const node = document.createElementNS(ns, tag); Object.entries(attributes || {}).forEach(([name, value]) => node.setAttribute(name, String(value))); return node; }
+  function addText(svg, text, x, y, size, fill) { const node = svgElement("text", { x, y, fill, "font-size": size, "font-family": '"Yuji Mai Embedded", "Yuji Mai", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif', "text-anchor": "middle", "dominant-baseline": "middle" }); node.textContent = text; svg.appendChild(node); }
+  function renderManzu(svg, tile) { const one = tile.rank === 1; addText(svg, one ? "一" : "九", 40, 112 * 0.32, 112 * (one ? 0.41 : 0.37), colors.black); addText(svg, "萬", 40, 112 * (one ? 0.67 : 0.72), 112 * 0.39, colors.red); }
+  function renderPinzu(svg, tile) { const layout = pin[tile.rank] || []; const radius = tile.rank === 1 ? 11.6 : 7; layout.forEach(([cx,cy], index) => { const center = Math.floor(layout.length / 2); const fill = tile.isRed && tile.rank === 5 && index === center ? colors.red : index % 3 === 0 ? colors.red : index % 2 === 0 ? colors.black : colors.blue; svg.appendChild(svgElement("circle", { cx, cy, r: radius, fill })); svg.appendChild(svgElement("circle", { cx, cy, r: radius * 0.48, fill: colors.white, opacity: 0.92 })); svg.appendChild(svgElement("circle", { cx, cy, r: radius * 0.18, fill })); }); }
+  function renderSouzu(svg, tile) { const layout = sou[tile.rank] || []; const center = Math.floor(layout.length / 2); layout.forEach(([x,y], index) => { const fill = tile.isRed && tile.rank === 5 && index === center ? colors.red : colors.green; const group = svgElement("g", { transform: `translate(${x} ${y}) rotate(${index % 2 === 0 ? -8 : 8})` }); group.appendChild(svgElement("rect", { x:-4.5,y:-12,width:9,height:24,rx:4.5,fill,stroke:colors.line,"stroke-width":1 })); group.appendChild(svgElement("path", { d:"M -3 -5 L 3 -5 M -3 5 L 3 5",stroke:"#fff7d6","stroke-width":1.4,opacity:0.8 })); svg.appendChild(group); }); }
+  function renderHonor(svg, tile) { const labels={1:"東",2:"南",3:"西",4:"北",5:"白",6:"發",7:"中"}; const fills={1:colors.black,2:colors.black,3:colors.black,4:colors.black,5:colors.blue,6:colors.green,7:colors.red}; addText(svg, labels[tile.rank] || "?", 40, 58, 53, fills[tile.rank] || colors.black); }
+  function createTileGraphic(tile) { const svg=svgElement("svg",{class:"tile-svg",viewBox:"0 0 80 112","aria-hidden":"true"}); if(tile.suit==="m")renderManzu(svg,tile); if(tile.suit==="p")renderPinzu(svg,tile); if(tile.suit==="s")renderSouzu(svg,tile); if(tile.suit==="z")renderHonor(svg,tile); return svg; }
+  function createTileButton(tile, options) { const button=document.createElement("button"); button.type="button"; button.className=["tile",`tile-${tile.suit}`,tile.isRed?"tile-red":"",options&&options.small?"tile-small":""].filter(Boolean).join(" "); button.dataset.instanceId=tile.instanceId; button.setAttribute("aria-label",TileUtil.getTileAriaLabel(tile)); button.appendChild(createTileGraphic(tile)); return button; }
+  function renderTileRow(container, tiles, options) { container.innerHTML=""; const fragment=document.createDocumentFragment(); tiles.forEach((tile)=>fragment.appendChild(createTileButton(tile,options))); container.appendChild(fragment); }
+  Sanma.RenderTiles={createTileButton,createTileGraphic,renderTileRow};
 })(window);
