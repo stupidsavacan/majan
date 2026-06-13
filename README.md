@@ -1,33 +1,21 @@
-# Offline Sanma Mahjong
+# Offline Sanma Mahjong - Phase 3
 
-完全オフラインで動作する、ブラウザ向け三人麻雀ゲームの土台版です。
+完全オフラインで動作するブラウザ向け三人麻雀ゲームの土台版です。ルートの `index.html` を直接開いて起動できます。
 
-現時点では、添付プロンプトの **Phase 1** の範囲だけを実装しています。
+## Phase 3で実装済み
 
-## 起動方法
+- `Sanma.YakuAnalysis.analyzeYaku` による役判定
+- 門前清自摸和、断么九、役牌、平和、一盃口、七対子、対々和、混老頭、国士無双
+- 役なし和了形の明示とデバッグ表示
+- SVGによる萬子・筒子・索子・字牌・赤牌デザイン
+- 黄橙色のCPU背面牌
+- Yuji Maiのbase64 `@font-face` 完全オフライン埋め込み
 
-- `index.html` をブラウザで開く
-- ローカルサーバーを使う場合は、このリポジトリのルートで `python -m http.server 8000` を実行し、`http://localhost:8000` を開く
+## テスト
 
-## Phase 1で実装済み
+```powershell
+node tests/hand-analysis.test.js
+node tests/yaku-analysis.test.js
+```
 
-- 三麻用の牌定義
-- `RuleConfig` 定義
-- 山生成、シャッフル、配牌、ツモ、打牌
-- 高打点モード時の五筒・五索全赤化
-- 北抜き / 北通常牌 / 北なし の山構成切り替え
-- プレイヤー1人 + CPU2人
-- CPU仮ランダム打牌
-- クリック / タップ操作
-- 設定保存
-- デバッグ表示
-
-## ZIP取り込み
-
-`uploads/` に `.zip` を置いてpushすると、`Unpack uploaded ZIP` workflow が動きます。
-
-現状のworkflowは、ZIPを `extracted-zips/` に展開し、GitHub Actions のartifactとして保存します。Actions画面から `extracted-zips` artifact をダウンロードできます。
-
-## 未実装
-
-和了判定、役判定、点数計算、鳴き、リーチ、カン、フリテン、正式な局進行、成績保存、牌譜保存、内部補正は Phase 2 以降で追加します。
+詳細は `PHASE3_REPORT.md` を参照してください。
