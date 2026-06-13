@@ -1,0 +1,55 @@
+name: Embed Yuji Mai font
+
+on:
+  push:
+    paths:
+      - "assets/fonts/YujiMai-Regular.ttf"
+      - ".github/workflows/embed-yuji-mai.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: embed-yuji-mai
+  cancel-in-progress: false
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate embedded font CSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="extracted-zips/offline-sanma-mahjong-phase1/src/styles/yuji-mai-embedded.css"
+          mkdir -p "$(dirname "$output")"
+          {
+            printf '%s\n' '@font-face {'
+            printf '%s' '  font-family: "Yuji Mai Embedded";'
+            printf '\n%s' '  src: url("data:font/ttf;base64,'
+            base64 -w 0 assets/fonts/YujiMai-Regular.ttf
+            printf '%s\n' '") format("truetype");'
+            printf '%s\n' '  font-weight: 400;'
+            printf '%s\n' '  font-style: normal;'
+            printf '%s\n' '  font-display: block;'
+            printf '%s\n' '}'
+          } > "$output"
+
+      - name: Commit embedded font CSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add extracted-zips/offline-sanma-mahjong-phase1/src/styles/yuji-mai-embedded.css
+          if git diff --cached --quiet; then
+            echo "Embedded font CSS is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Embed Yuji Mai font for offline use"
+          git push
