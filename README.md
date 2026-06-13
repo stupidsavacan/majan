@@ -24,7 +24,9 @@
 
 ## ZIP取り込み
 
-`uploads/` にZIPを置くと、workflowにより `extracted-zips/` 以下へ展開される構成です。
+`uploads/` に `.zip` を置いてpushすると、`Unpack uploaded ZIP` workflow が動きます。
+
+現状のworkflowは、ZIPを `extracted-zips/` に展開し、GitHub Actions のartifactとして保存します。Actions画面から `extracted-zips` artifact をダウンロードできます。
 
 ## 未実装
 
