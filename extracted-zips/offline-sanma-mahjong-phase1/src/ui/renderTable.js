@@ -1,7 +1,308 @@
-(function attachRenderTable(global){const Sanma=global.Sanma=global.Sanma||{},R=Sanma.RenderTiles;function el(t,c,x){const n=document.createElement(t);if(c)n.className=c;if(x!==undefined)n.textContent=x;return n}function badge(l,v){const b=el("div","info-badge");b.append(el("span","info-label",l),el("strong","info-value",v));return b}
-function renderTable(root,s,h){root.innerHTML="";const info=el("section","table-info");info.append(badge("局",s.round.label),badge("本場",String(s.round.honba)),badge("供託",String(s.round.riichiSticks)),badge("山",String(s.wallRemaining)),badge("ルール",s.ruleSummary),badge("seed",s.seed||"ランダム"));const d=el("section","dora-panel"),dr=el("div","tile-row tile-row-center");d.appendChild(el("h2","section-title","ドラ表示牌"));R.renderTileRow(dr,s.doraIndicators,{small:true});d.appendChild(dr);const opponents=el("section","opponents-grid");s.players.filter(p=>!p.isHuman).forEach(p=>opponents.appendChild(opponent(p,s.turnIndex===p.id)));const center=el("section","center-board");center.append(info,d,rivers(s.players));if(s.winResult)center.appendChild(winResult(s.winResult));root.append(opponents,center,human(s.players[0],s.phase,h,s.humanAgariAnalysis,s.humanYakuAnalysis,s.humanScoreAnalysis))}
-function opponent(p,turn){const card=el("article",`player-card opponent-card ${turn?"active-player":""}`),head=el("div","player-head"),backs=el("div","opponent-hand"),discards=el("div","tile-row discard-row compact");head.append(el("strong","player-name",p.name),el("span","points",`${p.points.toLocaleString()}点`));for(let i=0;i<p.hand.length;i++)backs.appendChild(el("span","tile-back-mini",""));R.renderTileRow(discards,p.discards,{small:true});card.append(head,backs,el("div","mini-title","河"),discards);return card}function rivers(players){const a=el("section","river-board");a.appendChild(el("h2","section-title","河"));players.forEach(p=>{const w=el("div","river-player-row"),r=el("div","tile-row discard-row");w.appendChild(el("span","river-name",p.name));R.renderTileRow(r,p.discards,{small:true});w.appendChild(r);a.appendChild(w)});return a}
-function action(label,title,disabled,cls){const b=el("button",`action-button ${cls||""}`.trim(),label);b.type="button";b.title=title;b.disabled=disabled;return b}function human(p,phase,h,a,y,s){const sec=el("section",`human-area ${phase==="human-discard"?"active-player":""}`),head=el("div","human-head"),hand=el("div","tile-row human-hand"),actions=el("div","action-row");head.append(el("div","human-title","あなたの手牌"),el("div","human-status",`${p.points.toLocaleString()}点 / ${phase==="human-discard"?"打牌してください":phase==="win-ended"?"和了終了":"CPU思考中"}`));p.hand.forEach(t=>{const n=R.createTileButton(t,{small:false});n.disabled=phase!=="human-discard";n.addEventListener("click",()=>h.onDiscard(t.instanceId));n.addEventListener("touchend",e=>{e.preventDefault();h.onDiscard(t.instanceId)},{passive:false});hand.appendChild(n)});const shape=!!(a&&a.isAgari),has=!!(y&&y.hasYaku),can=phase==="human-discard"&&!!(s&&s.isValidWin),tsumo=action(can?"ツモ和了":shape?(has?"役あり和了形":"形だけ和了可能"):"ツモ",s&&s.reason?s.reason:"和了形ではありません",!can,can?"valid-win":shape?"shape-agari":"");if(can)tsumo.addEventListener("click",h.onTsumo);actions.append(tsumo,action("ロン","Phase 5以降",true),action("リーチ","Phase 5以降",true),action("北抜き","Phase 5以降",true));sec.append(head,hand,actions);return sec}
-function winResult(w){const s=w.score||{},set=w.settlement||{},p=el("section","win-result");p.append(el("h2","section-title","和了結果"),el("strong","win-result-title",`${w.winType==="tsumo"?"ツモ":"ロン"} / ${s.limitName||`${s.han}飜${s.fu}符`}`),el("div","win-result-payment",`支払い合計: ${(s.payments&&s.payments.tsumo?s.payments.tsumo.total:0).toLocaleString()}点`));const u=el("ul","win-result-changes");(set.changes||[]).forEach(c=>u.appendChild(el("li","",`${c.playerName}: ${c.delta>=0?"+":""}${c.delta.toLocaleString()}点 → ${c.after.toLocaleString()}点`)));p.appendChild(u);return p}
-function renderMessages(root,s){root.innerHTML="";const u=el("ul","log-list");s.logs.forEach(x=>u.appendChild(el("li","",x)));root.append(el("h2","section-title","ログ"),u)}function renderDebug(root,s){const a=s.humanAgariAnalysis||{},t=s.humanTenpaiAnalysis||{},y=s.humanYakuAnalysis||{},sc=s.humanScoreAnalysis||{},waits=t.waits&&t.waits.length?t.waits.map(w=>w.label).join("、"):"なし",opts=t.discardOptions&&t.discardOptions.length?t.discardOptions.map(o=>`${o.discardLabel}切り → ${o.waits.map(w=>w.label).join("、")}`).join("\n"):"なし";root.textContent=[`phase: ${s.phase}`,`turnIndex: ${s.turnIndex}`,`wallRemaining: ${s.wallRemaining}`,`deadWallCount: ${s.deadWallCount}`,`totalKnownTileCount: ${s.totalKnownTileCount}`,"","和了形判定:",`isAgari: ${!!a.isAgari}`,`手牌枚数: ${a.tileCount}`,`bestPattern: ${a.bestPattern?a.bestPattern.typeLabel:"なし"}`,`理由: ${a.reason||""}`,"","役判定:",`hasYaku: ${!!y.hasYaku}`,`役: ${y.yaku&&y.yaku.length?y.yaku.map(x=>x.name).join("、"):"なし"}`,`役満: ${y.yakuman&&y.yakuman.length?y.yakuman.map(x=>x.name).join("、"):"なし"}`,`理由: ${y.reason||""}`,"","点数計算:",`isValidWin: ${!!sc.isValidWin}`,`飜: ${sc.han||0}`,`符: ${sc.fu==null?"なし":sc.fu}`,`区分: ${sc.limitName||"なし"}`,`基本点: ${sc.basePoints||0}`,`支払い: ${JSON.stringify(sc.payments||{},null,2)}`,`理由: ${sc.reason||""}`,`詳細: ${(sc.details||[]).join(" / ")||"なし"}`,"","和了結果:",JSON.stringify(s.winResult||null,null,2),"","聴牌判定:",`isTenpai: ${!!t.isTenpai}`,`待ち牌: ${waits}`,`打牌候補:\n${opts}`,`理由: ${t.reason||""}`,"","RuleConfig:",JSON.stringify(s.ruleConfig,null,2),"","CPU thinking log:",JSON.stringify(s.cpuThinkingLog,null,2)].join("\n")}
-Sanma.RenderTable={renderTable,renderMessages,renderDebug}})(window);
+(function attachRenderTable(global) {
+  const Sanma = global.Sanma = global.Sanma || {};
+  const TileUtil = Sanma.TileUtil;
+  const RenderTiles = Sanma.RenderTiles;
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function renderTable(root, state, handlers) {
+    root.innerHTML = "";
+
+    const tableInfo = el("section", "table-info");
+    tableInfo.append(
+      infoBadge("局", state.round.label),
+      infoBadge("本場", String(state.round.honba)),
+      infoBadge("供託", String(state.round.riichiSticks)),
+      infoBadge("山", String(state.wallRemaining)),
+      infoBadge("ルール", state.ruleSummary),
+      infoBadge("seed", state.seed || "ランダム")
+    );
+
+    const doraPanel = el("section", "dora-panel");
+    doraPanel.appendChild(el("h2", "section-title", "ドラ表示牌"));
+    const doraRow = el("div", "tile-row tile-row-center");
+    RenderTiles.renderTileRow(doraRow, state.doraIndicators, { small: true });
+    doraPanel.appendChild(doraRow);
+
+    const opponents = el("section", "opponents-grid");
+    state.players.filter((player) => !player.isHuman).forEach((player) => {
+      opponents.appendChild(renderOpponent(player, state.turnIndex === player.id));
+    });
+
+    const center = el("section", "center-board");
+    center.append(tableInfo, doraPanel, renderDiscards(state.players));
+    if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers));
+    if (state.winResult) center.appendChild(renderWinResult(state.winResult));
+
+    const human = renderHuman(state.players[0], state, handlers);
+
+    root.append(opponents, center, human);
+  }
+
+  function infoBadge(label, value) {
+    const badge = el("div", "info-badge");
+    badge.append(el("span", "info-label", label), el("strong", "info-value", value));
+    return badge;
+  }
+
+  function renderOpponent(player, isTurn) {
+    const card = el("article", `player-card opponent-card ${isTurn ? "active-player" : ""}`);
+    const head = el("div", "player-head");
+    head.append(el("strong", "player-name", player.name), el("span", "points", `${player.points.toLocaleString()}点`));
+
+    const handBacks = el("div", "opponent-hand");
+    for (let i = 0; i < player.hand.length; i += 1) {
+      handBacks.appendChild(el("span", "tile-back-mini", ""));
+    }
+
+    const discardTitle = el("div", "mini-title", "河");
+    const discards = el("div", "tile-row discard-row compact");
+    RenderTiles.renderTileRow(discards, player.discards, { small: true });
+    const melds = renderMelds(player);
+
+    card.append(head, handBacks, discardTitle, discards, melds);
+    return card;
+  }
+
+  function renderDiscards(players) {
+    const area = el("section", "river-board");
+    area.appendChild(el("h2", "section-title", "河"));
+    players.forEach((player) => {
+      const rowWrap = el("div", "river-player-row");
+      rowWrap.appendChild(el("span", "river-name", player.name));
+      const row = el("div", "tile-row discard-row");
+      RenderTiles.renderTileRow(row, player.discards, { small: true });
+      rowWrap.appendChild(row);
+      area.appendChild(rowWrap);
+    });
+    return area;
+  }
+
+  function renderMelds(player) {
+    const wrap = el("div", "meld-area");
+    (player.melds || []).forEach((meld) => {
+      const item = el("div", "meld-item");
+      item.appendChild(el("span", "mini-title", `${meld.type === "pon" ? "ポン" : meld.type === "chi" ? "チー" : "カン"}${meld.open ? "（副露）" : "（暗）"}`));
+      const row = el("div", "tile-row");
+      RenderTiles.renderTileRow(row, meld.tiles || [], { small: true });
+      item.appendChild(row);
+      wrap.appendChild(item);
+    });
+    if ((player.kitaTiles || []).length > 0) {
+      const item = el("div", "meld-item");
+      item.appendChild(el("span", "mini-title", `抜き北 ${player.kitaTiles.length}`));
+      const row = el("div", "tile-row");
+      RenderTiles.renderTileRow(row, player.kitaTiles, { small: true });
+      item.appendChild(row);
+      wrap.appendChild(item);
+    }
+    return wrap;
+  }
+
+  function findAction(state, id) {
+    return (state.humanAvailableActions || []).find((action) => action.id === id) || { enabled: false, reason: "利用できません。" };
+  }
+
+  function renderHuman(player, state, handlers) {
+    const phase = state.phase;
+    const canDiscard = phase === "human-discard" || phase === "caller-discard";
+    const section = el("section", `human-area ${canDiscard ? "active-player" : ""}`);
+    const head = el("div", "human-head");
+    const statusLabel = canDiscard
+      ? "打牌してください"
+      : phase === "human-call"
+        ? "鳴き・ロンを選択してください"
+        : phase === "win-ended"
+          ? "和了終了"
+          : "CPU思考中";
+    head.append(
+      el("div", "human-title", "あなたの手牌"),
+      el("div", "human-status", `${player.points.toLocaleString()}点 / ${statusLabel}`)
+    );
+
+    const hand = el("div", "tile-row human-hand");
+    player.hand.forEach((tile) => {
+      const tileNode = RenderTiles.createTileButton(tile, { small: false });
+      tileNode.disabled = !canDiscard;
+      tileNode.addEventListener("click", () => handlers.onDiscard(tile.instanceId));
+      tileNode.addEventListener("touchend", (event) => {
+        event.preventDefault();
+        handlers.onDiscard(tile.instanceId);
+      }, { passive: false });
+      hand.appendChild(tileNode);
+    });
+
+    const actions = el("div", "action-row");
+    const tsumo = findAction(state, "tsumo");
+    const riichi = findAction(state, "riichi");
+    const kita = findAction(state, "kita");
+    const kan = findAction(state, "kan");
+    const tsumoButton = actionButton(tsumo.enabled ? "ツモ和了" : "ツモ", tsumo.reason, !tsumo.enabled, tsumo.enabled ? "valid-win" : "");
+    const riichiButton = actionButton("リーチ", riichi.reason, !riichi.enabled, riichi.enabled ? "available-action" : "");
+    const kitaButton = actionButton("北抜き", kita.reason, !kita.enabled, kita.enabled ? "available-action" : "");
+    const kanButton = actionButton("カン確認", kan.reason, !kan.enabled, kan.enabled ? "available-action" : "");
+    if (tsumo.enabled) tsumoButton.addEventListener("click", handlers.onTsumo);
+    if (riichi.enabled) riichiButton.addEventListener("click", handlers.onRiichi);
+    if (kita.enabled) kitaButton.addEventListener("click", handlers.onKita);
+    if (kan.enabled) kanButton.addEventListener("click", handlers.onKan);
+    actions.append(
+      tsumoButton,
+      actionButton("ロン", phase === "human-call" ? "呼び出し窓から選択してください。" : "他家の捨て牌待ちです。", true),
+      riichiButton,
+      kanButton,
+      kitaButton
+    );
+
+    section.append(head, hand, renderMelds(player), actions);
+    return section;
+  }
+
+  function renderCallWindow(callWindow, handlers) {
+    const panel = el("section", "call-window");
+    panel.appendChild(el("h2", "section-title", "呼び出し操作"));
+    panel.appendChild(el("div", "call-window-message", "他家の捨て牌に対する操作を選んでください。"));
+    const tileRow = el("div", "tile-row tile-row-center");
+    RenderTiles.renderTileRow(tileRow, [callWindow.tile], { small: false });
+    panel.appendChild(tileRow);
+    const actions = el("div", "call-window-actions");
+    callWindow.actions.forEach((action) => {
+      if (action.options && action.options.length > 0) {
+        action.options.forEach((option, index) => {
+          const label = action.id === "kan" ? `${option.label}（判定のみ）` : option.label;
+          const button = actionButton(label, action.reason, false, action.id === "ron" ? "valid-win" : "available-action");
+          button.addEventListener("click", () => handlers.onCall(action.id, index));
+          actions.appendChild(button);
+        });
+      } else {
+        const button = actionButton(action.label, action.reason, false, action.id === "ron" ? "valid-win" : "available-action");
+        button.addEventListener("click", () => handlers.onCall(action.id, 0));
+        actions.appendChild(button);
+      }
+    });
+    const skip = actionButton("スキップ", "鳴かずに次の手番へ進みます。", false, "");
+    skip.addEventListener("click", handlers.onSkipCall);
+    actions.appendChild(skip);
+    panel.appendChild(actions);
+    return panel;
+  }
+
+  function renderWinResult(winResult) {
+    const score = winResult.score || {};
+    const settlement = winResult.settlement || {};
+    const panel = el("section", "win-result");
+    panel.appendChild(el("h2", "section-title", "和了結果"));
+    panel.appendChild(el("strong", "win-result-title", `${winResult.winType === "tsumo" ? "ツモ" : "ロン"} / ${score.limitName || `${score.han}飜${score.fu}符`}`));
+    const payment = winResult.winType === "ron"
+      ? (score.payments && score.payments.ron ? score.payments.ron.amount : 0)
+      : (score.payments && score.payments.tsumo ? score.payments.tsumo.total : 0);
+    panel.appendChild(el("div", "win-result-payment", `支払い合計: ${payment.toLocaleString()}点`));
+    const changes = el("ul", "win-result-changes");
+    (settlement.changes || []).forEach((change) => {
+      const sign = change.delta >= 0 ? "+" : "";
+      changes.appendChild(el("li", "", `${change.playerName}: ${sign}${change.delta.toLocaleString()}点 → ${change.after.toLocaleString()}点`));
+    });
+    panel.appendChild(changes);
+    return panel;
+  }
+
+  function actionButton(label, title, disabled, extraClass) {
+    const button = el("button", `action-button ${extraClass || ""}`.trim(), label);
+    button.type = "button";
+    button.title = title;
+    button.disabled = disabled;
+    return button;
+  }
+
+  function renderMessages(root, state) {
+    root.innerHTML = "";
+    const title = el("h2", "section-title", "ログ");
+    const list = el("ul", "log-list");
+    state.logs.forEach((line) => {
+      list.appendChild(el("li", "", line));
+    });
+    root.append(title, list);
+  }
+
+  function renderDebug(root, state) {
+    const safeConfig = JSON.stringify(state.ruleConfig, null, 2);
+    const cpuLog = JSON.stringify(state.cpuThinkingLog, null, 2);
+    const agari = state.humanAgariAnalysis || {};
+    const tenpai = state.humanTenpaiAnalysis || {};
+    const yaku = state.humanYakuAnalysis || {};
+    const score = state.humanScoreAnalysis || {};
+    const waits = tenpai.waits && tenpai.waits.length > 0
+      ? tenpai.waits.map((wait) => wait.label).join("、")
+      : "なし";
+    const discardOptions = tenpai.discardOptions && tenpai.discardOptions.length > 0
+      ? tenpai.discardOptions.map((option) => `${option.discardLabel}切り → ${option.waits.map((wait) => wait.label).join("、")}`).join("\n")
+      : "なし";
+    root.textContent = [
+      `phase: ${state.phase}`,
+      `turnIndex: ${state.turnIndex}`,
+      `wallRemaining: ${state.wallRemaining}`,
+      `deadWallCount: ${state.deadWallCount}`,
+      `totalKnownTileCount: ${state.totalKnownTileCount}`,
+      "",
+      "和了形判定:",
+      `isAgari: ${Boolean(agari.isAgari)}`,
+      `手牌枚数: ${agari.tileCount}`,
+      `成立形: ${agari.patterns && agari.patterns.length > 0 ? agari.patterns.map((pattern) => pattern.typeLabel).join("、") : "なし"}`,
+      `bestPattern: ${agari.bestPattern ? agari.bestPattern.typeLabel : "なし"}`,
+      `理由: ${agari.reason || ""}`,
+      "",
+      "役判定:",
+      `hasYaku: ${Boolean(yaku.hasYaku)}`,
+      `役: ${yaku.yaku && yaku.yaku.length > 0 ? yaku.yaku.map((item) => item.name).join("、") : "なし"}`,
+      `totalHan: ${yaku.totalHan || 0}`,
+      `役満: ${yaku.yakuman && yaku.yakuman.length > 0 ? yaku.yakuman.map((item) => item.name).join("、") : "なし"}`,
+      `理由: ${yaku.reason || ""}`,
+      `context: ${JSON.stringify(yaku.context || {}, null, 2)}`,
+      "",
+      "点数計算:",
+      `isValidWin: ${Boolean(score.isValidWin)}`,
+      `飜: ${score.han || 0}`,
+      `符: ${score.fu === null || score.fu === undefined ? "なし" : score.fu}`,
+      `区分: ${score.limitName || "なし"}`,
+      `基本点: ${score.basePoints || 0}`,
+      `支払い: ${JSON.stringify(score.payments || {}, null, 2)}`,
+      `理由: ${score.reason || ""}`,
+      `詳細: ${(score.details || []).join(" / ") || "なし"}`,
+      "",
+      "和了結果:",
+      JSON.stringify(state.winResult || null, null, 2),
+      "",
+      "Phase 5 操作:",
+      JSON.stringify(state.humanAvailableActions || [], null, 2),
+      "",
+      "呼び出し窓:",
+      JSON.stringify(state.callWindow || null, null, 2),
+      "",
+      "副露・抜き北:",
+      JSON.stringify((state.players || []).map((player) => ({
+        player: player.name,
+        hasRiichi: player.hasRiichi,
+        melds: player.melds,
+        kitaTiles: player.kitaTiles,
+      })), null, 2),
+      "",
+      "聴牌判定:",
+      `isTenpai: ${Boolean(tenpai.isTenpai)}`,
+      `待ち牌: ${waits}`,
+      `打牌候補:\n${discardOptions}`,
+      `理由: ${tenpai.reason || ""}`,
+      "",
+      "RuleConfig:",
+      safeConfig,
+      "",
+      "CPU thinking log:",
+      cpuLog,
+    ].join("\n");
+  }
+
+  Sanma.RenderTable = { renderTable, renderMessages, renderDebug };
+})(window);

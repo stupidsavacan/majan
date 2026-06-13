@@ -1,12 +1,417 @@
-(function attachGameEngine(global){const Sanma=global.Sanma=global.Sanma||{},Player=Sanma.Player,Wall=Sanma.Wall,RuleConfig=Sanma.RuleConfig,TileUtil=Sanma.TileUtil,HandAnalysis=Sanma.HandAnalysis,YakuAnalysis=Sanma.YakuAnalysis,ScoreCalculator=Sanma.ScoreCalculator,Settlement=Sanma.Settlement;const winds={east:"東",south:"南",west:"西"};class GameEngine{constructor({ruleConfig,seed,onChange}){this.ruleConfig=RuleConfig.createRuleConfig(ruleConfig);this.seed=seed||"";this.onChange=typeof onChange==="function"?onChange:function(){};this.round={roundWind:"east",handNumber:1,honba:0,riichiSticks:0,dealerIndex:0};this.players=[];this.wall=null;this.turnIndex=0;this.phase="idle";this.logs=[];this.cpuThinkingLog=[];this.winResult=null;this.startRound()}
-startRound(){this.wall=new Wall(this.ruleConfig,{seed:this.seed});this.players=[new Player({id:0,name:"あなた",seatWind:"east",isHuman:true,points:this.ruleConfig.initialPoints}),new Player({id:1,name:"CPU 1",seatWind:"south",isHuman:false,points:this.ruleConfig.initialPoints}),new Player({id:2,name:"CPU 2",seatWind:"west",isHuman:false,points:this.ruleConfig.initialPoints})];this.turnIndex=this.round.dealerIndex;this.phase="dealing";this.logs=[];this.cpuThinkingLog=[];this.winResult=null;this.dealInitialHands();this.phase="human-discard";this.addLog("配牌しました。あなたは親です。切る牌をクリック/タップしてください。");this.emitChange()}
-dealInitialHands(){for(let d=0;d<13;d++)for(const p of this.players)p.receiveTile(this.wall.draw());this.players[this.round.dealerIndex].receiveTile(this.wall.draw())}get humanPlayer(){return this.players.find(p=>p.isHuman)}getCurrentPlayer(){return this.players[this.turnIndex]}
-discardHumanTile(id){if(this.phase!=="human-discard"||this.turnIndex!==0){this.addLog("現在はあなたの打牌番ではありません。");this.emitChange();return}const x=this.humanPlayer.discardTileByInstanceId(id);if(!x){this.addLog("その牌は手牌にありません。");this.emitChange();return}this.addLog(`あなたが ${TileUtil.getTileAriaLabel(x)} を切りました。`);const t=HandAnalysis.analyzeTenpai(this.humanPlayer.hand,this.ruleConfig);if(t.isTenpai)this.addLog(`聴牌: 待ち牌 ${t.waits.map(w=>w.label).join("、")}`);this.advanceAfterDiscard()}
-advanceAfterDiscard(){if(this.wall.remainingCount()<=0){this.phase="round-ended";this.addLog("山がなくなりました。Phase 1では流局表示のみです。");this.emitChange();return}this.turnIndex=(this.turnIndex+1)%this.players.length;this.phase="cpu-running";this.emitChange();this.runCpuUntilHumanTurn()}
-runCpuUntilHumanTurn(){while(this.turnIndex!==0&&this.wall.remainingCount()>0){const p=this.getCurrentPlayer(),draw=this.wall.draw();p.receiveTile(draw);this.addLog(`${p.name} がツモりました。`);const x=p.discardTileAt(this.chooseCpuDiscardIndex(p));this.addLog(`${p.name} が ${TileUtil.getTileAriaLabel(x)} を切りました。`);this.turnIndex=(this.turnIndex+1)%this.players.length}if(this.wall.remainingCount()<=0){this.phase="round-ended";this.addLog("山がなくなりました。Phase 1では流局表示のみです。");this.emitChange();return}if(this.turnIndex===0){const draw=this.wall.draw();this.humanPlayer.receiveTile(draw);this.phase="human-discard";this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(draw)}。切る牌を選んでください。`);this.emitChange()}}
-chooseCpuDiscardIndex(p){const i=Math.floor(Math.random()*p.hand.length),t=p.hand[i];this.cpuThinkingLog.unshift({player:p.name,phase:"Phase 1 random discard",choice:TileUtil.getTileAriaLabel(t),hand:p.hand.map(TileUtil.getTileShortLabel).join(" ")});this.cpuThinkingLog=this.cpuThinkingLog.slice(0,20);return i}
-createHumanWinContext(winType){return{winType,winnerIndex:this.humanPlayer.id,loserIndex:1,dealerIndex:this.round.dealerIndex,honba:this.round.honba,riichiSticks:this.round.riichiSticks,seatWind:this.humanPlayer.seatWind,roundWind:this.round.roundWind,isMenzen:this.humanPlayer.melds.length===0,isRiichi:this.humanPlayer.hasRiichi,doraIndicators:this.wall.doraIndicators,kitaDoraCount:this.humanPlayer.kitaTiles.length}}
-analyzeHumanWin(winType){const tiles=this.humanPlayer?this.humanPlayer.hand:[],agari=HandAnalysis.analyzeAgari(tiles,this.ruleConfig),context=this.createHumanWinContext(winType),yaku=YakuAnalysis.analyzeYaku({tiles,ruleConfig:this.ruleConfig,agariResult:agari,context}),score=ScoreCalculator.calculateScore({tiles,ruleConfig:this.ruleConfig,agariResult:agari,yakuResult:yaku,context});return{agari,yaku,score,context}}
-claimHumanTsumo(){if(this.phase!=="human-discard"||this.turnIndex!==this.humanPlayer.id){this.addLog("現在はツモ和了できません。");this.emitChange();return}const a=this.analyzeHumanWin("tsumo");if(!a.score.isValidWin){this.addLog(a.score.reason);this.emitChange();return}const settlement=Settlement.applySettlement({players:this.players,scoreResult:a.score,context:a.context});this.phase="win-ended";this.round.riichiSticks=0;this.winResult={winnerIndex:this.humanPlayer.id,winType:"tsumo",yaku:a.yaku,score:a.score,settlement};this.addLog(`あなたがツモ和了しました。${a.score.limitName||`${a.score.han}飜${a.score.fu}符`} / ${a.score.payments.tsumo.total.toLocaleString()}点。`);this.emitChange()}
-getRoundLabel(){return`${winds[this.round.roundWind]}${this.round.handNumber}局`}getState(){const tiles=this.humanPlayer?this.humanPlayer.hand:[],win=this.analyzeHumanWin("tsumo");return{ruleConfig:this.ruleConfig,ruleSummary:RuleConfig.describeRuleConfig(this.ruleConfig),round:Object.assign({},this.round,{label:this.getRoundLabel()}),players:this.players,wallRemaining:this.wall.remainingCount(),doraIndicators:this.wall.doraIndicators,deadWallCount:this.wall.deadWall.length,totalKnownTileCount:this.wall.totalKnownTileCount(this.players),phase:this.phase,turnIndex:this.turnIndex,logs:this.logs.slice(0,12),cpuThinkingLog:this.cpuThinkingLog.slice(0,20),humanAgariAnalysis:win.agari,humanTenpaiAnalysis:HandAnalysis.analyzeTenpai(tiles,this.ruleConfig),humanYakuAnalysis:win.yaku,humanScoreAnalysis:win.score,winResult:this.winResult,seed:this.seed}}
-addLog(m){const t=new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});this.logs.unshift(`[${t}] ${m}`);this.logs=this.logs.slice(0,80)}emitChange(){this.onChange(this.getState())}}Sanma.GameEngine=GameEngine})(window);
+(function attachGameEngine(global) {
+  const Sanma = global.Sanma = global.Sanma || {};
+  const Player = Sanma.Player;
+  const Wall = Sanma.Wall;
+  const RuleConfig = Sanma.RuleConfig;
+  const TileUtil = Sanma.TileUtil;
+  const HandAnalysis = Sanma.HandAnalysis;
+  const YakuAnalysis = Sanma.YakuAnalysis;
+  const ScoreCalculator = Sanma.ScoreCalculator;
+  const Settlement = Sanma.Settlement;
+  const ActionResolver = Sanma.ActionResolver;
+  const CallWindow = Sanma.CallWindow;
+  const RiichiManager = Sanma.RiichiManager;
+  const KanManager = Sanma.KanManager;
+  const KitaManager = Sanma.KitaManager;
+
+  const windLabels = { east: "東", south: "南", west: "西" };
+
+  class GameEngine {
+    constructor({ ruleConfig, seed, onChange }) {
+      this.ruleConfig = RuleConfig.createRuleConfig(ruleConfig);
+      this.seed = seed || "";
+      this.onChange = typeof onChange === "function" ? onChange : function noop() {};
+      this.round = {
+        roundWind: "east",
+        handNumber: 1,
+        honba: 0,
+        riichiSticks: 0,
+        dealerIndex: 0,
+      };
+      this.players = [];
+      this.wall = null;
+      this.turnIndex = 0;
+      this.phase = "idle";
+      this.logs = [];
+      this.cpuThinkingLog = [];
+      this.winResult = null;
+      this.lastDiscard = null;
+      this.callWindow = null;
+      this.startRound();
+    }
+
+    startRound() {
+      this.wall = new Wall(this.ruleConfig, { seed: this.seed });
+      this.players = [
+        new Player({ id: 0, name: "あなた", seatWind: "east", isHuman: true, points: this.ruleConfig.initialPoints }),
+        new Player({ id: 1, name: "CPU 1", seatWind: "south", isHuman: false, points: this.ruleConfig.initialPoints }),
+        new Player({ id: 2, name: "CPU 2", seatWind: "west", isHuman: false, points: this.ruleConfig.initialPoints }),
+      ];
+      this.turnIndex = this.round.dealerIndex;
+      this.phase = "dealing";
+      this.logs = [];
+      this.cpuThinkingLog = [];
+      this.winResult = null;
+      this.lastDiscard = null;
+      this.callWindow = null;
+      this.dealInitialHands();
+      this.phase = "human-discard";
+      this.addLog("配牌しました。あなたは親です。切る牌をクリック/タップしてください。");
+      this.emitChange();
+    }
+
+    dealInitialHands() {
+      for (let draw = 0; draw < 13; draw += 1) {
+        for (const player of this.players) {
+          player.receiveTile(this.wall.draw());
+        }
+      }
+      this.players[this.round.dealerIndex].receiveTile(this.wall.draw());
+    }
+
+    get humanPlayer() {
+      return this.players.find((player) => player.isHuman);
+    }
+
+    getCurrentPlayer() {
+      return this.players[this.turnIndex];
+    }
+
+    discardHumanTile(instanceId) {
+      if ((this.phase !== "human-discard" && this.phase !== "caller-discard") || this.turnIndex !== 0) {
+        this.addLog("現在はあなたの打牌番ではありません。");
+        this.emitChange();
+        return;
+      }
+
+      const discarded = this.humanPlayer.discardTileByInstanceId(instanceId);
+      if (!discarded) {
+        this.addLog("その牌は手牌にありません。");
+        this.emitChange();
+        return;
+      }
+
+      this.addLog(`あなたが ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
+      const tenpai = HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(this.humanPlayer), this.ruleConfig);
+      if (tenpai.isTenpai) {
+        this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
+      }
+      this.handleDiscard(this.humanPlayer.id, discarded);
+    }
+
+    handleDiscard(discarderIndex, discarded) {
+      this.lastDiscard = { playerIndex: discarderIndex, tile: discarded };
+      if (discarderIndex !== this.humanPlayer.id) {
+        const windowState = CallWindow.create(this, this.humanPlayer.id);
+        if (windowState) {
+          this.callWindow = windowState;
+          this.phase = "human-call";
+          this.addLog(`${this.players[discarderIndex].name}の捨て牌に対する操作を選んでください。`);
+          this.emitChange();
+          return;
+        }
+      }
+      this.continueAfterDiscard(discarderIndex);
+    }
+
+    continueAfterDiscard(discarderIndex) {
+      this.callWindow = null;
+      if (this.wall.remainingCount() <= 0) {
+        this.phase = "round-ended";
+        this.addLog("山がなくなりました。簡易流局として終了します。");
+        this.emitChange();
+        return;
+      }
+
+      this.turnIndex = (discarderIndex + 1) % this.players.length;
+      this.phase = "cpu-running";
+      this.emitChange();
+      this.runCpuUntilHumanTurn();
+    }
+
+    runCpuUntilHumanTurn() {
+      while (this.turnIndex !== 0 && this.wall.remainingCount() > 0) {
+        const player = this.getCurrentPlayer();
+        const drawn = this.wall.draw();
+        player.receiveTile(drawn);
+        this.addLog(`${player.name} がツモりました。`);
+        const discardIndex = this.chooseCpuDiscardIndex(player);
+        const discarded = player.discardTileAt(discardIndex);
+        this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
+        this.lastDiscard = { playerIndex: player.id, tile: discarded };
+        const windowState = CallWindow.create(this, this.humanPlayer.id);
+        if (windowState) {
+          this.callWindow = windowState;
+          this.phase = "human-call";
+          this.addLog(`${player.name}の捨て牌に対する操作を選んでください。`);
+          this.emitChange();
+          return;
+        }
+        this.turnIndex = (this.turnIndex + 1) % this.players.length;
+      }
+
+      if (this.wall.remainingCount() <= 0) {
+        this.phase = "round-ended";
+        this.addLog("山がなくなりました。簡易流局として終了します。");
+        this.emitChange();
+        return;
+      }
+
+      if (this.turnIndex === 0) {
+        const drawn = this.wall.draw();
+        this.humanPlayer.receiveTile(drawn);
+        this.lastDiscard = null;
+        this.phase = "human-discard";
+        this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。切る牌を選んでください。`);
+        this.emitChange();
+      }
+    }
+
+    chooseCpuDiscardIndex(player) {
+      // Phase 1 requirement: CPU may be temporary random discard. Keep log format for future heuristic replacement.
+      const index = Math.floor(Math.random() * player.hand.length);
+      const tile = player.hand[index];
+      this.cpuThinkingLog.unshift({
+        player: player.name,
+        phase: "Phase 1 random discard",
+        choice: TileUtil.getTileAriaLabel(tile),
+        hand: player.hand.map(TileUtil.getTileShortLabel).join(" "),
+      });
+      this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
+      return index;
+    }
+
+    drawForHumanManually() {
+      if (this.phase !== "human-draw") return;
+      const drawn = this.wall.draw();
+      this.humanPlayer.receiveTile(drawn);
+      this.phase = "human-discard";
+      this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。`);
+      this.emitChange();
+    }
+
+    createHumanWinContext(winType) {
+      return ActionResolver.createWinContext(this, this.humanPlayer.id, winType, this.lastDiscard ? this.lastDiscard.playerIndex : 1);
+    }
+
+    claimHumanTsumo() {
+      if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
+        this.addLog("現在はツモ和了できません。");
+        this.emitChange();
+        return;
+      }
+      const analysis = this.analyzeHumanWin("tsumo");
+      if (!analysis.score.isValidWin) {
+        this.addLog(analysis.score.reason);
+        this.emitChange();
+        return;
+      }
+
+      const settlement = Settlement.applySettlement({
+        players: this.players,
+        scoreResult: analysis.score,
+        context: analysis.context,
+      });
+      this.phase = "win-ended";
+      this.round.riichiSticks = 0;
+      this.winResult = {
+        winnerIndex: this.humanPlayer.id,
+        winType: "tsumo",
+        yaku: analysis.yaku,
+        score: analysis.score,
+        settlement,
+      };
+      this.addLog(`あなたがツモ和了しました。${analysis.score.limitName || `${analysis.score.han}飜${analysis.score.fu}符`} / ${analysis.score.payments.tsumo.total.toLocaleString()}点。`);
+      this.emitChange();
+    }
+
+    claimHumanRon() {
+      if (this.phase !== "human-call" || !this.callWindow) {
+        this.addLog("現在はロンできません。");
+        this.emitChange();
+        return;
+      }
+      const action = this.callWindow.actions.find((candidate) => candidate.id === "ron");
+      if (!action || !action.analysis || !action.analysis.scoreResult.isValidWin) {
+        this.addLog("この捨て牌ではロンできません。");
+        this.emitChange();
+        return;
+      }
+      const analysis = action.analysis;
+      const settlement = Settlement.applySettlement({
+        players: this.players,
+        scoreResult: analysis.scoreResult,
+        context: analysis.context,
+      });
+      this.phase = "win-ended";
+      this.round.riichiSticks = 0;
+      this.callWindow = null;
+      this.winResult = {
+        winnerIndex: this.humanPlayer.id,
+        winType: "ron",
+        yaku: analysis.yakuResult,
+        score: analysis.scoreResult,
+        settlement,
+      };
+      this.addLog(`あなたがロン和了しました。${analysis.scoreResult.limitName || `${analysis.scoreResult.han}飜${analysis.scoreResult.fu}符`} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
+      this.emitChange();
+    }
+
+    claimHumanCall(actionId, optionIndex) {
+      if (actionId === "ron") {
+        this.claimHumanRon();
+        return;
+      }
+      if (this.phase !== "human-call" || !this.callWindow) {
+        this.addLog("現在は鳴けません。");
+        this.emitChange();
+        return;
+      }
+      const action = this.callWindow.actions.find((candidate) => candidate.id === actionId);
+      const option = action && action.options ? action.options[Number(optionIndex) || 0] : null;
+      if (!action || !option) {
+        this.addLog("選択した鳴きは利用できません。");
+        this.emitChange();
+        return;
+      }
+      if (actionId === "kan") {
+        this.addLog("カンはPhase 5では判定・表示のみです。今回はスキップします。");
+        this.skipHumanCall();
+        return;
+      }
+      if (actionId !== "pon" && actionId !== "chi") return;
+
+      const consumed = [];
+      option.consumeInstanceIds.forEach((instanceId) => {
+        const index = this.humanPlayer.hand.findIndex((tile) => tile.instanceId === instanceId);
+        if (index >= 0) consumed.push(this.humanPlayer.hand.splice(index, 1)[0]);
+      });
+      if (consumed.length !== option.consumeInstanceIds.length) {
+        consumed.forEach((tile) => this.humanPlayer.receiveTile(tile));
+        this.addLog("鳴きに必要な牌を手牌から取り出せませんでした。");
+        this.emitChange();
+        return;
+      }
+
+      const discarder = this.players[option.fromPlayerIndex];
+      const discardIndex = discarder.discards.findIndex((tile) => tile.instanceId === option.tile.instanceId);
+      if (discardIndex >= 0) discarder.discards.splice(discardIndex, 1);
+      const meldTiles = consumed.concat(option.tile).sort(TileUtil.compareTiles);
+      this.humanPlayer.melds.push({
+        type: actionId,
+        tiles: meldTiles,
+        fromPlayerIndex: option.fromPlayerIndex,
+        open: true,
+      });
+      this.humanPlayer.lastDraw = null;
+      this.turnIndex = this.humanPlayer.id;
+      this.phase = "caller-discard";
+      this.lastDiscard = null;
+      this.callWindow = null;
+      this.addLog(`あなたが${actionId === "pon" ? "ポン" : "チー"}しました。続けて打牌してください。`);
+      this.emitChange();
+    }
+
+    skipHumanCall() {
+      if (this.phase !== "human-call" || !this.callWindow) return;
+      const discarderIndex = this.callWindow.fromPlayerIndex;
+      CallWindow.close(this.callWindow, "スキップ");
+      this.addLog("鳴きをスキップしました。");
+      this.continueAfterDiscard(discarderIndex);
+    }
+
+    declareHumanRiichi() {
+      if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
+        this.addLog("現在はリーチできません。");
+        this.emitChange();
+        return;
+      }
+      const result = RiichiManager.declare(this, this.humanPlayer.id);
+      this.addLog(result.reason);
+      this.emitChange();
+    }
+
+    extractHumanKita(instanceId) {
+      if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
+        this.addLog("現在は北抜きできません。");
+        this.emitChange();
+        return;
+      }
+      const result = KitaManager.extract(this, this.humanPlayer.id, instanceId);
+      this.addLog(result.reason);
+      if (result.applied && !result.replacement) this.phase = "round-ended";
+      this.emitChange();
+    }
+
+    requestHumanKan() {
+      const availability = KanManager.describeAvailability(this, this.humanPlayer.id);
+      this.addLog(availability.enabled ? "カン可能牌を検出しました。Phase 5では判定・デバッグ表示のみです。" : availability.reason);
+      this.emitChange();
+    }
+
+    getRoundLabel() {
+      return `${windLabels[this.round.roundWind]}${this.round.handNumber}局`;
+    }
+
+    analyzeHumanWin(winType) {
+      const analysis = ActionResolver.analyzeWin(
+        this,
+        this.humanPlayer.id,
+        winType,
+        winType === "ron" && this.lastDiscard ? this.lastDiscard.tile : null,
+        winType === "ron" && this.lastDiscard ? this.lastDiscard.playerIndex : null
+      );
+      return {
+        agari: analysis.agariResult,
+        yaku: analysis.yakuResult,
+        score: analysis.scoreResult,
+        context: analysis.context,
+      };
+    }
+
+    getState() {
+      const humanHand = this.humanPlayer ? this.humanPlayer.hand : [];
+      const humanWinAnalysis = this.analyzeHumanWin("tsumo");
+      const humanAgariAnalysis = humanWinAnalysis.agari;
+      const humanTenpaiAnalysis = HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(this.humanPlayer), this.ruleConfig);
+      const humanYakuAnalysis = humanWinAnalysis.yaku;
+      const humanScoreAnalysis = humanWinAnalysis.score;
+      const humanAvailableActions = ActionResolver.getAvailableActions(this, this.humanPlayer.id);
+      return {
+        ruleConfig: this.ruleConfig,
+        ruleSummary: RuleConfig.describeRuleConfig(this.ruleConfig),
+        round: Object.assign({}, this.round, { label: this.getRoundLabel() }),
+        players: this.players,
+        wallRemaining: this.wall.remainingCount(),
+        doraIndicators: this.wall.doraIndicators,
+        deadWallCount: this.wall.deadWall.length,
+        totalKnownTileCount: this.wall.totalKnownTileCount(this.players),
+        phase: this.phase,
+        turnIndex: this.turnIndex,
+        logs: this.logs.slice(0, 12),
+        cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
+        humanAgariAnalysis,
+        humanTenpaiAnalysis,
+        humanYakuAnalysis,
+        humanScoreAnalysis,
+        humanAvailableActions,
+        lastDiscard: this.lastDiscard,
+        callWindow: this.callWindow,
+        winResult: this.winResult,
+        seed: this.seed,
+      };
+    }
+
+    addLog(message) {
+      const time = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      this.logs.unshift(`[${time}] ${message}`);
+      this.logs = this.logs.slice(0, 80);
+    }
+
+    emitChange() {
+      this.onChange(this.getState());
+    }
+  }
+
+  Sanma.GameEngine = GameEngine;
+})(window);

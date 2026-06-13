@@ -1,0 +1,42 @@
+.available-action {
+  border-color: rgba(120, 214, 162, 0.72);
+  background: rgba(120, 214, 162, 0.18);
+}
+
+.call-window {
+  grid-column: 1 / -1;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 229, 163, 0.58);
+  border-radius: 1rem;
+  background: rgba(3, 18, 14, 0.94);
+  box-shadow: 0 0 1.5rem rgba(248, 181, 0, 0.18);
+}
+
+.call-window-message {
+  margin-bottom: 0.65rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.call-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.meld-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.meld-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+}

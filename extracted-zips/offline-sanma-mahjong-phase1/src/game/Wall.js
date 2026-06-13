@@ -100,7 +100,10 @@
     }
 
     totalKnownTileCount(players) {
-      const playerTiles = players.reduce((sum, player) => sum + player.hand.length + player.discards.length + player.melds.flat().length + player.kitaTiles.length, 0);
+      const playerTiles = players.reduce((sum, player) => {
+        const meldTileCount = (player.melds || []).reduce((meldSum, meld) => meldSum + (Array.isArray(meld.tiles) ? meld.tiles.length : 0), 0);
+        return sum + player.hand.length + player.discards.length + meldTileCount + player.kitaTiles.length;
+      }, 0);
       return playerTiles + this.tiles.length + this.deadWall.length;
     }
   }

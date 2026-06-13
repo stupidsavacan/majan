@@ -1,1 +1,82 @@
-const fs=require("fs"),path=require("path"),vm=require("vm");const root="extracted-zips/offline-sanma-mahjong-phase1";global.window=global;["RuleConfig","Tile","HandAnalysis","YakuAnalysis","ScoreCalculator","Settlement","Wall","Player","GameEngine"].forEach(f=>vm.runInThisContext(fs.readFileSync(path.resolve(__dirname,"..",root,"src/game",`${f}.js`),"utf8")));const{TileUtil,HandAnalysis,YakuAnalysis,ScoreCalculator,Settlement}=Sanma;let n=0;function tile(c){const h={east:1,south:2,west:3,north:4,white:5,green:6,red:7};return TileUtil.createTile(h[c]?"z":c.slice(-1),h[c]||Number(c.slice(0,-1)),++n,false)}function calc(a,c,o){const t=a.map(tile),r=Object.assign({northMode:"kita-dora",kuitan:true,tsumoLoss:false,countedYakuman:true},o||{}),g=HandAnalysis.analyzeAgari(t,r),y=YakuAnalysis.analyzeYaku({tiles:t,ruleConfig:r,agariResult:g,context:c});return ScoreCalculator.calculateScore({tiles:t,ruleConfig:r,agariResult:g,yakuResult:y,context:c})}function ok(v,m){if(!v)throw Error(m)}const chi=["1m","1m","9m","9m","1p","1p","2p","2p","3s","3s","east","east","white","white"];let s=calc(chi,{winType:"ron",winnerIndex:1,loserIndex:2,dealerIndex:0,seatWind:"south",roundWind:"east",isMenzen:true});ok(s.fu===25&&s.payments.ron.amount===1600,"七対子・子ロン");ok(calc(chi,{winType:"ron",winnerIndex:0,loserIndex:1,dealerIndex:0,seatWind:"east",roundWind:"east",isMenzen:true}).payments.ron.amount===2400,"親ロン");const kok=["1m","9m","1p","9p","1s","9s","east","south","west","north","white","green","red","1m"];ok(calc(kok,{winType:"ron",winnerIndex:0,loserIndex:1,dealerIndex:0,seatWind:"east",roundWind:"east",isMenzen:true}).limitName==="役満","国士");const none=["1p","2p","3p","4p","5p","6p","7p","8p","9p","7s","8s","9s","1m","1m"];ok(!calc(none,{winType:"ron",winnerIndex:1,loserIndex:2,dealerIndex:0,seatWind:"south",roundWind:"east",isMenzen:true}).isValidWin,"役なし");const on=calc(chi,{winType:"tsumo",winnerIndex:1,dealerIndex:0,seatWind:"south",roundWind:"east",isMenzen:true},{tsumoLoss:true}),off=calc(chi,{winType:"tsumo",winnerIndex:1,dealerIndex:0,seatWind:"south",roundWind:"east",isMenzen:true},{tsumoLoss:false});ok(on.payments.tsumo.total===2400&&off.payments.tsumo.total===3200,"ツモ損");const counters=calc(chi,{winType:"ron",winnerIndex:1,loserIndex:2,dealerIndex:0,seatWind:"south",roundWind:"east",isMenzen:true,honba:2,riichiSticks:1});ok(counters.payments.ron.amount===2200&&counters.payments.ron.winnerGain===3200,"本場供託");const p=[{name:"親",points:35000},{name:"子",points:35000},{name:"放銃者",points:35000}];ok(Settlement.applySettlement({players:p,scoreResult:counters,context:counters.context}).applied&&p[1].points===38200&&p[2].points===32800,"点棒移動");const e=new Sanma.GameEngine({ruleConfig:{tsumoLoss:false},seed:"phase4-settlement",onChange(){}});e.humanPlayer.hand=chi.map(tile);e.phase="human-discard";e.turnIndex=0;e.claimHumanTsumo();ok(e.phase==="win-ended"&&e.players[0].points===39800,"ツモ決着");console.log("Phase 4 score calculator tests passed.");
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+global.window = global;
+for (const file of ["extracted-zips/offline-sanma-mahjong-phase1/src/game/RuleConfig.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Tile.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/HandAnalysis.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/YakuAnalysis.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/ScoreCalculator.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Settlement.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/RiichiManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/KanManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/KitaManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/ActionResolver.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/CallWindow.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Wall.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Player.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/GameEngine.js"]) {
+  vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"), { filename: file });
+}
+
+const { TileUtil, HandAnalysis, YakuAnalysis, ScoreCalculator, Settlement } = global.Sanma;
+let copyIndex = 0;
+
+function tile(code) {
+  const honorMap = { east: 1, south: 2, west: 3, north: 4, white: 5, green: 6, red: 7 };
+  const suit = honorMap[code] ? "z" : code.slice(-1);
+  const rank = honorMap[code] || Number(code.slice(0, -1));
+  return TileUtil.createTile(suit, rank, ++copyIndex, false);
+}
+
+function calculate(codes, context, overrides) {
+  const tiles = codes.map(tile);
+  const ruleConfig = Object.assign({ northMode: "kita-dora", kuitan: true, tsumoLoss: false, countedYakuman: true }, overrides || {});
+  const agariResult = HandAnalysis.analyzeAgari(tiles, ruleConfig);
+  const yakuResult = YakuAnalysis.analyzeYaku({ tiles, ruleConfig, agariResult, context });
+  return ScoreCalculator.calculateScore({ tiles, ruleConfig, agariResult, yakuResult, context });
+}
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+const chiitoitsu = ["1m", "1m", "9m", "9m", "1p", "1p", "2p", "2p", "3s", "3s", "east", "east", "white", "white"];
+const nonDealerRon = calculate(chiitoitsu, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true });
+assert(nonDealerRon.fu === 25, "七対子が25符固定ではありません");
+assert(nonDealerRon.payments.ron.amount === 1600, "子ロンの支払いが正しく丸められていません");
+
+const dealerRon = calculate(chiitoitsu, { winType: "ron", winnerIndex: 0, loserIndex: 1, dealerIndex: 0, seatWind: "east", roundWind: "east", isMenzen: true });
+assert(dealerRon.payments.ron.amount === 2400, "親ロンの支払いが正しく丸められていません");
+
+const kokushi = ["1m", "9m", "1p", "9p", "1s", "9s", "east", "south", "west", "north", "white", "green", "red", "1m"];
+const kokushiScore = calculate(kokushi, { winType: "ron", winnerIndex: 0, loserIndex: 1, dealerIndex: 0, seatWind: "east", roundWind: "east", isMenzen: true });
+assert(kokushiScore.isYakuman && kokushiScore.limitName === "役満" && kokushiScore.fu === null, "国士無双が役満として計算されていません");
+
+const dragonTriplet = ["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "white", "white", "white", "9m", "9m"];
+assert(calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }).fu === 40, "標準形の符計算が正しくありません");
+
+const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "7s", "8s", "9s", "1m", "1m"];
+assert(!calculate(noYaku, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }).isValidWin, "役なし和了形が有効になっています");
+
+const limitTiles = chiitoitsu.map(tile);
+const limitAgari = HandAnalysis.analyzeAgari(limitTiles, { northMode: "kita-dora" });
+function limitAt(han, countedYakuman) {
+  return ScoreCalculator.calculateScore({
+    tiles: limitTiles,
+    ruleConfig: { countedYakuman },
+    agariResult: limitAgari,
+    yakuResult: { hasYaku: true, totalHan: han, isYakuman: false, yakuman: [], yaku: [] },
+    context: { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true },
+  }).limitName;
+}
+assert(limitAt(5, true) === "満貫" && limitAt(6, true) === "跳満" && limitAt(8, true) === "倍満" && limitAt(11, true) === "三倍満" && limitAt(13, true) === "数え役満", "打点区分が正しくありません");
+
+const lossOn = calculate(chiitoitsu, { winType: "tsumo", winnerIndex: 1, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }, { tsumoLoss: true });
+const lossOff = calculate(chiitoitsu, { winType: "tsumo", winnerIndex: 1, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }, { tsumoLoss: false });
+assert(lossOn.payments.tsumo.total === 2400 && lossOff.payments.tsumo.total === 3200, "ツモ損設定が支払いへ反映されていません");
+
+const withCounters = calculate(chiitoitsu, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true, honba: 2, riichiSticks: 1 });
+assert(withCounters.payments.ron.amount === 2200 && withCounters.payments.ron.winnerGain === 3200, "本場または供託が正しく適用されていません");
+
+const players = [{ name: "親", points: 35000 }, { name: "子", points: 35000 }, { name: "放銃者", points: 35000 }];
+const settlement = Settlement.applySettlement({ players, scoreResult: withCounters, context: withCounters.context });
+assert(settlement.applied && players[1].points === 38200 && players[2].points === 32800, "点棒移動が正しくありません");
+
+const engine = new global.Sanma.GameEngine({ ruleConfig: { tsumoLoss: false }, seed: "phase4-settlement", onChange: function noop() {} });
+engine.humanPlayer.hand = chiitoitsu.map(tile);
+engine.phase = "human-discard";
+engine.turnIndex = 0;
+engine.claimHumanTsumo();
+assert(engine.phase === "win-ended" && engine.winResult && engine.winResult.settlement.applied, "人間のツモ和了で局終了できません");
+assert(engine.players[0].points === 39800 && engine.players[1].points === 32600 && engine.players[2].points === 32600, "ツモ和了の点棒移動が正しくありません");
+
+console.log("Phase 4 score calculator tests passed.");
