@@ -37,7 +37,7 @@
     const center = el("section", "center-board");
     center.append(tableInfo, doraPanel, renderDiscards(state.players));
 
-    const human = renderHuman(state.players[0], state.phase, handlers);
+    const human = renderHuman(state.players[0], state.phase, handlers, state.humanAgariAnalysis);
 
     root.append(opponents, center, human);
   }
@@ -80,7 +80,7 @@
     return area;
   }
 
-  function renderHuman(player, phase, handlers) {
+  function renderHuman(player, phase, handlers, agariAnalysis) {
     const section = el("section", `human-area ${phase === "human-discard" ? "active-player" : ""}`);
     const head = el("div", "human-head");
     head.append(
@@ -101,8 +101,9 @@
     });
 
     const actions = el("div", "action-row");
+    const shapeAgari = Boolean(agariAnalysis && agariAnalysis.isAgari);
     actions.append(
-      actionButton("ツモ", "Phase 2以降", true),
+      actionButton(shapeAgari ? "形だけ和了可能" : "ツモ", shapeAgari ? "Phase 2: 和了形を検出しました。点数計算と局終了は未実装です。" : "和了形ではありません", true, shapeAgari ? "shape-agari" : ""),
       actionButton("ロン", "Phase 2以降", true),
       actionButton("リーチ", "Phase 4以降", true),
       actionButton("北抜き", "Phase 5以降", true)
@@ -112,8 +113,8 @@
     return section;
   }
 
-  function actionButton(label, title, disabled) {
-    const button = el("button", "action-button", label);
+  function actionButton(label, title, disabled, extraClass) {
+    const button = el("button", `action-button ${extraClass || ""}`.trim(), label);
     button.type = "button";
     button.title = title;
     button.disabled = disabled;
@@ -133,12 +134,33 @@
   function renderDebug(root, state) {
     const safeConfig = JSON.stringify(state.ruleConfig, null, 2);
     const cpuLog = JSON.stringify(state.cpuThinkingLog, null, 2);
+    const agari = state.humanAgariAnalysis || {};
+    const tenpai = state.humanTenpaiAnalysis || {};
+    const waits = tenpai.waits && tenpai.waits.length > 0
+      ? tenpai.waits.map((wait) => wait.label).join("、")
+      : "なし";
+    const discardOptions = tenpai.discardOptions && tenpai.discardOptions.length > 0
+      ? tenpai.discardOptions.map((option) => `${option.discardLabel}切り → ${option.waits.map((wait) => wait.label).join("、")}`).join("\n")
+      : "なし";
     root.textContent = [
       `phase: ${state.phase}`,
       `turnIndex: ${state.turnIndex}`,
       `wallRemaining: ${state.wallRemaining}`,
       `deadWallCount: ${state.deadWallCount}`,
       `totalKnownTileCount: ${state.totalKnownTileCount}`,
+      "",
+      "和了形判定:",
+      `isAgari: ${Boolean(agari.isAgari)}`,
+      `手牌枚数: ${agari.tileCount}`,
+      `成立形: ${agari.patterns && agari.patterns.length > 0 ? agari.patterns.map((pattern) => pattern.typeLabel).join("、") : "なし"}`,
+      `bestPattern: ${agari.bestPattern ? agari.bestPattern.typeLabel : "なし"}`,
+      `理由: ${agari.reason || ""}`,
+      "",
+      "聴牌判定:",
+      `isTenpai: ${Boolean(tenpai.isTenpai)}`,
+      `待ち牌: ${waits}`,
+      `打牌候補:\n${discardOptions}`,
+      `理由: ${tenpai.reason || ""}`,
       "",
       "RuleConfig:",
       safeConfig,
