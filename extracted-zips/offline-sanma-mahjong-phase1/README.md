@@ -13,6 +13,12 @@
 - このフォルダで `python -m http.server 8000`
 - ブラウザで `http://localhost:8000` を開く
 
+## ソース保守方針
+
+- `src/game` 配下のJavaScriptはminify・圧縮せず、関数単位で通常の改行・インデントを維持します。
+- 生成済みHTMLや埋め込みフォントCSSは圧縮を許容します。
+- `tests/source-format.test.js` で、ゲームソースが少数行へ圧縮されていないことを確認します。
+
 ## Phase 1で実装済み
 
 - 牌定義

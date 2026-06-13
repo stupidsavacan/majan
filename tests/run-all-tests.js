@@ -9,6 +9,7 @@ const testFiles = [
   "action-resolver.test.js",
   "smoke.test.js",
   "regression.test.js",
+  "source-format.test.js",
 ];
 
 let failed = false;
