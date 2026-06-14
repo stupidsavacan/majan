@@ -14,6 +14,8 @@ for (const file of [
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/KanManager.js",
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/KitaManager.js",
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/ActionResolver.js",
+  "extracted-zips/offline-sanma-mahjong-phase1/src/game/CpuStrategy.js",
+  "extracted-zips/offline-sanma-mahjong-phase1/src/game/AssistManager.js",
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/CallWindow.js",
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/Wall.js",
   "extracted-zips/offline-sanma-mahjong-phase1/src/game/Player.js",

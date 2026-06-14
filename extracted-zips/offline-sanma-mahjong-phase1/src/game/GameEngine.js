@@ -13,6 +13,8 @@
   const RiichiManager = Sanma.RiichiManager;
   const KanManager = Sanma.KanManager;
   const KitaManager = Sanma.KitaManager;
+  const CpuStrategy = Sanma.CpuStrategy;
+  const AssistManager = Sanma.AssistManager;
 
   const windLabels = { east: "東", south: "南", west: "西" };
 
@@ -34,6 +36,9 @@
       this.phase = "idle";
       this.logs = [];
       this.cpuThinkingLog = [];
+      this.assistEvents = [];
+      this.cpuRandom = Math.random;
+      this.assistRandom = Math.random;
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
@@ -42,6 +47,8 @@
 
     startRound() {
       this.wall = new Wall(this.ruleConfig, { seed: this.seed });
+      this.cpuRandom = Sanma.createRandom(this.seed ? `${this.seed}:cpu` : "");
+      this.assistRandom = Sanma.createRandom(this.seed ? `${this.seed}:assist` : "");
       this.players = [
         new Player({ id: 0, name: "あなた", seatWind: "east", isHuman: true, points: this.ruleConfig.initialPoints }),
         new Player({ id: 1, name: "CPU 1", seatWind: "south", isHuman: false, points: this.ruleConfig.initialPoints }),
@@ -51,10 +58,17 @@
       this.phase = "dealing";
       this.logs = [];
       this.cpuThinkingLog = [];
+      this.assistEvents = [];
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
       this.dealInitialHands();
+      this.recordAssist(AssistManager.evaluateOpening({
+        state: this,
+        ruleConfig: this.ruleConfig,
+        player: this.humanPlayer,
+        random: this.assistRandom,
+      }));
       this.phase = "human-discard";
       this.addLog("配牌しました。あなたは親です。切る牌をクリック/タップしてください。");
       this.emitChange();
@@ -139,6 +153,16 @@
         }
         player.receiveTile(drawn);
         this.addLog(`${player.name} がツモりました。`);
+        this.recordAssist(AssistManager.evaluateDraw({
+          state: this,
+          ruleConfig: this.ruleConfig,
+          player,
+          random: this.assistRandom,
+        }));
+        if (this.tryCpuTsumo(player)) return;
+        if (this.tryCpuKita(player)) return;
+        if (this.tryCpuTsumo(player)) return;
+        this.tryCpuRiichi(player);
         const discardIndex = this.chooseCpuDiscardIndex(player);
         const discarded = player.discardTileAt(discardIndex);
         if (!discarded) {
@@ -172,6 +196,12 @@
           return;
         }
         this.humanPlayer.receiveTile(drawn);
+        this.recordAssist(AssistManager.evaluateDraw({
+          state: this,
+          ruleConfig: this.ruleConfig,
+          player: this.humanPlayer,
+          random: this.assistRandom,
+        }));
         this.lastDiscard = null;
         this.phase = "human-discard";
         this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。切る牌を選んでください。`);
@@ -180,17 +210,114 @@
     }
 
     chooseCpuDiscardIndex(player) {
-      // Phase 1 requirement: CPU may be temporary random discard. Keep log format for future heuristic replacement.
-      const index = Math.floor(Math.random() * player.hand.length);
-      const tile = player.hand[index];
+      const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
+      const decision = CpuStrategy.chooseDiscard({
+        player,
+        state: this,
+        ruleConfig: this.ruleConfig,
+        analysis,
+        random: this.cpuRandom,
+      });
+      const index = player.hand.findIndex((tile) => tile.instanceId === decision.tileInstanceId);
+      const safeIndex = index >= 0 ? index : 0;
+      const tile = player.hand[safeIndex];
       this.cpuThinkingLog.unshift({
         player: player.name,
-        phase: "Phase 1 random discard",
-        choice: TileUtil.getTileAriaLabel(tile),
+        phase: "Phase 7 CPU思考",
+        action: "打牌",
+        selectedDiscard: TileUtil.getTileAriaLabel(tile),
+        selectedTileInstanceId: tile.instanceId,
+        reason: index >= 0 ? decision.reason : "候補牌が見つからなかったため先頭牌を選択しました。",
+        score: decision.score,
+        shanten: decision.candidates[0] ? decision.candidates[0].shanten : null,
+        tenpai: decision.candidates[0] ? decision.candidates[0].tenpai : false,
+        candidates: decision.candidates.slice(0, 8),
+        assist: this.assistEvents[0] || null,
         hand: player.hand.map(TileUtil.getTileShortLabel).join(" "),
       });
       this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
-      return index;
+      return safeIndex;
+    }
+
+    tryCpuTsumo(player) {
+      const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
+      if (!analysis.scoreResult.isValidWin) return false;
+      const settlement = Settlement.applySettlement({
+        players: this.players,
+        scoreResult: analysis.scoreResult,
+        context: analysis.context,
+      });
+      if (!settlement.applied) return false;
+
+      this.phase = "win-ended";
+      this.round.riichiSticks = 0;
+      this.callWindow = null;
+      this.winResult = {
+        winnerIndex: player.id,
+        winType: "tsumo",
+        yaku: analysis.yakuResult,
+        score: analysis.scoreResult,
+        settlement,
+      };
+      this.addCpuActionLog(player, "ツモ", "有効な和了形と役を検出したためツモ和了しました。");
+      this.addLog(`${player.name} がツモ和了しました。`);
+      this.emitChange();
+      return true;
+    }
+
+    tryCpuKita(player) {
+      if (player.hasRiichi) return false;
+      let extractedCount = 0;
+      while (extractedCount < 4) {
+        const availability = KitaManager.canExtract(this, player.id);
+        if (!availability.enabled || availability.options.length === 0) break;
+        const result = KitaManager.extract(this, player.id, availability.options[0].instanceId);
+        if (!result.applied) break;
+        extractedCount += 1;
+        this.addCpuActionLog(player, "抜き北", result.reason);
+        this.addLog(`${player.name} が北を抜きました。`);
+        if (!result.replacement) {
+          this.phase = "round-ended";
+          this.addLog("抜き北の補充牌がないため局を終了します。");
+          this.emitChange();
+          return true;
+        }
+        this.recordAssist(AssistManager.evaluateDraw({
+          state: this,
+          ruleConfig: this.ruleConfig,
+          player,
+          random: this.assistRandom,
+        }));
+        if (this.tryCpuTsumo(player)) return true;
+      }
+      return false;
+    }
+
+    tryCpuRiichi(player) {
+      const availability = RiichiManager.canDeclare(this, player.id);
+      if (!availability.enabled) return false;
+      const result = RiichiManager.declare(this, player.id);
+      if (!result.applied) return false;
+      this.addCpuActionLog(player, "リーチ", result.reason);
+      this.addLog(`${player.name} がリーチを宣言しました。`);
+      return true;
+    }
+
+    addCpuActionLog(player, action, reason) {
+      this.cpuThinkingLog.unshift({
+        player: player.name,
+        phase: "Phase 7 CPU思考",
+        action,
+        reason,
+        assist: this.assistEvents[0] || null,
+      });
+      this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
+    }
+
+    recordAssist(event) {
+      if (!event) return;
+      this.assistEvents.unshift(event);
+      this.assistEvents = this.assistEvents.slice(0, 20);
     }
 
     endRoundForInvalidDraw(reason) {
@@ -208,6 +335,12 @@
         return;
       }
       this.humanPlayer.receiveTile(drawn);
+      this.recordAssist(AssistManager.evaluateDraw({
+        state: this,
+        ruleConfig: this.ruleConfig,
+        player: this.humanPlayer,
+        random: this.assistRandom,
+      }));
       this.phase = "human-discard";
       this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。`);
       this.emitChange();
@@ -441,6 +574,7 @@
         turnIndex: this.turnIndex,
         logs: this.logs.slice(0, 12),
         cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
+        assistEvents: this.assistEvents.slice(0, 20),
         humanAgariAnalysis,
         humanTenpaiAnalysis,
         humanYakuAnalysis,

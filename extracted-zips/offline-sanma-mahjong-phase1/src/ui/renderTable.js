@@ -231,6 +231,7 @@
   function renderDebug(root, state) {
     const safeConfig = JSON.stringify(state.ruleConfig, null, 2);
     const cpuLog = JSON.stringify(state.cpuThinkingLog, null, 2);
+    const assistLog = JSON.stringify(state.assistEvents || [], null, 2);
     const agari = state.humanAgariAnalysis || {};
     const tenpai = state.humanTenpaiAnalysis || {};
     const yaku = state.humanYakuAnalysis || {};
@@ -276,7 +277,7 @@
       "和了結果:",
       JSON.stringify(state.winResult || null, null, 2),
       "",
-      "Phase 5 操作:",
+      "利用可能操作:",
       JSON.stringify(state.humanAvailableActions || [], null, 2),
       "",
       "呼び出し窓:",
@@ -299,8 +300,11 @@
       "RuleConfig:",
       safeConfig,
       "",
-      "CPU thinking log:",
+      "CPU思考:",
       cpuLog,
+      "",
+      "補助:",
+      assistLog,
     ].join("\n");
   }
 

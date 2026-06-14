@@ -9,6 +9,8 @@ const requiredModules = [
   "Sanma.YakuAnalysis",
   "Sanma.ScoreCalculator",
   "Sanma.ActionResolver",
+  "Sanma.CpuStrategy",
+  "Sanma.AssistManager",
 ];
 
 requiredModules.forEach((name) => {
@@ -45,7 +47,7 @@ assert(scoreResult.isValidWin, "ScoreCalculator did not score a simple valid win
 assert(Sanma.ActionResolver.findAction(engine, 0, "discard"), "ActionResolver could not resolve an action");
 
 console.log(JSON.stringify({
-  phase: 6,
+  phase: 7,
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

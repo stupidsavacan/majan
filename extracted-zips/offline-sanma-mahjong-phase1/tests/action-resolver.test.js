@@ -14,6 +14,8 @@ for (const file of [
   "src/game/KanManager.js",
   "src/game/KitaManager.js",
   "src/game/ActionResolver.js",
+  "src/game/CpuStrategy.js",
+  "src/game/AssistManager.js",
   "src/game/CallWindow.js",
   "src/game/Wall.js",
   "src/game/Player.js",
