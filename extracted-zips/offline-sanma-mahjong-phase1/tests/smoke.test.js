@@ -3,6 +3,7 @@ const path = require("path");
 const { assert, createTileFactory, loadModules, projectRoot } = require("./test-helpers");
 
 const Sanma = loadModules([
+  "src/storage/SaveMigration.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
   "src/ui/settingsExportImport.js",
@@ -33,6 +34,12 @@ const requiredModules = [
   "Sanma.GameRecordStorage",
   "Sanma.SettingsExportImport",
   "Sanma.RecordPanel",
+  "Sanma.DebugEventLog",
+  "Sanma.GameStateMachine",
+  "Sanma.TileLedger",
+  "Sanma.InvariantChecker",
+  "Sanma.RecoveryManager",
+  "Sanma.SaveMigration",
 ];
 
 requiredModules.forEach((name) => {
@@ -80,6 +87,8 @@ const scriptSources = [...canonicalIndex.matchAll(/<script src="([^"]+)"/g)].map
 assert(new Set(scriptSources).size === scriptSources.length, "index.html has duplicate script tags");
 const requiredScriptOrder = [
   "src/game/RuleConfig.js",
+  "src/debug/DebugEventLog.js",
+  "src/game/GameStateMachine.js",
   "src/game/RoundManager.js",
   "src/game/HonbaManager.js",
   "src/game/RankingManager.js",
@@ -92,6 +101,10 @@ const requiredScriptOrder = [
   "src/game/EndTurnYakuResolver.js",
   "src/game/SanmaRuleDetails.js",
   "src/game/GameRecord.js",
+  "src/game/TileLedger.js",
+  "src/game/InvariantChecker.js",
+  "src/game/RecoveryManager.js",
+  "src/storage/SaveMigration.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
   "src/ui/renderTable.js",
@@ -125,6 +138,12 @@ if (isNestedCanonicalApp && fs.existsSync(repositoryRootIndexPath)) {
     "src/game/KanRules.js",
     "src/game/EndTurnYakuResolver.js",
     "src/game/SanmaRuleDetails.js",
+    "src/debug/DebugEventLog.js",
+    "src/game/GameStateMachine.js",
+    "src/game/TileLedger.js",
+    "src/game/InvariantChecker.js",
+    "src/game/RecoveryManager.js",
+    "src/storage/SaveMigration.js",
     "src/main.js",
   ].forEach((source) => {
     assert(
@@ -144,7 +163,7 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 });
 
 console.log(JSON.stringify({
-  phase: 11,
+  phase: 12,
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

@@ -360,6 +360,16 @@
       "",
       "診断:",
       JSON.stringify(state.diagnostics || {}, null, 2),
+      "",
+      "状態機械・整合性:",
+      JSON.stringify({
+        gameState: state.gameState,
+        invariantReport: state.invariantReport,
+        tileLedger: state.tileLedger,
+      }, null, 2),
+      "",
+      "デバッグイベント:",
+      JSON.stringify(state.debugEvents || [], null, 2),
     ].join("\n");
   }
 

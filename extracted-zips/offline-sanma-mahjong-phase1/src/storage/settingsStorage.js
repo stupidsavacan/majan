@@ -1,6 +1,7 @@
 (function attachSettingsStorage(global) {
   const Sanma = global.Sanma = global.Sanma || {};
   const RuleConfig = Sanma.RuleConfig;
+  const SaveMigration = Sanma.SaveMigration;
   const STORAGE_KEY = "offlineSanma.phase1.settings";
   const status = { readable: true, writable: true, corruptedRecovered: false, lastError: null };
 
@@ -11,32 +12,29 @@
   }
 
   function loadSettings() {
-    let raw;
     try {
-      raw = localStorage.getItem(STORAGE_KEY);
+      const result = SaveMigration.readAndMigrate({
+        storage: localStorage,
+        key: STORAGE_KEY,
+        kind: "settings",
+        fallback: RuleConfig.defaultRuleConfig,
+      });
+      if (result.recovered) status.corruptedRecovered = true;
+      if (result.error) status.lastError = result.error;
+      return RuleConfig.createRuleConfig(result.value.settings);
     } catch (error) {
       rememberError(error, "read");
       console.warn("Failed to load settings", error);
-      return RuleConfig.createRuleConfig({});
-    }
-    try {
-      return RuleConfig.createRuleConfig(raw ? JSON.parse(raw) : {});
-    } catch (error) {
-      status.corruptedRecovered = true;
-      status.lastError = error.message;
-      console.warn("Failed to load settings", error);
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (removeError) {
-        console.warn("Failed to remove corrupted settings", removeError);
-      }
       return RuleConfig.createRuleConfig({});
     }
   }
 
   function saveSettings(settings) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(RuleConfig.createRuleConfig(settings)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: SaveMigration.versions.settings,
+        settings: RuleConfig.createRuleConfig(settings),
+      }));
       status.writable = true;
       return true;
     } catch (error) {

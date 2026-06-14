@@ -8,6 +8,8 @@ const gameRoot = fs.existsSync(path.resolve(__dirname, "..", "src", "game", "Rul
 global.window = global;
 for (const file of [
   "src/game/RuleConfig.js",
+  "src/debug/DebugEventLog.js",
+  "src/game/GameStateMachine.js",
   "src/game/RoundManager.js",
   "src/game/HonbaManager.js",
   "src/game/RankingManager.js",
@@ -34,6 +36,9 @@ for (const file of [
   "src/game/CallWindow.js",
   "src/game/Wall.js",
   "src/game/Player.js",
+  "src/game/TileLedger.js",
+  "src/game/InvariantChecker.js",
+  "src/game/RecoveryManager.js",
   "src/game/GameEngine.js",
 ]) {
   vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", gameRoot, file), "utf8"), { filename: file });

@@ -1,5 +1,6 @@
 (function attachGameRecordStorage(global) {
   const Sanma = global.Sanma = global.Sanma || {};
+  const SaveMigration = Sanma.SaveMigration;
   const RECORDS_KEY = "offlineSanma.phase8.records";
   const STATS_KEY = "offlineSanma.phase8.stats";
   const MAX_RECORDS = 20;
@@ -12,7 +13,7 @@
 
   function defaultStats() {
     return {
-      version: 1,
+      version: SaveMigration.versions.stats,
       gamesPlayed: 0,
       roundsPlayed: 0,
       wins: 0,
@@ -30,36 +31,40 @@
     if (kind === "write") status.writable = false;
   }
 
-  function removeCorrupted(key) {
-    status.corruptedRecovered = true;
+  function backupCurrent(key, reason) {
     try {
-      localStorage.removeItem(key);
+      const raw = localStorage.getItem(key);
+      return raw ? SaveMigration.backupRaw(localStorage, key, raw, reason) : null;
     } catch (error) {
       rememberError(error, "write");
+      return null;
     }
   }
 
   function readJson(key, fallback) {
-    let raw;
+    const kind = key === RECORDS_KEY ? "records" : "stats";
     try {
-      raw = localStorage.getItem(key);
+      const result = SaveMigration.readAndMigrate({
+        storage: localStorage,
+        key,
+        kind,
+        fallback,
+      });
+      if (result.recovered) status.corruptedRecovered = true;
+      if (result.error) status.lastError = result.error;
+      return kind === "records" ? result.value.records : result.value;
     } catch (error) {
       rememberError(error, "read");
-      return fallback;
-    }
-    if (!raw) return fallback;
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      status.lastError = error.message;
-      removeCorrupted(key);
       return fallback;
     }
   }
 
   function writeJson(key, value) {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      const storedValue = key === RECORDS_KEY
+        ? { version: SaveMigration.versions.records, records: value }
+        : Object.assign({}, value, { version: SaveMigration.versions.stats });
+      localStorage.setItem(key, JSON.stringify(storedValue));
       status.writable = true;
       return true;
     } catch (error) {
@@ -71,20 +76,24 @@
   function loadRecords() {
     const loaded = readJson(RECORDS_KEY, []);
     if (!Array.isArray(loaded)) {
-      removeCorrupted(RECORDS_KEY);
+      status.corruptedRecovered = true;
+      writeJson(RECORDS_KEY, []);
       return [];
     }
     const records = [];
     let recovered = loaded.length > MAX_RECORDS;
+    let invalidRecovered = false;
     loaded.slice(-MAX_RECORDS).forEach((record) => {
       try {
         records.push(Sanma.GameRecord.normalize(record));
       } catch (error) {
         recovered = true;
+        invalidRecovered = true;
         status.corruptedRecovered = true;
         status.lastError = error.message;
       }
     });
+    if (invalidRecovered) backupCurrent(RECORDS_KEY, "不正な牌譜を除外しました");
     if (recovered) writeJson(RECORDS_KEY, records);
     return records;
   }
@@ -121,6 +130,7 @@
     if (loaded.lastPlayedAt !== undefined && loaded.lastPlayedAt !== null && !stats.lastPlayedAt) recovered = true;
     if (recovered) {
       status.corruptedRecovered = true;
+      backupCurrent(STATS_KEY, "不正な成績フィールドを修復しました");
       writeJson(STATS_KEY, stats);
     }
     return stats;

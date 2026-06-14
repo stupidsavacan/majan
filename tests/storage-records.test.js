@@ -8,6 +8,7 @@ global.localStorage = {
 };
 
 const Sanma = loadModules([
+  "src/storage/SaveMigration.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
   "src/ui/settingsExportImport.js",
@@ -47,7 +48,12 @@ const originalWarn = console.warn;
 console.warn = function expectedStorageWarning() {};
 const recoveredSettings = Sanma.SettingsStorage.loadSettings();
 console.warn = originalWarn;
-assert(recoveredSettings && !storageData[Sanma.SettingsStorage.STORAGE_KEY], "壊れた設定を安全に初期化できません");
+assert(
+  recoveredSettings
+    && JSON.parse(storageData[Sanma.SettingsStorage.STORAGE_KEY]).version === 2
+    && Object.keys(storageData).some((key) => key.startsWith(Sanma.SaveMigration.BACKUP_PREFIX)),
+  "壊れた設定を退避して安全に初期化できません"
+);
 assert(Sanma.SettingsStorage.getDiagnostics().corruptedRecovered, "壊れた設定の復旧状態を診断へ記録できません");
 assert(Sanma.SettingsStorage.getDiagnostics().readable, "JSON破損をlocalStorage読取不能として扱っています");
 

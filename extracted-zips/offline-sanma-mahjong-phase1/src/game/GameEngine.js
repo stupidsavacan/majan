@@ -20,6 +20,9 @@
   const AssistManager = Sanma.AssistManager;
   const GameRecord = Sanma.GameRecord;
   const MatchManager = Sanma.MatchManager;
+  const DebugEventLog = Sanma.DebugEventLog;
+  const GameStateMachine = Sanma.GameStateMachine;
+  const InvariantChecker = Sanma.InvariantChecker;
 
   class GameEngine {
     constructor({ ruleConfig, seed, onChange }) {
@@ -43,6 +46,10 @@
       this.lastDrawContext = null;
       this.pendingWinContext = null;
       this.gameRecord = null;
+      this.debugEventLog = DebugEventLog.create();
+      this.stateMachine = GameStateMachine.create("idle", this.debugEventLog);
+      this.cpuTaskActive = false;
+      this.lastInvariantReport = null;
       this.startRound();
     }
 
@@ -63,6 +70,9 @@
       this.callWindow = null;
       this.lastDrawContext = null;
       this.pendingWinContext = null;
+      this.cpuTaskActive = false;
+      GameStateMachine.cancelAll(this.stateMachine, "新しい局を開始");
+      GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, "配牌開始");
       this.dealInitialHands();
       const roundRecordInput = {
         roundLabel: this.getRoundLabel(),
@@ -95,11 +105,17 @@
         random: this.assistRandom,
       }));
       this.phase = "human-discard";
+      GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, "配牌完了");
       this.addLog(`配牌しました。${this.players[this.round.dealerIndex].name}が親です。切る牌をクリック/タップしてください。`);
       this.emitChange();
     }
 
     startNextRound() {
+      const validation = this.validateAction("次局へ進行", ["roundEnded"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (!this.matchManager.startNextRound()) {
         this.addLog(this.matchManager.state.matchEnded ? "対局は終了しています。" : "まだ次局へ進めません。");
         this.emitChange();
@@ -126,7 +142,23 @@
       return this.players[this.turnIndex];
     }
 
+    syncStateMachine(label) {
+      return GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, label);
+    }
+
+    validateAction(action, allowedStates) {
+      this.syncStateMachine(`${action}要求`);
+      const result = GameStateMachine.validateAction(this.stateMachine, action, allowedStates);
+      if (!result.ok) this.addLog(result.reason);
+      return result;
+    }
+
     discardHumanTile(instanceId) {
+      const validation = this.validateAction("打牌", ["waitingForDiscard"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if ((this.phase !== "human-discard" && this.phase !== "caller-discard") || this.turnIndex !== 0) {
         this.addLog("現在はあなたの打牌番ではありません。");
         this.emitChange();
@@ -206,7 +238,37 @@
     }
 
     runCpuUntilHumanTurn() {
+      this.syncStateMachine("CPU進行開始");
+      if (this.cpuTaskActive) {
+        DebugEventLog.add(this.debugEventLog, "actionRejected", {
+          action: "cpuAutomation",
+          reason: "CPU処理はすでに実行中です",
+        });
+        return false;
+      }
+      const guard = GameStateMachine.beginAction(
+        this.stateMachine,
+        "cpuAutomation",
+        ["resolvingAction"]
+      );
+      if (!guard.ok) return false;
+      this.cpuTaskActive = true;
+      try {
+        return this.runCpuUntilHumanTurnUnlocked();
+      } finally {
+        this.cpuTaskActive = false;
+        GameStateMachine.endAction(this.stateMachine, "cpuAutomation");
+      }
+    }
+
+    runCpuUntilHumanTurnUnlocked() {
+      let cpuSteps = 0;
       while (this.turnIndex !== 0 && this.wall.remainingCount() > 0) {
+        cpuSteps += 1;
+        if (cpuSteps > 12) {
+          this.endRoundForInvalidDraw("CPU処理の安全上限を超えました。");
+          return false;
+        }
         const player = this.getCurrentPlayer();
         const drawn = this.wall.draw();
         if (!drawn) {
@@ -285,6 +347,7 @@
         this.addLog(`あなたのツモ: ${TileUtil.getTileAriaLabel(drawn)}。切る牌を選んでください。`);
         this.emitChange();
       }
+      return true;
     }
 
     chooseCpuDiscardIndex(player) {
@@ -424,6 +487,12 @@
         assist: this.assistEvents[0] || null,
       });
       this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
+      DebugEventLog.add(this.debugEventLog, "cpuDecision", {
+        playerIndex: player.id,
+        playerName: player.name,
+        action,
+        reason,
+      });
     }
 
     recordAssist(event) {
@@ -472,6 +541,11 @@
     }
 
     claimHumanTsumo() {
+      const validation = this.validateAction("ツモ和了", ["waitingForDiscard"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
         this.addLog("現在はツモ和了できません。");
         this.emitChange();
@@ -511,6 +585,11 @@
     }
 
     claimHumanRon() {
+      const validation = this.validateAction("ロン", ["waitingForCall"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-call" || !this.callWindow) {
         this.addLog("現在はロンできません。");
         this.emitChange();
@@ -554,6 +633,11 @@
       if (actionId === "ron") {
         this.claimHumanRon();
         return;
+      }
+      const validation = this.validateAction("鳴き", ["waitingForCall"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
       }
       if (this.phase !== "human-call" || !this.callWindow) {
         this.addLog("現在は鳴けません。");
@@ -647,6 +731,11 @@
     }
 
     skipHumanCall() {
+      const validation = this.validateAction("鳴きスキップ", ["waitingForCall"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-call" || !this.callWindow) return;
       const discarderIndex = this.callWindow.fromPlayerIndex;
       if (FuritenManager && this.callWindow.actions.some((action) => action.id === "ron")) {
@@ -659,6 +748,11 @@
     }
 
     declareHumanRiichi() {
+      const validation = this.validateAction("リーチ", ["waitingForDiscard"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
         this.addLog("現在はリーチできません。");
         this.emitChange();
@@ -672,6 +766,11 @@
     }
 
     extractHumanKita(instanceId) {
+      const validation = this.validateAction("北抜き", ["waitingForDiscard"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
         this.addLog("現在は北抜きできません。");
         this.emitChange();
@@ -695,6 +794,11 @@
     }
 
     requestHumanKan() {
+      const validation = this.validateAction("カン", ["waitingForDiscard"]);
+      if (!validation.ok) {
+        this.emitChange();
+        return false;
+      }
       if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
         this.addLog("現在はカンできません。");
         this.emitChange();
@@ -756,6 +860,9 @@
 
     recordGameEvent(type, data) {
       if (!this.gameRecord) return null;
+      if (type === "score_settlement") {
+        DebugEventLog.add(this.debugEventLog, "settlementResult", data || {});
+      }
       return GameRecord.addEvent(this.gameRecord, type, data);
     }
 
@@ -773,6 +880,7 @@
       });
       this.matchManager.syncRound(this.round);
       const matchState = this.matchManager.completeRound(safeResult, this.players);
+      if (!["win-ended", "round-ended"].includes(this.phase)) this.phase = "round-ended";
       this.round.riichiSticks = matchState.riichiSticks;
       if (matchState.matchEnded) {
         GameRecord.finishMatch(
@@ -816,6 +924,8 @@
     getState() {
       this.matchManager.syncRound(this.round);
       this.matchManager.syncPlayers(this.players);
+      this.syncStateMachine("状態スナップショット");
+      this.lastInvariantReport = InvariantChecker.checkState(this, this.ruleConfig);
       const humanHand = this.humanPlayer ? this.humanPlayer.hand : [];
       const humanWinAnalysis = this.analyzeHumanWin("tsumo");
       const humanAgariAnalysis = humanWinAnalysis.agari;
@@ -833,6 +943,7 @@
         deadWallCount: this.wall.deadWall.length,
         totalKnownTileCount: this.wall.totalKnownTileCount(this.players),
         phase: this.phase,
+        gameState: this.stateMachine.state,
         turnIndex: this.turnIndex,
         logs: this.logs.slice(0, 12),
         cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
@@ -850,6 +961,9 @@
         winResult: this.winResult,
         matchState: this.matchManager.getState(),
         gameRecord: this.gameRecord,
+        invariantReport: this.lastInvariantReport,
+        tileLedger: this.lastInvariantReport.tileLedger,
+        debugEvents: DebugEventLog.list(this.debugEventLog),
         seed: this.seed,
       };
     }
@@ -861,6 +975,7 @@
     }
 
     emitChange() {
+      this.syncStateMachine("画面更新");
       this.onChange(this.getState());
     }
   }

@@ -3,6 +3,7 @@ const path = require("path");
 const { assert, projectRoot } = require("./test-helpers");
 
 const checkedJavaScriptRoots = [
+  path.resolve(projectRoot, "src", "debug"),
   path.resolve(projectRoot, "src", "game"),
   path.resolve(projectRoot, "src", "storage"),
   path.resolve(projectRoot, "src", "ui"),

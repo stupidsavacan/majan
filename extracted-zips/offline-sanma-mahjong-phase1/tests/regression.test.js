@@ -1,6 +1,6 @@
 const { assert, createTileFactory, loadModules } = require("./test-helpers");
 
-const Sanma = loadModules(["src/storage/settingsStorage.js"]);
+const Sanma = loadModules(["src/storage/SaveMigration.js", "src/storage/settingsStorage.js"]);
 const { GameEngine, Settlement, TileUtil } = Sanma;
 const tile = createTileFactory(TileUtil);
 
@@ -113,7 +113,12 @@ global.localStorage = {
 const originalWarn = console.warn;
 console.warn = function expectedStorageWarning() {};
 const recovered = Sanma.SettingsStorage.loadSettings();
-assert(recovered && !storageData["offlineSanma.phase1.settings"], "corrupted localStorage was not recovered");
+assert(
+  recovered
+    && JSON.parse(storageData["offlineSanma.phase1.settings"]).version === 2
+    && Object.keys(storageData).some((key) => key.startsWith(Sanma.SaveMigration.BACKUP_PREFIX)),
+  "corrupted localStorage was not backed up and recovered"
+);
 global.localStorage.setItem = function failSet() { throw new Error("quota"); };
 assert(Sanma.SettingsStorage.saveSettings({}) === false, "storage save failure was not contained");
 global.localStorage = new Proxy({}, {

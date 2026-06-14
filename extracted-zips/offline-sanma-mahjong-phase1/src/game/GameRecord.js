@@ -40,7 +40,7 @@
       version: 2,
       id: `record-${Date.now().toString(36)}-${recordSequence.toString(36)}`,
       matchId: String(options.matchId || ""),
-      phase: 10,
+      phase: 12,
       createdAt,
       seed: String(options.seed || ""),
       ruleConfig: clone(options.ruleConfig || {}),

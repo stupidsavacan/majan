@@ -62,11 +62,12 @@
       "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
+      "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
     ];
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: 11,
+      app_phase: 12,
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -78,6 +79,11 @@
         count: recordDiagnostics.records.count,
         size_limit_policy: recordDiagnostics.records.sizeLimitPolicy,
       },
+      state_machine: latestState ? latestState.gameState : null,
+      invariants_ok: latestState && latestState.invariantReport
+        ? latestState.invariantReport.ok
+        : null,
+      storage_migrations: Sanma.SaveMigration.getEvents().slice(0, 10),
       last_error: lastAppError || recordDiagnostics.localStorage.lastError || settingsDiagnostics.lastError,
       offline_font_ready: offlineFontReady(),
       offline: { external_network_required: false },

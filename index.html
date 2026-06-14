@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline Sanma Mahjong - Phase 11</title>
+  <title>Offline Sanma Mahjong - Phase 12</title>
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/yuji-mai-embedded.css" />
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/main.css" />
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/phase4.css" />
@@ -14,7 +14,7 @@
   <div id="app" class="app-shell">
     <header class="top-bar">
       <div>
-        <h1>オフライン三麻 Phase 11</h1>
+        <h1>オフライン三麻 Phase 12</h1>
         <p class="subtitle">対局進行・局管理版</p>
       </div>
       <div class="top-actions">
@@ -75,6 +75,8 @@
   </dialog>
 
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RuleConfig.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/debug/DebugEventLog.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/GameStateMachine.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RoundManager.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/HonbaManager.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RankingManager.js"></script>
@@ -101,7 +103,11 @@
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/CallWindow.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/Wall.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/Player.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/TileLedger.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/InvariantChecker.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RecoveryManager.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/GameEngine.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/storage/SaveMigration.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/storage/settingsStorage.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/storage/gameRecordStorage.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/ui/renderTiles.js"></script>

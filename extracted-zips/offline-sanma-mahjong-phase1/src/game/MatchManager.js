@@ -27,7 +27,7 @@
       this.pendingRound = null;
       this.state = {
         matchId: `match-${Date.now().toString(36)}-${matchSequence.toString(36)}`,
-        phase: 10,
+        phase: 12,
         roundWind: initial.roundWind,
         roundNumber: initial.roundNumber,
         roundLabel: Sanma.RoundManager.roundLabel(initial.roundWind, initial.roundNumber),

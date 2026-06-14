@@ -3,7 +3,7 @@
 
   function exportSettings(settings) {
     return JSON.stringify({
-      version: 1,
+      version: Sanma.SaveMigration ? Sanma.SaveMigration.versions.settings : 2,
       exportedAt: new Date().toISOString(),
       settings: Sanma.RuleConfig.createRuleConfig(settings || {}),
     }, null, 2);

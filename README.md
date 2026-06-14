@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 11
+# Offline Sanma Mahjong - Phase 12
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 11ではフリテン、リーチ宣言打牌、一発、カン、嶺上牌、槓ドラ、裏ドラ、終盤役、三麻固有ルールを拡張しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 12では状態機械、牌台帳、整合性検査、復旧処理、保存移行、デバッグイベントログを追加しています。
 
 ## 起動方法
 
@@ -15,7 +15,7 @@
 
 ## ソース保守方針
 
-- `src/game`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
+- `src/debug`、`src/game`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
 - 埋め込みフォントCSSなど明示した生成物だけ圧縮を許容します。
 - `tests/source-format.test.js` で、上記JavaScript全体と非生成CSSが少数行へ圧縮されていないことを確認します。
 
@@ -159,6 +159,17 @@
 - `FuritenManager`、`RiichiRules`、`KanRules`、`EndTurnYakuResolver`、`SanmaRuleDetails`
 - `tests/advanced-rules.test.js`、`PHASE11_REPORT.md`、`PHASE11_STATIC_AUDIT_FOLLOWUP.md`
 
+## Phase 12で実装済み
+
+- `GameStateMachine` による高水準状態と主要UI操作の状態検証
+- 二重操作とCPU処理再入の拒否、CPU連続処理の安全上限
+- `TileLedger` による108枚/104枚の所在、null牌、重複instanceId、ドラ表示牌参照の検査
+- `InvariantChecker` による手番、親、本場、供託、点数、手牌枚数、呼び出し窓の一元検査
+- `RecoveryManager` による停止した呼び出し窓、CPU処理、現在局、破損保存データの復旧支援
+- `SaveMigration` による設定・牌譜・成績version 2移行と破損値の退避
+- `DebugEventLog` による状態遷移、操作拒否、CPU判断、精算、復旧、保存移行のリングバッファ
+- `tests/state-integrity.test.js` と `PHASE12_REPORT.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -197,7 +208,7 @@
 
 ## 次のPhaseでやるべきこと
 
-Phase 12以降では以下を追加する候補です。
+Phase 13以降では以下を追加する候補です。
 
 - ノーテン罰符、ダブロン、アガリ止め、詳細な延長戦条件
 - 槍槓割り込み窓、四槓散了、複数自己カン候補の選択UI
@@ -208,7 +219,9 @@ Phase 12以降では以下を追加する候補です。
 
 - `index.html`
 - `src/main.js`
+- `src/debug/DebugEventLog.js`
 - `src/game/RuleConfig.js`
+- `src/game/GameStateMachine.js`
 - `src/game/RoundManager.js`
 - `src/game/HonbaManager.js`
 - `src/game/RankingManager.js`
@@ -235,6 +248,9 @@ Phase 12以降では以下を追加する候補です。
 - `src/game/CallWindow.js`
 - `src/game/Wall.js`
 - `src/game/Player.js`
+- `src/game/TileLedger.js`
+- `src/game/InvariantChecker.js`
+- `src/game/RecoveryManager.js`
 - `src/game/GameEngine.js`
 - `src/ui/renderTiles.js`
 - `src/ui/renderTable.js`
@@ -243,6 +259,7 @@ Phase 12以降では以下を追加する候補です。
 - `src/ui/recordPanel.js`
 - `src/storage/settingsStorage.js`
 - `src/storage/gameRecordStorage.js`
+- `src/storage/SaveMigration.js`
 - `src/styles/main.css`
 - `src/styles/phase4.css`
 - `src/styles/phase5.css`
@@ -255,6 +272,8 @@ Phase 12以降では以下を追加する候補です。
 - `tests/rules-scoring-regression.test.js`
 - `tests/match-flow.test.js`
 - `tests/advanced-rules.test.js`
+- `tests/state-integrity.test.js`
+- `PHASE12_REPORT.md`
 - `PHASE11_REPORT.md`
 - `PHASE11_STATIC_AUDIT_FOLLOWUP.md`
 - `PHASE10_REPORT.md`
