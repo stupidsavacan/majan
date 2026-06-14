@@ -196,11 +196,20 @@
     const settlement = winResult.settlement || {};
     const panel = el("section", "win-result");
     panel.appendChild(el("h2", "section-title", "和了結果"));
-    panel.appendChild(el("strong", "win-result-title", `${winResult.winType === "tsumo" ? "ツモ" : "ロン"} / ${score.limitName || `${score.han}飜${score.fu}符`}`));
+    panel.appendChild(el(
+      "strong",
+      "win-result-title",
+      `${winResult.winnerName || "和了者"} / ${winResult.winType === "tsumo" ? "ツモ" : "ロン"} / ${score.limitName || `${score.han}飜${score.fu}符`}`
+    ));
     const payment = winResult.winType === "ron"
       ? (score.payments && score.payments.ron ? score.payments.ron.amount : 0)
       : (score.payments && score.payments.tsumo ? score.payments.tsumo.total : 0);
     panel.appendChild(el("div", "win-result-payment", `支払い合計: ${payment.toLocaleString()}点`));
+    const yakuNames = [
+      ...((winResult.yaku && winResult.yaku.yaku) || []).map((item) => item.name),
+      ...((winResult.yaku && winResult.yaku.yakuman) || []).map((item) => item.name),
+    ];
+    panel.appendChild(el("div", "win-result-yaku", `役: ${yakuNames.join("、") || "なし"}`));
     const changes = el("ul", "win-result-changes");
     (settlement.changes || []).forEach((change) => {
       const sign = change.delta >= 0 ? "+" : "";
@@ -305,6 +314,9 @@
       "",
       "補助:",
       assistLog,
+      "",
+      "診断:",
+      JSON.stringify(state.diagnostics || {}, null, 2),
     ].join("\n");
   }
 

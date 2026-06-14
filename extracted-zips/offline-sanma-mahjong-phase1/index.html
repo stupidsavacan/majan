@@ -3,22 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline Sanma Mahjong - Phase 7</title>
+  <title>Offline Sanma Mahjong - Phase 8</title>
   <link rel="stylesheet" href="src/styles/yuji-mai-embedded.css" />
   <link rel="stylesheet" href="src/styles/main.css" />
   <link rel="stylesheet" href="src/styles/phase4.css" />
   <link rel="stylesheet" href="src/styles/phase5.css" />
+  <link rel="stylesheet" href="src/styles/phase8.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="top-bar">
       <div>
-        <h1>オフライン三麻 Phase 7</h1>
-        <p class="subtitle">CPU思考・補助ロジック強化版</p>
+        <h1>オフライン三麻 Phase 8</h1>
+        <p class="subtitle">保存・牌譜・成績・設定UX版</p>
       </div>
       <div class="top-actions">
         <button id="newGameButton" type="button">新しい局</button>
         <button id="settingsButton" type="button">設定</button>
+        <button id="recordsButton" type="button">牌譜・成績</button>
         <button id="debugButton" type="button">デバッグ</button>
       </div>
     </header>
@@ -37,9 +39,20 @@
         <button value="close" type="submit" class="icon-button">×</button>
       </div>
       <div id="settingsRoot" class="settings-grid"></div>
+      <section id="settingsTransferRoot" class="transfer-panel"></section>
       <div class="panel-actions">
         <button id="saveSettingsButton" value="close" type="submit">保存して新しい局</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="recordsDialog" class="panel-dialog">
+    <form method="dialog" class="panel-card panel-card-wide">
+      <div class="panel-head">
+        <h2>牌譜・履歴・成績</h2>
+        <button value="close" type="submit" class="icon-button">×</button>
+      </div>
+      <div id="recordsRoot" class="records-panel"></div>
     </form>
   </dialog>
 
@@ -54,7 +67,7 @@
           <label class="field-label" for="seedInput">固定seed</label>
           <input id="seedInput" type="text" placeholder="例: sanma-001" />
           <button id="applySeedButton" value="close" type="submit">seedで新しい局</button>
-          <button id="resetStorageButton" type="button" class="danger">localStorageリセット</button>
+          <button id="resetStorageButton" type="button" class="danger">全保存データをリセット</button>
         </div>
         <pre id="debugRoot" class="debug-output"></pre>
       </div>
@@ -73,14 +86,18 @@
   <script src="src/game/ActionResolver.js"></script>
   <script src="src/game/CpuStrategy.js"></script>
   <script src="src/game/AssistManager.js"></script>
+  <script src="src/game/GameRecord.js"></script>
   <script src="src/game/CallWindow.js"></script>
   <script src="src/game/Wall.js"></script>
   <script src="src/game/Player.js"></script>
   <script src="src/game/GameEngine.js"></script>
   <script src="src/storage/settingsStorage.js"></script>
+  <script src="src/storage/gameRecordStorage.js"></script>
   <script src="src/ui/renderTiles.js"></script>
   <script src="src/ui/renderTable.js"></script>
   <script src="src/ui/settingsPanel.js"></script>
+  <script src="src/ui/settingsExportImport.js"></script>
+  <script src="src/ui/recordPanel.js"></script>
   <script src="src/main.js"></script>
 </body>
 </html>

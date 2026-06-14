@@ -16,6 +16,7 @@ for (const file of [
   "src/game/ActionResolver.js",
   "src/game/CpuStrategy.js",
   "src/game/AssistManager.js",
+  "src/game/GameRecord.js",
   "src/game/CallWindow.js",
   "src/game/Wall.js",
   "src/game/Player.js",

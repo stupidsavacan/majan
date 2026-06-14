@@ -8,6 +8,7 @@ const testFiles = [
   "score-calculator.test.js",
   "action-resolver.test.js",
   "cpu-strategy.test.js",
+  "storage-records.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -21,8 +22,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 7 test run failed.");
+  console.error("\nPhase 8 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 7 tests passed.");
+console.log("\nAll Phase 8 tests passed.");

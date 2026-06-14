@@ -15,6 +15,7 @@
   const KitaManager = Sanma.KitaManager;
   const CpuStrategy = Sanma.CpuStrategy;
   const AssistManager = Sanma.AssistManager;
+  const GameRecord = Sanma.GameRecord;
 
   const windLabels = { east: "東", south: "南", west: "西" };
 
@@ -42,6 +43,7 @@
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
+      this.gameRecord = null;
       this.startRound();
     }
 
@@ -63,6 +65,20 @@
       this.lastDiscard = null;
       this.callWindow = null;
       this.dealInitialHands();
+      this.gameRecord = GameRecord.create({
+        seed: this.seed,
+        ruleConfig: this.ruleConfig,
+        players: this.players,
+        roundLabel: this.getRoundLabel(),
+        honba: this.round.honba,
+      });
+      this.recordGameEvent("deal", {
+        dealerIndex: this.round.dealerIndex,
+        hands: this.players.map((player) => ({
+          playerIndex: player.id,
+          tiles: player.hand.map(TileUtil.getTileShortLabel),
+        })),
+      });
       this.recordAssist(AssistManager.evaluateOpening({
         state: this,
         ruleConfig: this.ruleConfig,
@@ -106,6 +122,7 @@
       }
 
       this.addLog(`あなたが ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
+      this.recordGameEvent("discard", this.playerTileEvent(this.humanPlayer, discarded));
       const tenpai = HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(this.humanPlayer), this.ruleConfig);
       if (tenpai.isTenpai) {
         this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
@@ -133,6 +150,7 @@
       if (this.wall.remainingCount() <= 0) {
         this.phase = "round-ended";
         this.addLog("山がなくなりました。簡易流局として終了します。");
+        this.finishGameRecord({ type: "exhaustive_draw", reason: "山がなくなりました。" });
         this.emitChange();
         return;
       }
@@ -153,6 +171,7 @@
         }
         player.receiveTile(drawn);
         this.addLog(`${player.name} がツモりました。`);
+        this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
         this.recordAssist(AssistManager.evaluateDraw({
           state: this,
           ruleConfig: this.ruleConfig,
@@ -170,6 +189,7 @@
           return;
         }
         this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
+        this.recordGameEvent("discard", this.playerTileEvent(player, discarded));
         this.lastDiscard = { playerIndex: player.id, tile: discarded };
         const windowState = CallWindow.create(this, this.humanPlayer.id);
         if (windowState) {
@@ -185,6 +205,7 @@
       if (this.wall.remainingCount() <= 0) {
         this.phase = "round-ended";
         this.addLog("山がなくなりました。簡易流局として終了します。");
+        this.finishGameRecord({ type: "exhaustive_draw", reason: "山がなくなりました。" });
         this.emitChange();
         return;
       }
@@ -196,6 +217,7 @@
           return;
         }
         this.humanPlayer.receiveTile(drawn);
+        this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, drawn));
         this.recordAssist(AssistManager.evaluateDraw({
           state: this,
           ruleConfig: this.ruleConfig,
@@ -254,6 +276,7 @@
       this.callWindow = null;
       this.winResult = {
         winnerIndex: player.id,
+        winnerName: player.name,
         winType: "tsumo",
         yaku: analysis.yakuResult,
         score: analysis.scoreResult,
@@ -261,6 +284,9 @@
       };
       this.addCpuActionLog(player, "ツモ", "有効な和了形と役を検出したためツモ和了しました。");
       this.addLog(`${player.name} がツモ和了しました。`);
+      this.recordGameEvent("win", { playerIndex: player.id, playerName: player.name, winType: "tsumo" });
+      this.recordGameEvent("score_settlement", { changes: settlement.changes });
+      this.finishGameRecord(this.winResult);
       this.emitChange();
       return true;
     }
@@ -276,9 +302,15 @@
         extractedCount += 1;
         this.addCpuActionLog(player, "抜き北", result.reason);
         this.addLog(`${player.name} が北を抜きました。`);
+        this.recordGameEvent("kita", {
+          playerIndex: player.id,
+          playerName: player.name,
+          tile: TileUtil.getTileShortLabel(result.extracted),
+        });
         if (!result.replacement) {
           this.phase = "round-ended";
           this.addLog("抜き北の補充牌がないため局を終了します。");
+          this.finishGameRecord({ type: "exhaustive_draw", reason: "抜き北の補充牌がありません。" });
           this.emitChange();
           return true;
         }
@@ -288,6 +320,7 @@
           player,
           random: this.assistRandom,
         }));
+        this.recordGameEvent("draw", this.playerTileEvent(player, result.replacement));
         if (this.tryCpuTsumo(player)) return true;
       }
       return false;
@@ -300,6 +333,7 @@
       if (!result.applied) return false;
       this.addCpuActionLog(player, "リーチ", result.reason);
       this.addLog(`${player.name} がリーチを宣言しました。`);
+      this.recordGameEvent("riichi", { playerIndex: player.id, playerName: player.name });
       return true;
     }
 
@@ -324,6 +358,7 @@
       this.phase = "round-ended";
       this.callWindow = null;
       this.addLog(`${reason} 安全のため局を終了します。`);
+      this.finishGameRecord({ type: "exhaustive_draw", reason });
       this.emitChange();
     }
 
@@ -335,6 +370,7 @@
         return;
       }
       this.humanPlayer.receiveTile(drawn);
+      this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, drawn));
       this.recordAssist(AssistManager.evaluateDraw({
         state: this,
         ruleConfig: this.ruleConfig,
@@ -377,12 +413,16 @@
       this.round.riichiSticks = 0;
       this.winResult = {
         winnerIndex: this.humanPlayer.id,
+        winnerName: this.humanPlayer.name,
         winType: "tsumo",
         yaku: analysis.yaku,
         score: analysis.score,
         settlement,
       };
       this.addLog(`あなたがツモ和了しました。${analysis.score.limitName || `${analysis.score.han}飜${analysis.score.fu}符`} / ${analysis.score.payments.tsumo.total.toLocaleString()}点。`);
+      this.recordGameEvent("win", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, winType: "tsumo" });
+      this.recordGameEvent("score_settlement", { changes: settlement.changes });
+      this.finishGameRecord(this.winResult);
       this.emitChange();
     }
 
@@ -414,12 +454,16 @@
       this.callWindow = null;
       this.winResult = {
         winnerIndex: this.humanPlayer.id,
+        winnerName: this.humanPlayer.name,
         winType: "ron",
         yaku: analysis.yakuResult,
         score: analysis.scoreResult,
         settlement,
       };
       this.addLog(`あなたがロン和了しました。${analysis.scoreResult.limitName || `${analysis.scoreResult.han}飜${analysis.scoreResult.fu}符`} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
+      this.recordGameEvent("win", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, winType: "ron" });
+      this.recordGameEvent("score_settlement", { changes: settlement.changes });
+      this.finishGameRecord(this.winResult);
       this.emitChange();
     }
 
@@ -493,6 +537,13 @@
       this.lastDiscard = null;
       this.callWindow = null;
       this.addLog(`あなたが${actionId === "pon" ? "ポン" : "チー"}しました。続けて打牌してください。`);
+      this.recordGameEvent("call", {
+        playerIndex: this.humanPlayer.id,
+        playerName: this.humanPlayer.name,
+        action: actionId,
+        fromPlayerIndex: option.fromPlayerIndex,
+        tiles: meldTiles.map(TileUtil.getTileShortLabel),
+      });
       this.emitChange();
     }
 
@@ -501,6 +552,7 @@
       const discarderIndex = this.callWindow.fromPlayerIndex;
       CallWindow.close(this.callWindow, "スキップ");
       this.addLog("鳴きをスキップしました。");
+      this.recordGameEvent("call", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, action: "skip" });
       this.continueAfterDiscard(discarderIndex);
     }
 
@@ -512,6 +564,9 @@
       }
       const result = RiichiManager.declare(this, this.humanPlayer.id);
       this.addLog(result.reason);
+      if (result.applied) {
+        this.recordGameEvent("riichi", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name });
+      }
       this.emitChange();
     }
 
@@ -523,7 +578,18 @@
       }
       const result = KitaManager.extract(this, this.humanPlayer.id, instanceId);
       this.addLog(result.reason);
-      if (result.applied && !result.replacement) this.phase = "round-ended";
+      if (result.applied) {
+        this.recordGameEvent("kita", {
+          playerIndex: this.humanPlayer.id,
+          playerName: this.humanPlayer.name,
+          tile: TileUtil.getTileShortLabel(result.extracted),
+        });
+        if (result.replacement) this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
+      }
+      if (result.applied && !result.replacement) {
+        this.phase = "round-ended";
+        this.finishGameRecord({ type: "exhaustive_draw", reason: "抜き北の補充牌がありません。" });
+      }
       this.emitChange();
     }
 
@@ -531,6 +597,29 @@
       const availability = KanManager.describeAvailability(this, this.humanPlayer.id);
       this.addLog(availability.enabled ? "カン可能牌を検出しました。Phase 5では判定・デバッグ表示のみです。" : availability.reason);
       this.emitChange();
+    }
+
+    playerTileEvent(player, tile) {
+      return {
+        playerIndex: player.id,
+        playerName: player.name,
+        tile: tile ? TileUtil.getTileShortLabel(tile) : null,
+        tileInstanceId: tile ? tile.instanceId : null,
+      };
+    }
+
+    recordGameEvent(type, data) {
+      if (!this.gameRecord) return null;
+      return GameRecord.addEvent(this.gameRecord, type, data);
+    }
+
+    finishGameRecord(result) {
+      if (!this.gameRecord || this.gameRecord.completedAt) return;
+      GameRecord.finishRound(
+        this.gameRecord,
+        result,
+        this.players.map((player) => player.points)
+      );
     }
 
     getRoundLabel() {
@@ -583,6 +672,7 @@
         lastDiscard: this.lastDiscard,
         callWindow: this.callWindow,
         winResult: this.winResult,
+        gameRecord: this.gameRecord,
         seed: this.seed,
       };
     }

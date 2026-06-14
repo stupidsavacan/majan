@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 7
+# Offline Sanma Mahjong - Phase 8
 
-完全オフライン動作の三人麻雀ブラウザゲーム土台版です。Phase 7ではCPU打牌戦略と非破壊の補助ロジック基盤を追加しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 8では牌譜・成績保存、設定JSON入出力、診断表示を追加しています。
 
 ## 起動方法
 
@@ -108,6 +108,15 @@
 - `AssistManager` による補助設定の集約と非破壊の牌数・重複監査イベント
 - `tests/cpu-strategy.test.js` とPhase 7回帰テスト
 
+## Phase 8で実装済み
+
+- 配牌・ツモ・打牌・鳴き・抜き北・リーチ・和了・精算を記録するコンパクト牌譜
+- localStorageへの最新20牌譜保存と、1局300イベント上限
+- 対局数・局数・和了・敗北・役満・最高打点・点数収支のローカル成績
+- 牌譜・履歴・成績パネルと牌譜JSON表示・コピー
+- 設定JSONのエクスポート・検証付きインポート・設定のみ初期化
+- 読み書き状態、復旧状態、モジュール、牌譜数、フォントを含むデバッグ診断
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -118,6 +127,8 @@
 - その後、自分が自動でツモり、再び打牌できます。
 - `新しい局` で最初から配牌し直します。
 - `設定` で Phase 1 時点のRuleConfigを変更できます。
+- `設定` で設定JSONを表示・インポート・初期化できます。
+- `牌譜・成績` で最新の履歴、成績、牌譜JSONを確認できます。
 - `デバッグ` でseed固定や内部状態を確認できます。
 
 ## 未実装
@@ -128,8 +139,6 @@
 - リーチ後の打牌制限、フリテン、 ippatsu
 - 流局処理の完全実装
 - 局進行
-- 成績保存
-- 牌譜保存
 - 実際に牌を交換する内部補助
 
 ## 既知の問題
@@ -140,16 +149,19 @@
 - CPUは鳴き・ロンを自動スキップします。
 - CPU戦略のシャンテン計算と打牌評価は簡易版で、押し引き・安全牌・打点期待値は未対応です。
 - AssistManagerは設定判定と整合性ログのみで、牌交換は行いません。
+- 牌譜はイベント一覧で、アニメーション再生には未対応です。
+- 対局・成績は現在の簡易1局進行を1対局として集計します。
 - カンは候補検出とデバッグ表示のみで、実行は未実装です。
 - 副露を含む役・符計算は既存判定へ副露牌を合成する基礎対応で、詳細精度はPhase 6以降の監査対象です。
 
 ## 次のPhaseでやるべきこと
 
-Phase 8以降では以下を追加する想定です。
+Phase 9では以下の最終回帰を行う想定です。
 
 - カン実行、リーチ後制約、フリテン
 - 副露を含む役・符計算の詳細精度向上
 - CPUロン・ポンの安全な割り込み処理と押し引き
+- 保存データ移行、最終UI、全機能の統合回帰
 
 ## ファイル構成
 
@@ -167,6 +179,7 @@ Phase 8以降では以下を追加する想定です。
 - `src/game/ActionResolver.js`
 - `src/game/CpuStrategy.js`
 - `src/game/AssistManager.js`
+- `src/game/GameRecord.js`
 - `src/game/CallWindow.js`
 - `src/game/Wall.js`
 - `src/game/Player.js`
@@ -174,8 +187,12 @@ Phase 8以降では以下を追加する想定です。
 - `src/ui/renderTiles.js`
 - `src/ui/renderTable.js`
 - `src/ui/settingsPanel.js`
+- `src/ui/settingsExportImport.js`
+- `src/ui/recordPanel.js`
 - `src/storage/settingsStorage.js`
+- `src/storage/gameRecordStorage.js`
 - `src/styles/main.css`
 - `src/styles/phase4.css`
 - `src/styles/phase5.css`
+- `src/styles/phase8.css`
 - `src/styles/yuji-mai-embedded.css`
