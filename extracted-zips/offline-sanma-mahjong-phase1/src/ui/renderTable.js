@@ -35,7 +35,7 @@
     });
 
     const center = el("section", "center-board");
-    center.append(tableInfo, doraPanel, renderDiscards(state.players));
+    center.append(tableInfo, renderDiscards(state.players), doraPanel);
     if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers));
     if (state.winResult) center.appendChild(renderWinResult(state.winResult));
 
