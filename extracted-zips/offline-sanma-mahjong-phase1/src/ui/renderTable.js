@@ -135,7 +135,10 @@
       const tileNode = RenderTiles.createTileButton(tile, { small: false });
       const riichiLocked = player.hasRiichi
         && (!player.lastDraw || tile.instanceId !== player.lastDraw.instanceId);
-      tileNode.disabled = !canDiscard || riichiLocked;
+      const pendingRiichiLocked = player.riichi
+        && player.riichi.pending
+        && !(state.pendingRiichiDiscardInstanceIds || []).includes(tile.instanceId);
+      tileNode.disabled = !canDiscard || riichiLocked || pendingRiichiLocked;
       tileNode.addEventListener("click", () => handlers.onDiscard(tile.instanceId));
       tileNode.addEventListener("touchend", (event) => {
         event.preventDefault();

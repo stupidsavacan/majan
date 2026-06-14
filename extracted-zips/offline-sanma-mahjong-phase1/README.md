@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 10
+# Offline Sanma Mahjong - Phase 11
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 10では局単位のゲームを連続対局へ拡張し、親・本場・供託・点棒・順位・終局条件を管理します。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 11ではフリテン、リーチ宣言打牌、一発、カン、嶺上牌、槓ドラ、裏ドラ、終盤役、三麻固有ルールを拡張しています。
 
 ## 起動方法
 
@@ -148,13 +148,25 @@
 - `MatchManager`、`RoundManager`、`HonbaManager`、`RankingManager`、`EndConditionManager`
 - `tests/match-flow.test.js` と `PHASE10_REPORT.md`
 
+## Phase 11で実装済み
+
+- `FuritenManager` による現物・同巡・リーチ後見逃しフリテン
+- リーチボタン後に聴牌を維持する宣言牌を選び、宣言打牌時に供託と一発を確定する進行
+- 暗槓・明槓・加槓、嶺上牌、槓ドラ、槓裏ドラ、一発消し
+- 海底摸月・河底撈魚・嶺上開花・槍槓・一発・裏ドラの得点文脈
+- 北抜き、萬子順子禁止などの三麻固有方針
+- 嵌張・辺張・単騎の待ち符と、面子単位の明刻・暗刻・槓子符
+- `FuritenManager`、`RiichiRules`、`KanRules`、`EndTurnYakuResolver`、`SanmaRuleDetails`
+- `tests/advanced-rules.test.js`、`PHASE11_REPORT.md`、`PHASE11_STATIC_AUDIT_FOLLOWUP.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
 - 自分が切ると、CPU2人が簡易戦略で打牌します。
 - CPUの捨て牌にロン・ポン・チー・明槓候補がある場合は呼び出し窓が開きます。
 - 呼び出し窓で鳴くか、スキップして進行できます。
-- 門前聴牌時は `リーチ`、北抜きルールで北がある場合は `北抜き` を操作できます。
+- 門前聴牌時は `リーチ` を押し、聴牌を維持する宣言牌を選択します。
+- 北抜きルールで北がある場合は `北抜き`、カン候補がある場合は `カン` を操作できます。
 - その後、自分が自動でツモり、再び打牌できます。
 - `次局へ` で点棒を保持したまま次の局へ進みます。
 - `新しい対局` で東1局から対局を開始し直します。
@@ -167,30 +179,29 @@
 
 以下はまだ未実装です。
 
-- カンの実行、嶺上牌、槓ドラ、槓による一発消し
-- 同巡フリテン、見逃しフリテンなどの完全なフリテン
 - ノーテン罰符を含む流局処理の完全実装
 - 実際に牌を交換する内部補助
+- 槍槓の他家ロン割り込み窓、四槓散了、複数自己カン候補の選択UI
 
 ## 既知の問題
 
 - 山が尽きた場合は親の聴牌判定のみ行い、ノーテン罰符は移動しません。
-- 裏ドラ・槓ドラ・槓裏ドラは未実装です。
 - CPUは鳴き・ロンを自動スキップします。
 - CPU戦略のシャンテン計算と打牌評価は簡易版で、押し引き・安全牌・打点期待値は未対応です。
 - AssistManagerは設定判定と整合性ログのみで、牌交換は行いません。
 - 牌譜はイベント一覧で、アニメーション再生には未対応です。
 - ダブロン、アガリ止め、南入・西入などの詳細な終局ルールは未実装です。
-- カンは候補検出とデバッグ表示のみで、実行は未実装です。
-- 副露を含む役・符計算は既存判定へ副露牌を合成する基礎対応で、詳細精度はPhase 6以降の監査対象です。
+- 北抜き補充牌はPhase 11の明示方針として通常山から取得します。
+- トビは現在0点未満で終了し、0点ちょうどでは継続します。
+- 副露を含む役・符計算は既存判定へ副露牌を合成する基礎対応で、複雑な複数解釈は今後の監査対象です。
 
 ## 次のPhaseでやるべきこと
 
-Phase 11以降では以下を追加する候補です。
+Phase 12以降では以下を追加する候補です。
 
-- カン実行、完全なフリテン
 - ノーテン罰符、ダブロン、アガリ止め、詳細な延長戦条件
-- 副露を含む役・符計算の詳細精度向上
+- 槍槓割り込み窓、四槓散了、複数自己カン候補の選択UI
+- 複雑な副露・和了形解釈を含む役・符計算の詳細精度向上
 - CPUロン・ポンの安全な割り込み処理と押し引き
 
 ## ファイル構成
@@ -212,6 +223,11 @@ Phase 11以降では以下を追加する候補です。
 - `src/game/RiichiManager.js`
 - `src/game/KanManager.js`
 - `src/game/KitaManager.js`
+- `src/game/FuritenManager.js`
+- `src/game/RiichiRules.js`
+- `src/game/KanRules.js`
+- `src/game/EndTurnYakuResolver.js`
+- `src/game/SanmaRuleDetails.js`
 - `src/game/ActionResolver.js`
 - `src/game/CpuStrategy.js`
 - `src/game/AssistManager.js`
@@ -238,6 +254,9 @@ Phase 11以降では以下を追加する候補です。
 - `tests/source-format.test.js`
 - `tests/rules-scoring-regression.test.js`
 - `tests/match-flow.test.js`
+- `tests/advanced-rules.test.js`
+- `PHASE11_REPORT.md`
+- `PHASE11_STATIC_AUDIT_FOLLOWUP.md`
 - `PHASE10_REPORT.md`
 - `PHASE8_REPORT.md`
 - `PHASE9_REPORT.md`

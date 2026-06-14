@@ -85,7 +85,7 @@ assert(action(validTsumoState, "tsumo").enabled, "和了形かつ役ありでツ
 validTsumoState.players[0].hand.pop();
 assert(!action(validTsumoState, "tsumo").enabled, "和了形でない手牌のツモが有効です");
 
-const riichiCodes = ["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m"];
+const riichiCodes = ["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m", "1m"];
 const riichiState = createState();
 riichiState.players[0].hand = hand(riichiCodes);
 assert(action(riichiState, "riichi").enabled, "門前聴牌かつ1000点以上でリーチが有効になりません");
@@ -131,7 +131,10 @@ assert(callWindow && callWindow.actions[0].id === "ron", "呼び出し窓でロ�
 const declarationState = createState();
 declarationState.players[0].hand = hand(riichiCodes);
 const declaration = RiichiManager.declare(declarationState, 0);
-assert(declaration.applied && declarationState.players[0].points === 34000 && declarationState.round.riichiSticks === 1, "リーチ棒を正しく処理できません");
+assert(declaration.applied && declaration.pending && declarationState.players[0].points === 35000, "リーチ宣言牌の選択待ちを開始できません");
+const declarationDiscard = declarationState.players[0].discardTileByInstanceId(declaration.discardOptions[0].instanceId);
+const finalizedDeclaration = global.Sanma.RiichiRules.handleDiscard(declarationState, 0, declarationDiscard);
+assert(finalizedDeclaration.finalized && declarationState.players[0].points === 34000 && declarationState.round.riichiSticks === 1, "宣言打牌時にリーチ棒を正しく処理できません");
 
 const engine = new GameEngine({ ruleConfig: { allowChi: true }, seed: "phase5-call", onChange: function noop() {} });
 engine.players[0].hand = hand(["white", "white", "1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "9m", "9m"]);

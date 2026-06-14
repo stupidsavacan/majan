@@ -64,6 +64,7 @@
       isMenzen: isMenzen(player),
       isRiichi: Boolean(player.hasRiichi),
       isIppatsu: Boolean(player.ippatsuActive),
+      melds: player.melds || [],
       winningTile,
       waitType: null,
       doraIndicators: state.wall ? state.wall.doraIndicators : (state.doraIndicators || []),

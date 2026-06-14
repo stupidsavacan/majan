@@ -134,6 +134,13 @@
       }
 
       const target = this.humanPlayer.hand.find((tile) => tile.instanceId === instanceId);
+      if (this.humanPlayer.riichi
+        && this.humanPlayer.riichi.pending
+        && !RiichiRules.canDeclareDiscard(this, this.humanPlayer.id, target)) {
+        this.addLog("聴牌を維持するリーチ宣言牌を選んでください。");
+        this.emitChange();
+        return;
+      }
       if (this.humanPlayer.hasRiichi
         && (!target || !this.humanPlayer.lastDraw || target.instanceId !== this.humanPlayer.lastDraw.instanceId)) {
         this.addLog("リーチ後はツモ切りのみです。");
@@ -150,6 +157,15 @@
 
       this.addLog(`あなたが ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
       this.recordGameEvent("discard", this.playerTileEvent(this.humanPlayer, discarded));
+      const riichiResult = RiichiRules.handleDiscard(this, this.humanPlayer.id, discarded);
+      if (riichiResult.finalized) {
+        this.addLog(riichiResult.reason);
+        this.recordGameEvent("riichi", {
+          playerIndex: this.humanPlayer.id,
+          playerName: this.humanPlayer.name,
+          declarationDiscard: TileUtil.getTileShortLabel(discarded),
+        });
+      }
       const tenpai = HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(this.humanPlayer), this.ruleConfig);
       if (tenpai.isTenpai) {
         this.addLog(`聴牌: 待ち牌 ${tenpai.waits.map((wait) => wait.label).join("、")}`);
@@ -217,6 +233,16 @@
           this.endRoundForInvalidDraw(`${player.name}の打牌を取得できませんでした。`);
           return;
         }
+        const riichiResult = RiichiRules.handleDiscard(this, player.id, discarded);
+        if (riichiResult.finalized) {
+          this.addCpuActionLog(player, "リーチ", riichiResult.reason);
+          this.addLog(riichiResult.reason);
+          this.recordGameEvent("riichi", {
+            playerIndex: player.id,
+            playerName: player.name,
+            declarationDiscard: TileUtil.getTileShortLabel(discarded),
+          });
+        }
         this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
         this.recordGameEvent("discard", this.playerTileEvent(player, discarded));
         this.lastDiscard = { playerIndex: player.id, tile: discarded };
@@ -262,6 +288,18 @@
     }
 
     chooseCpuDiscardIndex(player) {
+      if (player.riichi && player.riichi.pending) {
+        const options = RiichiRules.getDeclarationDiscardOptions(this, player.id);
+        const optionIds = new Set(options.map((tile) => tile.instanceId));
+        const declarationIndex = player.hand.findIndex((tile) => optionIds.has(tile.instanceId));
+        if (declarationIndex < 0) {
+          this.addCpuActionLog(player, "打牌失敗", "有効なリーチ宣言牌が見つかりません。");
+          return -1;
+        }
+        this.addCpuActionLog(player, "リーチ宣言牌", "聴牌を維持する牌を選択しました。");
+        return declarationIndex;
+      }
+
       if (player.hasRiichi) {
         const lastDrawIndex = player.lastDraw
           ? player.hand.findIndex((tile) => tile.instanceId === player.lastDraw.instanceId)
@@ -373,8 +411,7 @@
       const result = RiichiManager.declare(this, player.id);
       if (!result.applied) return false;
       this.addCpuActionLog(player, "リーチ", result.reason);
-      this.addLog(`${player.name} がリーチを宣言しました。`);
-      this.recordGameEvent("riichi", { playerIndex: player.id, playerName: player.name });
+      this.addLog(`${player.name} がリーチ宣言牌を選択しています。`);
       return true;
     }
 
@@ -631,9 +668,6 @@
         ? RiichiRules.declare(this, this.humanPlayer.id)
         : RiichiManager.declare(this, this.humanPlayer.id);
       this.addLog(result.reason);
-      if (result.applied) {
-        this.recordGameEvent("riichi", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name });
-      }
       this.emitChange();
     }
 
@@ -808,6 +842,9 @@
         humanYakuAnalysis,
         humanScoreAnalysis,
         humanAvailableActions,
+        pendingRiichiDiscardInstanceIds: RiichiRules
+          ? RiichiRules.getDeclarationDiscardOptions(this, this.humanPlayer.id).map((tile) => tile.instanceId)
+          : [],
         lastDiscard: this.lastDiscard,
         callWindow: this.callWindow,
         winResult: this.winResult,

@@ -132,9 +132,18 @@ cpuRiichiEngine.players[1].hand = [
 const pointsBeforeRiichi = cpuRiichiEngine.players[1].points;
 assert(cpuRiichiEngine.tryCpuRiichi(cpuRiichiEngine.players[1]), "CPUが聴牌時にリーチを宣言できません");
 assert(
-  cpuRiichiEngine.players[1].hasRiichi
+  cpuRiichiEngine.players[1].riichi.pending
+    && !cpuRiichiEngine.players[1].hasRiichi
+    && cpuRiichiEngine.players[1].points === pointsBeforeRiichi,
+  "CPUリーチ宣言牌の選択待ちが正しくありません"
+);
+const cpuRiichiDiscardIndex = cpuRiichiEngine.chooseCpuDiscardIndex(cpuRiichiEngine.players[1]);
+const cpuRiichiDiscard = cpuRiichiEngine.players[1].discardTileAt(cpuRiichiDiscardIndex);
+assert(
+  Sanma.RiichiRules.handleDiscard(cpuRiichiEngine, 1, cpuRiichiDiscard).finalized
+    && cpuRiichiEngine.players[1].hasRiichi
     && cpuRiichiEngine.players[1].points === pointsBeforeRiichi - 1000,
-  "CPUリーチの状態または供託が正しくありません"
+  "CPUの宣言打牌または供託が正しくありません"
 );
 
 const cpuKitaEngine = new Sanma.GameEngine({

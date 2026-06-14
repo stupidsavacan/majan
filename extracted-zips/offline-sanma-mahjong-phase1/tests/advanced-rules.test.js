@@ -72,8 +72,11 @@ riichiState.wall.tiles = [];
 assert(!Sanma.RiichiRules.canDeclare(riichiState, 0).enabled, "自摸牌がない状態でリーチできました");
 
 const ippatsuState = state();
-ippatsuState.players[0].hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m"]);
-assert(Sanma.RiichiRules.declare(ippatsuState, 0).applied, "リーチ宣言に失敗しました");
+ippatsuState.players[0].hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m", "1m"]);
+const pendingRiichi = Sanma.RiichiRules.declare(ippatsuState, 0);
+assert(pendingRiichi.applied && pendingRiichi.pending && !ippatsuState.players[0].ippatsuActive, "リーチ宣言牌の選択待ちを開始できませんでした");
+const riichiDiscard = ippatsuState.players[0].discardTileByInstanceId(pendingRiichi.discardOptions[0].instanceId);
+assert(Sanma.RiichiRules.handleDiscard(ippatsuState, 0, riichiDiscard).finalized, "宣言打牌でリーチを確定できませんでした");
 assert(ippatsuState.players[0].ippatsuActive && ippatsuState.players[0].riichi.ippatsu, "一発状態を開始できませんでした");
 Sanma.RiichiRules.clearIppatsu(ippatsuState);
 assert(!ippatsuState.players.some((player) => player.ippatsuActive), "鳴き後に一発状態が残りました");

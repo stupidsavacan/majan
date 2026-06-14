@@ -66,12 +66,29 @@ assert(hasYaku(ippatsu, "ippatsu"), "リーチ一発を判定できません");
 assert(!hasYaku(analyze(noYaku, { winType: "ron", isMenzen: true, isIppatsu: true }), "ippatsu"), "リーチなしで一発が付きました");
 
 const declarationState = createState();
-declarationState.players[0].hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m"]);
-assert(Sanma.RiichiManager.declare(declarationState, 0).applied, "リーチ宣言に失敗しました");
-assert(declarationState.players[0].ippatsuActive, "リーチ宣言で一発状態を開始できません");
+declarationState.players[0].hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m", "1m"]);
+const pendingDeclaration = Sanma.RiichiManager.declare(declarationState, 0);
+assert(pendingDeclaration.applied && pendingDeclaration.pending, "リーチ宣言牌の選択待ちを開始できません");
+assert(!declarationState.players[0].ippatsuActive && declarationState.players[0].points === 35000, "宣言打牌前に一発または供託が開始されました");
+const declarationDiscard = declarationState.players[0].discardTileByInstanceId(pendingDeclaration.discardOptions[0].instanceId);
+assert(Sanma.RiichiRules.handleDiscard(declarationState, 0, declarationDiscard).finalized, "宣言打牌でリーチを確定できません");
+assert(declarationState.players[0].ippatsuActive && declarationState.players[0].points === 34000, "宣言打牌後に一発または供託を開始できません");
 declarationState.players[0].receiveTile(tile("1m"));
-declarationState.players[0].discardTileByInstanceId(declarationState.players[0].lastDraw.instanceId);
+const postRiichiDiscard = declarationState.players[0].discardTileByInstanceId(declarationState.players[0].lastDraw.instanceId);
+Sanma.RiichiRules.handleDiscard(declarationState, 0, postRiichiDiscard);
 assert(!declarationState.players[0].ippatsuActive, "打牌後に一発状態を解除できません");
+
+const pendingRiichiEngine = new Sanma.GameEngine({ ruleConfig: {}, seed: "phase11-pending-riichi", onChange: function noop() {} });
+pendingRiichiEngine.humanPlayer.hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "east", "east", "east", "9m", "1m"]);
+pendingRiichiEngine.phase = "human-discard";
+pendingRiichiEngine.turnIndex = 0;
+pendingRiichiEngine.declareHumanRiichi();
+const pendingDiscardIds = pendingRiichiEngine.getState().pendingRiichiDiscardInstanceIds;
+const invalidDeclarationTile = pendingRiichiEngine.humanPlayer.hand.find((ownedTile) => !pendingDiscardIds.includes(ownedTile.instanceId));
+const pendingHandLength = pendingRiichiEngine.humanPlayer.hand.length;
+pendingRiichiEngine.discardHumanTile(invalidDeclarationTile.instanceId);
+assert(pendingRiichiEngine.humanPlayer.hand.length === pendingHandLength, "リーチ宣言待ち中に聴牌を崩す牌を打牌できました");
+assert(pendingRiichiEngine.logs[0].includes("聴牌を維持するリーチ宣言牌"), "不正なリーチ宣言牌の拒否理由が不明です");
 
 const pinfuState = createState();
 pinfuState.players[0].hand = hand(["1p", "2p", "3p", "4p", "5p", "6p", "2s", "3s", "4s", "6s", "7s", "9m", "9m"]);

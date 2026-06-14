@@ -17,6 +17,7 @@
       this.ippatsuActive = false;
       this.riichi = {
         declared: false,
+        pending: false,
         turnIndex: null,
         ippatsu: false,
         discardLocked: false,
@@ -44,8 +45,6 @@
       if (index < 0) return null;
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
-      this.ippatsuActive = false;
-      if (this.riichi) this.riichi.ippatsu = false;
       this.lastDraw = null;
       return tile;
     }
@@ -54,8 +53,6 @@
       if (index < 0 || index >= this.hand.length) return null;
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
-      this.ippatsuActive = false;
-      if (this.riichi) this.riichi.ippatsu = false;
       this.lastDraw = null;
       return tile;
     }

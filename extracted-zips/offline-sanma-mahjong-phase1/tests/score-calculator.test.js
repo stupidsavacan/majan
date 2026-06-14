@@ -72,6 +72,18 @@ assert(kokushiScore.isYakuman && kokushiScore.limitName === "役満" && kokushiS
 
 const dragonTriplet = ["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "white", "white", "white", "9m", "9m"];
 assert(calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }).fu === 40, "標準形の符計算が正しくありません");
+const openWhiteMeld = { type: "pon", open: true, tiles: [tile("white"), tile("white"), tile("white")] };
+const openTripletScore = calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: false, melds: [openWhiteMeld] });
+assert(openTripletScore.details.some((detail) => detail.includes("么九牌の明刻 4符")), "副露した么九牌の明刻符が正しくありません");
+const openWhiteKan = { type: "kan", open: true, tiles: [tile("white"), tile("white"), tile("white"), tile("white")] };
+const openKanScore = calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: false, melds: [openWhiteKan] });
+assert(openKanScore.details.some((detail) => detail.includes("么九牌の明槓 16符")), "副露した么九牌の明槓符が正しくありません");
+const shanponRonScore = calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true, waitType: "shanpon", winningTile: tile("white") });
+assert(shanponRonScore.details.some((detail) => detail.includes("么九牌の明刻 4符")), "ロンで完成した双碰待ちの刻子を明刻扱いできません");
+["kanchan", "penchan", "tanki"].forEach((waitType) => {
+  const waitFuScore = calculate(dragonTriplet, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true, waitType });
+  assert(waitFuScore.details.some((detail) => detail.includes("待ち形 2符")), `${waitType}の待ち符が付きません`);
+});
 
 const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "7s", "8s", "9s", "1m", "1m"];
 assert(!calculate(noYaku, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }).isValidWin, "役なし和了形が有効になっています");

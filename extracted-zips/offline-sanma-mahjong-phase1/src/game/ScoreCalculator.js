@@ -1,191 +1,249 @@
 (function attachScoreCalculator(global) {
-  const Sanma = global.Sanma = global.Sanma || {},
-    winds = { east: 1, south: 2, west: 3, north: 4 };
+  const Sanma = global.Sanma = global.Sanma || {};
+  const winds = { east: 1, south: 2, west: 3, north: 4 };
 
-  function up(v) {
-    return Math.ceil(v / 100) * 100
+  function roundUp100(value) {
+    return Math.ceil(value / 100) * 100;
   }
 
-  function first(g) {
-    return g && Array.isArray(g.tileTypes) ? g.tileTypes[0] || "" : ""
+  function firstTileType(group) {
+    return group && Array.isArray(group.tileTypes) ? group.tileTypes[0] || "" : "";
   }
 
-  function parse(t) {
-    let m = /^z([1-7])$/.exec(t || "");
-    if (m) return { suit: "z", rank: +m[1] };
-    m = /^([1-9])([mps])$/.exec(t || "");
-    return m ? { suit: m[2], rank: +m[1] } : null
+  function parseTileType(tileType) {
+    let match = /^z([1-7])$/.exec(tileType || "");
+    if (match) return { suit: "z", rank: Number(match[1]) };
+    match = /^([1-9])([mps])$/.exec(tileType || "");
+    return match ? { suit: match[2], rank: Number(match[1]) } : null;
   }
 
-  function terminal(t) {
-    const p = parse(t);
-    return !!(p && (p.suit === "z" || p.rank === 1 || p.rank === 9))
+  function isTerminalOrHonor(tileType) {
+    const parsed = parseTileType(tileType);
+    return Boolean(parsed && (parsed.suit === "z" || parsed.rank === 1 || parsed.rank === 9));
   }
 
-  function fu(agari, yaku, c) {
-    const p = agari.bestPattern,
-      d = [];
-    if (p.type === "kokushi" || yaku.isYakuman)
+  function findActualMeld(context, tileType) {
+    return (context.melds || []).find((meld) => {
+      const tiles = Array.isArray(meld.tiles) ? meld.tiles : [];
+      return tiles.length > 0 && tiles.every((tile) => tile && tile.baseId === tileType);
+    }) || null;
+  }
+
+  function classifyTriplet(group, context) {
+    const tileType = firstTileType(group);
+    const actualMeld = findActualMeld(context, tileType);
+    const completedByRon = !actualMeld
+      && context.winType === "ron"
+      && context.waitType === "shanpon"
+      && context.winningTile
+      && context.winningTile.baseId === tileType;
+    return {
+      isOpen: actualMeld ? actualMeld.open !== false : completedByRon,
+      isKan: Boolean(actualMeld
+        && (actualMeld.type === "kan" || (actualMeld.tiles || []).length >= 4)),
+      isTerminalOrHonor: isTerminalOrHonor(tileType),
+    };
+  }
+
+  function calculateFu(agariResult, yakuResult, context) {
+    const pattern = agariResult.bestPattern;
+    const details = [];
+    if (pattern.type === "kokushi" || yakuResult.isYakuman) {
       return { fu: null, details: ["役満のため符計算を省略します。"] };
-    if (p.type === "chiitoitsu")
+    }
+    if (pattern.type === "chiitoitsu") {
       return { fu: 25, details: ["七対子は25符固定です。"] };
-    let n = 20;
-    d.push("副底 20符");
-    const pinfu = yaku.yaku.some(x => x.id === "pinfu");
-    if (c.winType === "ron" && c.isMenzen) {
-      n += 10;
-      d.push("門前ロン 10符")
     }
-    if (c.winType === "tsumo" && !pinfu) {
-      n += 2;
-      d.push("ツモ 2符")
+
+    let fu = 20;
+    details.push("副底 20符");
+    const pinfu = yakuResult.yaku.some((item) => item.id === "pinfu");
+
+    if (context.winType === "ron" && context.isMenzen) {
+      fu += 10;
+      details.push("門前ロン 10符");
     }
-    const pair = parse(first(p.pair));
+    if (context.winType === "tsumo" && !pinfu) {
+      fu += 2;
+      details.push("ツモ 2符");
+    }
+
+    const pair = parseTileType(firstTileType(pattern.pair));
     if (pair && pair.suit === "z") {
       if (pair.rank >= 5) {
-        n += 2;
-        d.push("三元牌の雀頭 2符")
+        fu += 2;
+        details.push("三元牌の雀頭 2符");
       }
-      if (pair.rank === winds[c.seatWind]) {
-        n += 2;
-        d.push("自風牌の雀頭 2符")
+      if (pair.rank === winds[context.seatWind]) {
+        fu += 2;
+        details.push("自風牌の雀頭 2符");
       }
-      if (pair.rank === winds[c.roundWind]) {
-        n += 2;
-        d.push("場風牌の雀頭 2符")
+      if (pair.rank === winds[context.roundWind]) {
+        fu += 2;
+        details.push("場風牌の雀頭 2符");
       }
     }
-    (p.melds || []).filter(x => x.kind === "triplet").forEach(x => {
-      const th = terminal(first(x)),
-        v = c.isMenzen ? (th ? 8 : 4) : (th ? 4 : 2);
-      n += v;
-      d.push(`${th?"么九牌":"中張牌"}の${c.isMenzen?"暗刻":"明刻"} ${v}符`)
+
+    if (["kanchan", "penchan", "tanki"].includes(context.waitType)) {
+      fu += 2;
+      details.push("待ち形 2符");
+    }
+
+    (pattern.melds || []).filter((group) => group.kind === "triplet").forEach((group) => {
+      const classification = classifyTriplet(group, context);
+      let value = classification.isTerminalOrHonor ? 8 : 4;
+      if (classification.isOpen) value /= 2;
+      if (classification.isKan) value *= 4;
+      fu += value;
+      const tileLabel = classification.isTerminalOrHonor ? "么九牌" : "中張牌";
+      const groupLabel = classification.isKan
+        ? (classification.isOpen ? "明槓" : "暗槓")
+        : (classification.isOpen ? "明刻" : "暗刻");
+      details.push(`${tileLabel}の${groupLabel} ${value}符`);
     });
-    if (pinfu && c.winType === "tsumo")
+
+    if (pinfu && context.winType === "tsumo") {
       return { fu: 20, details: ["平和ツモは20符です。"] };
-    if (n === 20 && c.winType === "ron")
-      return { fu: 30, details: d.concat("ロン和了の最低符として30符") };
-    const r = Math.ceil(n / 10) * 10;
-    if (r !== n) d.push(`${n}符を${r}符へ切り上げ`);
-    return { fu: r, details: d }
+    }
+    if (fu === 20 && context.winType === "ron") {
+      return { fu: 30, details: details.concat("ロン和了の最低符として30符") };
+    }
+
+    const roundedFu = Math.ceil(fu / 10) * 10;
+    if (roundedFu !== fu) details.push(`${fu}符を${roundedFu}符へ切り上げ`);
+    return { fu: roundedFu, details };
   }
 
-  function limit(h, f, y, r) {
-    const count = y.isYakuman ? Math.max(1, y.yakuman.length) : 0;
-    if (count)
-      return { limitName: "役満", basePoints: 8000 * count, isYakuman: true, yakumanCount: count };
-    if (h >= 13 && r.countedYakuman !== false)
+  function calculateLimit(han, fu, yakuResult, ruleConfig) {
+    const yakumanCount = yakuResult.isYakuman ? Math.max(1, yakuResult.yakuman.length) : 0;
+    if (yakumanCount) {
+      return {
+        limitName: "役満",
+        basePoints: 8000 * yakumanCount,
+        isYakuman: true,
+        yakumanCount,
+      };
+    }
+    if (han >= 13 && ruleConfig.countedYakuman !== false) {
       return { limitName: "数え役満", basePoints: 8000, isYakuman: true, yakumanCount: 1 };
-    if (h >= 11)
+    }
+    if (han >= 11) {
       return { limitName: "三倍満", basePoints: 6000, isYakuman: false, yakumanCount: 0 };
-    if (h >= 8)
+    }
+    if (han >= 8) {
       return { limitName: "倍満", basePoints: 4000, isYakuman: false, yakumanCount: 0 };
-    if (h >= 6)
+    }
+    if (han >= 6) {
       return { limitName: "跳満", basePoints: 3000, isYakuman: false, yakumanCount: 0 };
-    if (h >= 5 || (h === 4 && f >= 40) || (h === 3 && f >= 70))
+    }
+    if (han >= 5 || (han === 4 && fu >= 40) || (han === 3 && fu >= 70)) {
       return { limitName: "満貫", basePoints: 2000, isYakuman: false, yakumanCount: 0 };
-    return { limitName: null, basePoints: f * (2 ** (h + 2)), isYakuman: false, yakumanCount: 0 }
+    }
+    return {
+      limitName: null,
+      basePoints: fu * (2 ** (han + 2)),
+      isYakuman: false,
+      yakumanCount: 0,
+    };
   }
 
-  function payments(base, c, r) {
-    const dealer = c.winnerIndex === c.dealerIndex,
-      h = +c.honba || 0,
-      sticks = +c.riichiSticks || 0,
-      amount = up(base * (dealer ? 6 : 4)) + h * 300;
+  function calculatePayments(basePoints, context, ruleConfig) {
+    const isDealer = context.winnerIndex === context.dealerIndex;
+    const honba = Number(context.honba) || 0;
+    const riichiSticks = Number(context.riichiSticks) || 0;
+    const ronAmount = roundUp100(basePoints * (isDealer ? 6 : 4)) + honba * 300;
     const ron = {
-      amount,
-      loserIndex: c.loserIndex,
-      winnerGain: amount + sticks * 1000,
-      honba: h * 300,
-      riichiSticks: sticks * 1000
+      amount: ronAmount,
+      loserIndex: context.loserIndex,
+      winnerGain: ronAmount + riichiSticks * 1000,
+      honba: honba * 300,
+      riichiSticks: riichiSticks * 1000,
     };
-    const payers = [0, 1, 2].filter(i => i !== c.winnerIndex).map(playerIndex => {
-        const pd = playerIndex === c.dealerIndex;
-        let m;
-        if (dealer) m = r.tsumoLoss ? 2 : 3;
-        else if (pd) m = 2;
-        else m = r.tsumoLoss ? 1 : 2;
-        return {
-          playerIndex,
-          role: pd ? "dealer" : "non-dealer",
-          amount: up(base * m) + h * 100
-        }
-      }),
-      total = payers.reduce((s, p) => s + p.amount, 0);
+
+    const payers = [0, 1, 2].filter((playerIndex) => playerIndex !== context.winnerIndex).map((playerIndex) => {
+      const payerIsDealer = playerIndex === context.dealerIndex;
+      let multiplier;
+      if (isDealer) multiplier = ruleConfig.tsumoLoss ? 2 : 3;
+      else if (payerIsDealer) multiplier = 2;
+      else multiplier = ruleConfig.tsumoLoss ? 1 : 2;
+      return {
+        playerIndex,
+        role: payerIsDealer ? "dealer" : "non-dealer",
+        amount: roundUp100(basePoints * multiplier) + honba * 100,
+      };
+    });
+    const total = payers.reduce((sum, payer) => sum + payer.amount, 0);
     return {
       ron,
       tsumo: {
         payers,
         total,
-        winnerGain: total + sticks * 1000,
-        honbaPerPayer: h * 100,
-        riichiSticks: sticks * 1000,
-        policy: r.tsumoLoss ? "ツモ損あり" : "ツモ損なし"
-      }
-    }
+        winnerGain: total + riichiSticks * 1000,
+        honbaPerPayer: honba * 100,
+        riichiSticks: riichiSticks * 1000,
+        policy: ruleConfig.tsumoLoss ? "ツモ損あり" : "ツモ損なし",
+      },
+    };
+  }
+
+  function invalidResult(reason) {
+    return {
+      isValidWin: false,
+      han: 0,
+      fu: null,
+      isYakuman: false,
+      yakumanCount: 0,
+      limitName: null,
+      basePoints: 0,
+      payments: null,
+      reason,
+      details: [],
+    };
   }
 
   function calculateScore(input) {
-    const o = input || {},
-      r = o.ruleConfig || {},
-      a = o.agariResult || {},
-      y = o.yakuResult || {},
-      c = Object.assign({
-        winType: "debug",
-        winnerIndex: 0,
-        loserIndex: 1,
-        dealerIndex: 0,
-        honba: 0,
-        riichiSticks: 0,
-        seatWind: "east",
-        roundWind: "east",
-        isMenzen: true
-      }, o.context || {});
-    if (!a.isAgari)
-      return {
-        isValidWin: false,
-        han: 0,
-        fu: null,
-        isYakuman: false,
-        yakumanCount: 0,
-        limitName: null,
-        basePoints: 0,
-        payments: null,
-        reason: "和了形ではありません。",
-        details: []
-      };
-    if (!y.hasYaku)
-      return {
-        isValidWin: false,
-        han: 0,
-        fu: null,
-        isYakuman: false,
-        yakumanCount: 0,
-        limitName: null,
-        basePoints: 0,
-        payments: null,
-        reason: "和了形ですが役がありません。",
-        details: []
-      };
-    const h = +y.totalHan || 0,
-      F = fu(a, y, c),
-      L = limit(h, F.fu, y, r),
-      P = payments(L.basePoints, c, r),
-      summary = L.limitName || `${h}飜${F.fu}符`;
+    const options = input || {};
+    const ruleConfig = options.ruleConfig || {};
+    const agariResult = options.agariResult || {};
+    const yakuResult = options.yakuResult || {};
+    const context = Object.assign({
+      winType: "debug",
+      winnerIndex: 0,
+      loserIndex: 1,
+      dealerIndex: 0,
+      honba: 0,
+      riichiSticks: 0,
+      seatWind: "east",
+      roundWind: "east",
+      isMenzen: true,
+      melds: [],
+    }, options.context || {});
+
+    if (!agariResult.isAgari) return invalidResult("和了形ではありません。");
+    if (!yakuResult.hasYaku) return invalidResult("和了形ですが役がありません。");
+
+    const han = Number(yakuResult.totalHan) || 0;
+    const fuResult = calculateFu(agariResult, yakuResult, context);
+    const limit = calculateLimit(han, fuResult.fu, yakuResult, ruleConfig);
+    const payments = calculatePayments(limit.basePoints, context, ruleConfig);
+    const summary = limit.limitName || `${han}飜${fuResult.fu}符`;
     return {
       isValidWin: true,
-      han: h,
-      fu: F.fu,
-      isYakuman: L.isYakuman,
-      yakumanCount: L.yakumanCount,
-      limitName: L.limitName,
-      basePoints: L.basePoints,
-      payments: P,
+      han,
+      fu: fuResult.fu,
+      isYakuman: limit.isYakuman,
+      yakumanCount: limit.yakumanCount,
+      limitName: limit.limitName,
+      basePoints: limit.basePoints,
+      payments,
       reason: `${summary}として点数計算できます。`,
-      details: F.details,
-      context: c
-    }
+      details: fuResult.details,
+      context,
+    };
   }
 
-  Sanma.ScoreCalculator = { calculateScore, roundUp100: up }
+  Sanma.ScoreCalculator = {
+    calculateScore,
+    roundUp100,
+  };
 })(window);
