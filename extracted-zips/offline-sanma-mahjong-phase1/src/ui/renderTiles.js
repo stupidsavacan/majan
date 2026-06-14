@@ -99,11 +99,10 @@
       8: [[28, 20], [52, 20], [28, 44], [52, 44], [28, 68], [52, 68], [28, 92], [52, 92]],
       9: [[20, 24], [40, 24], [60, 24], [20, 56], [40, 56], [60, 56], [20, 88], [40, 88], [60, 88]],
     };
-    const designRed = { 7: { 0: true }, 9: { 1: true, 4: true, 7: true } };
+    const designRed = { 5: { 2: true }, 7: { 0: true }, 9: { 1: true, 4: true, 7: true } };
     const focusRanks = { 2: true, 3: true, 4: true, 5: true, 6: true };
     const cleanedRanks = { 7: true, 8: true, 9: true };
     const layout = layouts[tile.rank] || sou[tile.rank] || [];
-    const center = Math.floor(layout.length / 2);
     const focused = Boolean(focusRanks[tile.rank]);
     const cleaned = Boolean(cleanedRanks[tile.rank]);
     const stemWidth = cleaned ? 4.464 : focused ? 6.2 : 5.4;
@@ -114,7 +113,7 @@
 
     layout.forEach(([x, y], index) => {
       const useRed = (designRed[tile.rank] && designRed[tile.rank][index])
-        || (tile.isRed && tile.rank === 5 && index === center);
+        || (tile.isRed && tile.rank === 5);
       const fill = useRed ? colors.red : colors.green;
       const group = svgElement("g", { transform: `translate(${x} ${y})` });
       group.appendChild(svgElement("rect", {

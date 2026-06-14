@@ -8,6 +8,7 @@ const testFiles = [
   "score-calculator.test.js",
   "action-resolver.test.js",
   "rules-scoring-regression.test.js",
+  "tile-design.test.js",
   "cpu-strategy.test.js",
   "storage-records.test.js",
   "smoke.test.js",
