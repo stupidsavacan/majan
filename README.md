@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 8
+# Offline Sanma Mahjong - Phase 9.1
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 8では牌譜・成績保存、設定JSON入出力、診断表示を追加しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 9.1ではPhase 8/9相当機能の保存監査、起動堅牢化、UI配線、文書・テスト完全性を検証しています。
 
 ## 起動方法
 
@@ -15,9 +15,9 @@
 
 ## ソース保守方針
 
-- `src/game` 配下のJavaScriptはminify・圧縮せず、関数単位で通常の改行・インデントを維持します。
+- `src/game`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
 - 生成済みHTMLや埋め込みフォントCSSは圧縮を許容します。
-- `tests/source-format.test.js` で、ゲームソースが少数行へ圧縮されていないことを確認します。
+- `tests/source-format.test.js` で、上記JavaScript全体が少数行へ圧縮されていないことを確認します。
 
 ## Phase 1で実装済み
 
@@ -117,6 +117,15 @@
 - 設定JSONのエクスポート・検証付きインポート・設定のみ初期化
 - 読み書き状態、復旧状態、モジュール、牌譜数、フォントを含むデバッグ診断
 
+## Phase 9・9.1で実装済み
+
+- Phase 9/current phase表示、直接 `file://` 起動、script順、外部通信不要の統合監査
+- 初期化・描画・新しい局・主要UI操作の日本語エラー復旧表示
+- 保存破損復旧状態、Phase 9.1、最終アプリエラーを含む診断
+- DOM ID・UI配線・保存上限・個別破損牌譜・イベント時系列と重複の静的/回帰テスト
+- `src/game`、`src/storage`、`src/ui`、`tests` 全JavaScriptのソース整形監査
+- `PHASE9_REPORT.md`、`PHASE9_BROWSER_CHECKLIST.md`、`PHASE9_1_CLEANUP_STORAGE_AUDIT.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -156,12 +165,12 @@
 
 ## 次のPhaseでやるべきこと
 
-Phase 9では以下の最終回帰を行う想定です。
+Phase 10以降では以下を追加する候補です。
 
+- 複数局・対局進行
 - カン実行、リーチ後制約、フリテン
 - 副露を含む役・符計算の詳細精度向上
 - CPUロン・ポンの安全な割り込み処理と押し引き
-- 保存データ移行、最終UI、全機能の統合回帰
 
 ## ファイル構成
 
@@ -196,3 +205,11 @@ Phase 9では以下の最終回帰を行う想定です。
 - `src/styles/phase5.css`
 - `src/styles/phase8.css`
 - `src/styles/yuji-mai-embedded.css`
+- `tests/storage-records.test.js`
+- `tests/smoke.test.js`
+- `tests/regression.test.js`
+- `tests/source-format.test.js`
+- `PHASE8_REPORT.md`
+- `PHASE9_REPORT.md`
+- `PHASE9_BROWSER_CHECKLIST.md`
+- `PHASE9_1_CLEANUP_STORAGE_AUDIT.md`

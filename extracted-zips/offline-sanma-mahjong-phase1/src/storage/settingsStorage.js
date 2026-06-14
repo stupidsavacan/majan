@@ -48,9 +48,22 @@
 
   function resetAllStorage() {
     try {
+      const keys = new Set([
+        STORAGE_KEY,
+        "offlineSanma.phase8.records",
+        "offlineSanma.phase8.stats",
+      ]);
       Object.keys(localStorage)
         .filter((key) => key.startsWith("offlineSanma."))
-        .forEach((key) => localStorage.removeItem(key));
+        .forEach((key) => keys.add(key));
+      if (Number.isInteger(localStorage.length) && typeof localStorage.key === "function") {
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (key && key.startsWith("offlineSanma.")) keys.add(key);
+        }
+      }
+      keys.forEach((key) => localStorage.removeItem(key));
+      status.writable = true;
       return true;
     } catch (error) {
       rememberError(error, "write");

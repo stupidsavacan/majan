@@ -1,4 +1,6 @@
-const { assert, createTileFactory, loadModules } = require("./test-helpers");
+const fs = require("fs");
+const path = require("path");
+const { assert, createTileFactory, loadModules, projectRoot } = require("./test-helpers");
 
 const Sanma = loadModules([
   "src/storage/settingsStorage.js",
@@ -55,8 +57,46 @@ const scoreResult = Sanma.ScoreCalculator.calculateScore({ tiles, ruleConfig: co
 assert(scoreResult.isValidWin, "ScoreCalculator did not score a simple valid win");
 assert(Sanma.ActionResolver.findAction(engine, 0, "discard"), "ActionResolver could not resolve an action");
 
+const canonicalIndex = fs.readFileSync(path.resolve(projectRoot, "index.html"), "utf8");
+const mainSource = fs.readFileSync(path.resolve(projectRoot, "src", "main.js"), "utf8");
+const referencedIds = [...mainSource.matchAll(/(?:requiredElement|document\.getElementById)\("([^"]+)"\)/g)]
+  .map((match) => match[1]);
+referencedIds.forEach((id) => {
+  assert(canonicalIndex.includes(`id="${id}"`), `main.js references missing DOM id: ${id}`);
+});
+
+const scriptSources = [...canonicalIndex.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
+assert(new Set(scriptSources).size === scriptSources.length, "index.html has duplicate script tags");
+const requiredScriptOrder = [
+  "src/game/GameRecord.js",
+  "src/storage/settingsStorage.js",
+  "src/storage/gameRecordStorage.js",
+  "src/ui/renderTable.js",
+  "src/ui/settingsExportImport.js",
+  "src/ui/recordPanel.js",
+  "src/main.js",
+];
+requiredScriptOrder.forEach((source) => {
+  assert(scriptSources.includes(source), `index.html is missing ${source}`);
+});
+requiredScriptOrder.slice(1).forEach((source, index) => {
+  assert(
+    scriptSources.indexOf(requiredScriptOrder[index]) < scriptSources.indexOf(source),
+    `index.html script order is invalid near ${source}`
+  );
+});
+
+const settingsTransferSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui", "settingsExportImport.js"), "utf8");
+const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui", "recordPanel.js"), "utf8");
+["settingsJson", "exportSettingsButton", "importSettingsButton", "resetSettingsButton"].forEach((id) => {
+  assert(settingsTransferSource.includes(`"${id}"`), `settings UI is missing generated id: ${id}`);
+});
+["recordsJson", "copyRecordsButton", "resetRecordsButton", "resetStatsButton"].forEach((id) => {
+  assert(recordPanelSource.includes(`"${id}"`), `records UI is missing generated id: ${id}`);
+});
+
 console.log(JSON.stringify({
-  phase: 8,
+  phase: "9.1",
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

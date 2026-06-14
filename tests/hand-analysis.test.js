@@ -2,10 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const gameRoot = "extracted-zips/offline-sanma-mahjong-phase1";
+const gameRoot = fs.existsSync(path.resolve(__dirname, "..", "src", "game", "Tile.js"))
+  ? ""
+  : "extracted-zips/offline-sanma-mahjong-phase1";
 global.window = global;
-for (const file of [`${gameRoot}/src/game/Tile.js`, `${gameRoot}/src/game/HandAnalysis.js`]) {
-  vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"), { filename: file });
+for (const file of ["src/game/Tile.js", "src/game/HandAnalysis.js"]) {
+  vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", gameRoot, file), "utf8"), { filename: file });
 }
 
 const { TileUtil, HandAnalysis } = global.Sanma;

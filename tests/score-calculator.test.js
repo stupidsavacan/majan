@@ -2,9 +2,30 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+const gameRoot = fs.existsSync(path.resolve(__dirname, "..", "src", "game", "RuleConfig.js"))
+  ? ""
+  : "extracted-zips/offline-sanma-mahjong-phase1";
 global.window = global;
-for (const file of ["extracted-zips/offline-sanma-mahjong-phase1/src/game/RuleConfig.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Tile.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/HandAnalysis.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/YakuAnalysis.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/ScoreCalculator.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Settlement.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/RiichiManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/KanManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/KitaManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/ActionResolver.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/CpuStrategy.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/AssistManager.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/GameRecord.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/CallWindow.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Wall.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/Player.js", "extracted-zips/offline-sanma-mahjong-phase1/src/game/GameEngine.js"]) {
-  vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"), { filename: file });
+for (const file of [
+  "src/game/RuleConfig.js",
+  "src/game/Tile.js",
+  "src/game/HandAnalysis.js",
+  "src/game/YakuAnalysis.js",
+  "src/game/ScoreCalculator.js",
+  "src/game/Settlement.js",
+  "src/game/RiichiManager.js",
+  "src/game/KanManager.js",
+  "src/game/KitaManager.js",
+  "src/game/ActionResolver.js",
+  "src/game/CpuStrategy.js",
+  "src/game/AssistManager.js",
+  "src/game/GameRecord.js",
+  "src/game/CallWindow.js",
+  "src/game/Wall.js",
+  "src/game/Player.js",
+  "src/game/GameEngine.js",
+]) {
+  vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", gameRoot, file), "utf8"), { filename: file });
 }
 
 const { TileUtil, HandAnalysis, YakuAnalysis, ScoreCalculator, Settlement } = global.Sanma;

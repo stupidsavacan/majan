@@ -29,6 +29,16 @@ assert(!Sanma.SettingsExportImport.importSettings('{"unknown":true}').ok, "既�
 assert(Sanma.SettingsStorage.saveSettings(settings), "設定を保存できません");
 assert(Sanma.SettingsStorage.resetSettings(), "設定だけを初期化できません");
 assert(Sanma.SettingsStorage.loadSettings().allowChi === true, "設定初期化後に既定値へ戻りません");
+storageData[Sanma.SettingsStorage.STORAGE_KEY] = "{}";
+storageData[Sanma.GameRecordStorage.RECORDS_KEY] = "[]";
+storageData[Sanma.GameRecordStorage.STATS_KEY] = "{}";
+assert(Sanma.SettingsStorage.resetAllStorage(), "全保存データを初期化できません");
+assert(
+  !storageData[Sanma.SettingsStorage.STORAGE_KEY]
+    && !storageData[Sanma.GameRecordStorage.RECORDS_KEY]
+    && !storageData[Sanma.GameRecordStorage.STATS_KEY],
+  "全保存データ初期化で設定・牌譜・成績が残っています"
+);
 
 storageData[Sanma.SettingsStorage.STORAGE_KEY] = "{broken-json";
 const originalWarn = console.warn;
@@ -51,6 +61,9 @@ const record = Sanma.GameRecord.create({
   roundLabel: "東1局",
   honba: 0,
 });
+const addedRound = Sanma.GameRecord.addRound(record, { roundLabel: "東2局", honba: 1 });
+assert(addedRound && record.rounds.length === 2, "牌譜へ局を追加できません");
+record.rounds.pop();
 Sanma.GameRecord.addEvent(record, "deal", { dealerIndex: 0 });
 Sanma.GameRecord.addEvent(record, "win", { playerIndex: 0, winType: "tsumo" });
 Sanma.GameRecord.finishRound(record, {
@@ -66,9 +79,18 @@ const restored = Sanma.GameRecord.deserialize(serialized);
 assert(restored.id === record.id && restored.rounds[0].events.length === 2, "牌譜を作成・直列化できません");
 assert(Sanma.GameRecordStorage.saveRecord(record), "牌譜を保存できません");
 assert(Sanma.GameRecordStorage.loadRecords()[0].id === record.id, "保存した牌譜を読み込めません");
+storageData[Sanma.GameRecordStorage.RECORDS_KEY] = JSON.stringify([{ bad: true }, record]);
+assert(Sanma.GameRecordStorage.loadRecords().length === 1, "不正な個別牌譜を読み飛ばせません");
 storageData[Sanma.GameRecordStorage.RECORDS_KEY] = "{broken-json";
 assert(Sanma.GameRecordStorage.loadRecords().length === 0, "壊れた牌譜保存を安全に復旧できません");
 assert(Sanma.GameRecordStorage.getDiagnostics().localStorage.readable, "牌譜JSON破損をlocalStorage読取不能として扱っています");
+const emptyDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
+assert(
+  typeof emptyDiagnostics.localStorage.readable === "boolean"
+    && typeof emptyDiagnostics.localStorage.writable === "boolean"
+    && emptyDiagnostics.records.count === 0,
+  "空の保存領域を診断できません"
+);
 
 const engine = new Sanma.GameEngine({
   ruleConfig: settings,
@@ -91,6 +113,15 @@ assert(
     && engine.gameRecord.rounds[0].events.some((event) => event.type === "score_settlement"),
   "GameEngineが和了・精算イベントを牌譜へ記録できません"
 );
+const eventIndexes = engine.gameRecord.rounds[0].events.map((event) => event.index);
+assert(
+  eventIndexes.every((index, position) => position === 0 || index > eventIndexes[position - 1]),
+  "GameEngineの牌譜イベントが時系列順ではありません"
+);
+assert(
+  engine.gameRecord.rounds[0].events.filter((event) => event.type === "win").length === 1,
+  "GameEngineの和了イベントが重複しています"
+);
 
 Sanma.GameRecordStorage.resetRecords();
 Sanma.GameRecordStorage.resetStats();
@@ -103,6 +134,18 @@ assert(stats.gamesPlayed === 1 && stats.roundsPlayed === 1, "対局・局数を�
 assert(stats.wins === 1 && stats.losses === 0, "人間の和了を成績へ反映できません");
 assert(stats.totalScoreMovement === 2000, "点数収支を成績へ反映できません");
 assert(stats.highestHand && stats.highestHand.score.han === 2, "最高打点を保存できません");
+const lowerRecord = Sanma.GameRecord.create({ players, ruleConfig: settings });
+Sanma.GameRecord.finishRound(lowerRecord, {
+  winnerIndex: 0,
+  winType: "tsumo",
+  yaku: { yaku: [{ name: "門前清自摸和" }], yakuman: [] },
+  score: { isValidWin: true, isYakuman: false, han: 1, fu: 30, limitName: "" },
+}, [36000, 34500, 34500]);
+Sanma.GameRecordStorage.updateStats(lowerRecord);
+assert(
+  Sanma.GameRecordStorage.loadStats().highestHand.score.han === 2,
+  "低い和了で最高打点を上書きしました"
+);
 
 const capped = Sanma.GameRecord.create({ players, ruleConfig: settings });
 for (let index = 0; index < Sanma.GameRecord.MAX_EVENTS_PER_ROUND + 50; index += 1) {
@@ -111,6 +154,16 @@ for (let index = 0; index < Sanma.GameRecord.MAX_EVENTS_PER_ROUND + 50; index +=
 assert(
   capped.rounds[0].events.length === Sanma.GameRecord.MAX_EVENTS_PER_ROUND,
   "大きなイベントログを上限内へ制限できません"
+);
+
+Sanma.GameRecordStorage.resetRecords();
+for (let index = 0; index < Sanma.GameRecordStorage.MAX_RECORDS + 5; index += 1) {
+  const limitedRecord = Sanma.GameRecord.create({ players, ruleConfig: settings });
+  assert(Sanma.GameRecordStorage.saveRecord(limitedRecord), "牌譜上限テスト用データを保存できません");
+}
+assert(
+  Sanma.GameRecordStorage.loadRecords().length === Sanma.GameRecordStorage.MAX_RECORDS,
+  "保存牌譜数の上限を適用できません"
 );
 
 assert(Sanma.GameRecordStorage.resetRecords(), "牌譜をリセットできません");

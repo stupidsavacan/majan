@@ -62,6 +62,11 @@
       ? `${latest.createdAt} / ${latest.rounds[0].roundLabel} / ${latest.seed || "ランダムseed"}`
       : "保存済み牌譜はありません。");
     root.appendChild(summary);
+    const diagnostics = options.diagnostics || {};
+    const storageStatus = diagnostics.localStorage || {};
+    if (storageStatus.corruptedRecovered) {
+      root.appendChild(el("div", "record-summary", "破損した保存データを安全に復旧しました。"));
+    }
 
     const history = el("ul", "record-history");
     records.slice().reverse().forEach((record) => {
@@ -80,17 +85,22 @@
     root.appendChild(events);
 
     const textarea = el("textarea", "transfer-textarea");
+    textarea.id = "recordsJson";
     textarea.readOnly = true;
     textarea.placeholder = "牌譜JSON";
     const status = el("div", "transfer-status");
     const actions = el("div", "panel-actions transfer-actions");
     const exportButton = actionButton("エクスポート", "export");
+    exportButton.id = "exportRecordsButton";
+    exportButton.textContent = "牌譜JSON表示";
     exportButton.disabled = !latest;
     exportButton.addEventListener("click", () => {
       textarea.value = latest ? JSON.stringify(latest, null, 2) : "";
       status.textContent = "最新の牌譜JSONを表示しました。";
     });
     const copyButton = actionButton("コピー", "copy");
+    copyButton.id = "copyRecordsButton";
+    copyButton.textContent = "牌譜JSONをコピー";
     copyButton.disabled = !latest;
     copyButton.addEventListener("click", () => {
       const text = latest ? JSON.stringify(latest, null, 2) : "";
@@ -98,9 +108,11 @@
       if (handlers && handlers.onCopy) handlers.onCopy(text, status);
     });
     const resetRecords = actionButton("牌譜をリセット", "reset-records");
+    resetRecords.id = "resetRecordsButton";
     resetRecords.className = "danger";
     resetRecords.addEventListener("click", () => handlers && handlers.onResetRecords && handlers.onResetRecords());
     const resetStats = actionButton("成績をリセット", "reset-stats");
+    resetStats.id = "resetStatsButton";
     resetStats.className = "danger";
     resetStats.addEventListener("click", () => handlers && handlers.onResetStats && handlers.onResetStats());
     actions.append(exportButton, copyButton, resetRecords, resetStats);

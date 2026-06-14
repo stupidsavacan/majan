@@ -48,25 +48,30 @@
     const title = document.createElement("h3");
     title.textContent = "設定のエクスポート・インポート";
     const textarea = document.createElement("textarea");
+    textarea.id = "settingsJson";
     textarea.className = "transfer-textarea";
     textarea.placeholder = "設定JSONをここへ貼り付けてください。";
     const status = document.createElement("div");
+    status.id = "settingsTransferStatus";
     status.className = "transfer-status";
     const actions = document.createElement("div");
     actions.className = "panel-actions transfer-actions";
 
     const exportButton = button("設定JSONを表示", "export");
+    exportButton.id = "exportSettingsButton";
     exportButton.addEventListener("click", () => {
       textarea.value = exportSettings(currentConfig);
       status.textContent = "設定JSONを表示しました。";
     });
     const importButton = button("インポート", "import");
+    importButton.id = "importSettingsButton";
     importButton.addEventListener("click", () => {
       const result = importSettings(textarea.value);
       status.textContent = result.reason;
       if (result.ok && handlers && handlers.onImport) handlers.onImport(result.settings);
     });
     const resetButton = button("設定を初期化", "reset");
+    resetButton.id = "resetSettingsButton";
     resetButton.className = "danger";
     resetButton.addEventListener("click", () => {
       if (handlers && handlers.onReset) handlers.onReset();

@@ -18,6 +18,16 @@
     };
   }
 
+  function createRound(input) {
+    const options = input || {};
+    return {
+      roundLabel: options.roundLabel || "東1局",
+      honba: Number(options.honba) || 0,
+      events: [],
+      result: null,
+    };
+  }
+
   function create(input) {
     const options = input || {};
     const createdAt = new Date().toISOString();
@@ -29,15 +39,17 @@
       seed: String(options.seed || ""),
       ruleConfig: clone(options.ruleConfig || {}),
       players: (options.players || []).map(playerSnapshot),
-      rounds: [{
-        roundLabel: options.roundLabel || "東1局",
-        honba: Number(options.honba) || 0,
-        events: [],
-        result: null,
-      }],
+      rounds: [createRound(options)],
       finalPoints: [],
       completedAt: null,
     };
+  }
+
+  function addRound(record, input) {
+    if (!record || !Array.isArray(record.rounds) || record.completedAt) return null;
+    const round = createRound(input);
+    record.rounds.push(round);
+    return round;
   }
 
   function currentRound(record) {
@@ -123,6 +135,7 @@
   Sanma.GameRecord = {
     MAX_EVENTS_PER_ROUND,
     create,
+    addRound,
     addEvent,
     finishRound,
     normalize,

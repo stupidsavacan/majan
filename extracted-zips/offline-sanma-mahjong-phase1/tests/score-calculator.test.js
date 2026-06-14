@@ -3,7 +3,25 @@ const path = require("path");
 const vm = require("vm");
 
 global.window = global;
-for (const file of ["src/game/RuleConfig.js", "src/game/Tile.js", "src/game/HandAnalysis.js", "src/game/YakuAnalysis.js", "src/game/ScoreCalculator.js", "src/game/Settlement.js", "src/game/RiichiManager.js", "src/game/KanManager.js", "src/game/KitaManager.js", "src/game/ActionResolver.js", "src/game/CpuStrategy.js", "src/game/AssistManager.js", "src/game/GameRecord.js", "src/game/CallWindow.js", "src/game/Wall.js", "src/game/Player.js", "src/game/GameEngine.js"]) {
+for (const file of [
+  "src/game/RuleConfig.js",
+  "src/game/Tile.js",
+  "src/game/HandAnalysis.js",
+  "src/game/YakuAnalysis.js",
+  "src/game/ScoreCalculator.js",
+  "src/game/Settlement.js",
+  "src/game/RiichiManager.js",
+  "src/game/KanManager.js",
+  "src/game/KitaManager.js",
+  "src/game/ActionResolver.js",
+  "src/game/CpuStrategy.js",
+  "src/game/AssistManager.js",
+  "src/game/GameRecord.js",
+  "src/game/CallWindow.js",
+  "src/game/Wall.js",
+  "src/game/Player.js",
+  "src/game/GameEngine.js",
+]) {
   vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"), { filename: file });
 }
 
