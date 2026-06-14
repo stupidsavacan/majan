@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline Sanma Mahjong - Phase 7</title>
+  <title>Offline Sanma Mahjong - Phase 9</title>
   <link rel="stylesheet" href="src/styles/yuji-mai-embedded.css" />
   <link rel="stylesheet" href="src/styles/main.css" />
   <link rel="stylesheet" href="src/styles/phase4.css" />
@@ -13,12 +13,13 @@
   <div id="app" class="app-shell">
     <header class="top-bar">
       <div>
-        <h1>オフライン三麻 Phase 7</h1>
-        <p class="subtitle">CPU思考・補助ロジック強化版</p>
+        <h1>オフライン三麻 Phase 9</h1>
+        <p class="subtitle">初回リリース前統合・オフライン完成度向上</p>
       </div>
       <div class="top-actions">
         <button id="newGameButton" type="button">新しい局</button>
         <button id="settingsButton" type="button">設定</button>
+        <button id="recordsButton" type="button">牌譜・成績</button>
         <button id="debugButton" type="button">デバッグ</button>
       </div>
     </header>
@@ -37,11 +38,14 @@
         <button value="close" type="submit" class="icon-button">×</button>
       </div>
       <div id="settingsRoot" class="settings-grid"></div>
+      <h3>設定のエクスポート・インポート</h3><textarea id="settingsJson" class="json-area" aria-label="設定JSON"></textarea><div class="panel-actions"><button id="exportSettingsButton" type="button">エクスポート</button><button id="importSettingsButton" type="button">インポート</button><button id="resetSettingsButton" type="button" class="danger">設定リセット</button></div>
       <div class="panel-actions">
         <button id="saveSettingsButton" value="close" type="submit">保存して新しい局</button>
       </div>
     </form>
   </dialog>
+
+  <dialog id="recordsDialog" class="panel-dialog"><form method="dialog" class="panel-card panel-card-wide"><div class="panel-head"><h2>牌譜・履歴・成績</h2><button value="close" class="icon-button">×</button></div><div id="recordsRoot" class="records-root"></div><div class="panel-actions"><button id="copyRecordsButton" type="button">コピー</button><button id="resetRecordsButton" type="button" class="danger">牌譜・成績リセット</button></div></form></dialog>
 
   <dialog id="debugDialog" class="panel-dialog">
     <form method="dialog" class="panel-card panel-card-wide">
@@ -78,9 +82,13 @@
   <script src="src/game/Player.js"></script>
   <script src="src/game/GameEngine.js"></script>
   <script src="src/storage/settingsStorage.js"></script>
+  <script src="src/game/GameRecord.js"></script>
+  <script src="src/storage/gameRecordStorage.js"></script>
   <script src="src/ui/renderTiles.js"></script>
   <script src="src/ui/renderTable.js"></script>
   <script src="src/ui/settingsPanel.js"></script>
+  <script src="src/ui/settingsExportImport.js"></script>
+  <script src="src/ui/recordPanel.js"></script>
   <script src="src/main.js"></script>
 </body>
 </html>

@@ -1,28 +1,12 @@
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { projectRoot } = require("./test-helpers");
-
-const testFiles = [
-  "hand-analysis.test.js",
-  "yaku-analysis.test.js",
-  "score-calculator.test.js",
-  "action-resolver.test.js",
-  "cpu-strategy.test.js",
-  "smoke.test.js",
-  "regression.test.js",
-  "source-format.test.js",
-];
-
-let failed = false;
-testFiles.forEach((file) => {
-  console.log(`\n=== ${file} ===`);
-  const result = spawnSync(process.execPath, [path.resolve(projectRoot, "tests", file)], { stdio: "inherit" });
-  if (result.status !== 0) failed = true;
+const suites = ["hand-analysis", "yaku-analysis", "score-calculator", "action-resolver", "cpu-strategy", "storage-records", "smoke", "regression", "source-format"];
+const failed = [];
+suites.forEach((suite) => {
+  console.log(`\n=== ${suite} ===`);
+  const result = spawnSync(process.execPath, [path.resolve(projectRoot, "tests", `${suite}.test.js`)], { stdio: "inherit" });
+  if (result.status !== 0) failed.push(suite);
 });
-
-if (failed) {
-  console.error("\nPhase 7 test run failed.");
-  process.exit(1);
-}
-
-console.log("\nAll Phase 7 tests passed.");
+console.log(JSON.stringify({ phase: 9, passed: failed.length === 0, suites, externalDependencies: [] }, null, 2));
+if (failed.length) process.exit(1);

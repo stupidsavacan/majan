@@ -1,6 +1,7 @@
 const { assert, createTileFactory, loadModules } = require("./test-helpers");
 
-const Sanma = loadModules();
+global.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+const Sanma = loadModules(["src/game/GameRecord.js", "src/storage/gameRecordStorage.js"]);
 const requiredModules = [
   "Sanma.RuleConfig",
   "Sanma.Wall",
@@ -11,6 +12,8 @@ const requiredModules = [
   "Sanma.ActionResolver",
   "Sanma.CpuStrategy",
   "Sanma.AssistManager",
+  "Sanma.GameRecord",
+  "Sanma.GameRecordStorage",
 ];
 
 requiredModules.forEach((name) => {
@@ -47,7 +50,7 @@ assert(scoreResult.isValidWin, "ScoreCalculator did not score a simple valid win
 assert(Sanma.ActionResolver.findAction(engine, 0, "discard"), "ActionResolver could not resolve an action");
 
 console.log(JSON.stringify({
-  phase: 7,
+  phase: 9,
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

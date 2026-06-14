@@ -1,0 +1,8 @@
+const { assert, loadModules } = require("./test-helpers");
+const data = {}; global.localStorage = { getItem:k => Object.prototype.hasOwnProperty.call(data,k)?data[k]:null, setItem:(k,v)=>data[k]=String(v), removeItem:k=>delete data[k], key:i=>Object.keys(data)[i], get length(){return Object.keys(data).length;} };
+const S = loadModules(["src/game/GameRecord.js","src/storage/settingsStorage.js","src/storage/gameRecordStorage.js","src/ui/settingsExportImport.js"]);
+const config = S.RuleConfig.createRuleConfig({ allowChi:false }); const imported = S.SettingsExportImport.importSettings(S.SettingsExportImport.exportSettings(config)); assert(imported.allowChi === false,"settings round trip");
+localStorage.setItem("offlineSanma.phase1.settings","{"); assert(S.SettingsStorage.loadSettings().playerCount===3,"corrupt settings recovery");
+const record=S.GameRecord.create({seed:"test"}), round=S.GameRecord.addRound(record,{}); for(let i=0;i<550;i++) S.GameRecord.addEvent(round,"draw",String(i)); assert(round.events.length===500,"event cap"); assert(S.GameRecord.deserialize(S.GameRecord.serialize(record)).id===record.id,"serialization");
+assert(S.GameRecordStorage.saveRecord(record),"save");
+localStorage.setItem(S.GameRecordStorage.RECORDS_KEY, JSON.stringify([{ bad: true }, record])); assert(S.GameRecordStorage.loadRecords().length === 1, "invalid record recovery"); assert(S.GameRecordStorage.loadRecords()[0].id===record.id,"load"); assert(S.GameRecordStorage.updateStats({won:true,scoreMovement:1000}).wins===1,"win stats"); S.GameRecordStorage.resetRecords(); S.GameRecordStorage.resetStats(); assert(S.GameRecordStorage.loadRecords().length===0 && S.GameRecordStorage.loadStats().wins===0,"reset"); console.log("storage-records tests passed");
