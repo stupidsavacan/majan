@@ -31,13 +31,16 @@
 
     const opponents = el("section", "opponents-grid");
     state.players.filter((player) => !player.isHuman).forEach((player) => {
-      opponents.appendChild(renderOpponent(player, state.turnIndex === player.id));
+      opponents.appendChild(renderOpponent(player, state.turnIndex === player.id, state.round.dealerIndex));
     });
 
     const center = el("section", "center-board");
     center.append(tableInfo, renderDiscards(state.players), doraPanel);
     if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers));
     if (state.winResult) center.appendChild(renderWinResult(state.winResult));
+    if (state.matchState && state.matchState.roundEnded) {
+      center.appendChild(renderMatchFlow(state.matchState, handlers));
+    }
 
     const human = renderHuman(state.players[0], state, handlers);
 
@@ -50,10 +53,13 @@
     return badge;
   }
 
-  function renderOpponent(player, isTurn) {
+  function renderOpponent(player, isTurn, dealerIndex) {
     const card = el("article", `player-card opponent-card ${isTurn ? "active-player" : ""}`);
     const head = el("div", "player-head");
-    head.append(el("strong", "player-name", player.name), el("span", "points", `${player.points.toLocaleString()}点`));
+    head.append(
+      el("strong", "player-name", `${player.name}${player.id === dealerIndex ? " 親" : ""}`),
+      el("span", "points", `${player.points.toLocaleString()}点`)
+    );
 
     const handBacks = el("div", "opponent-hand");
     for (let i = 0; i < player.hand.length; i += 1) {
@@ -113,15 +119,14 @@
     const canDiscard = phase === "human-discard" || phase === "caller-discard";
     const section = el("section", `human-area ${canDiscard ? "active-player" : ""}`);
     const head = el("div", "human-head");
-    const statusLabel = canDiscard
-      ? "打牌してください"
-      : phase === "human-call"
-        ? "鳴き・ロンを選択してください"
-        : phase === "win-ended"
-          ? "和了終了"
-          : "CPU思考中";
+    let statusLabel = "CPU思考中";
+    if (canDiscard) statusLabel = "打牌してください";
+    else if (phase === "human-call") statusLabel = "鳴き・ロンを選択してください";
+    else if (state.matchState && state.matchState.matchEnded) statusLabel = "対局終了";
+    else if (state.matchState && state.matchState.roundEnded) statusLabel = "局終了";
+    else if (phase === "win-ended") statusLabel = "和了終了";
     head.append(
-      el("div", "human-title", "あなたの手牌"),
+      el("div", "human-title", `あなたの手牌${player.id === state.round.dealerIndex ? " 親" : ""}`),
       el("div", "human-status", `${player.points.toLocaleString()}点 / ${statusLabel}`)
     );
 
@@ -190,6 +195,33 @@
     skip.addEventListener("click", handlers.onSkipCall);
     actions.appendChild(skip);
     panel.appendChild(actions);
+    return panel;
+  }
+
+  function renderMatchFlow(matchState, handlers) {
+    const panel = el("section", "match-flow-panel");
+    if (matchState.matchEnded) {
+      panel.appendChild(el("h2", "section-title", "対局終了"));
+      panel.appendChild(el("strong", "match-end-reason", matchState.endReason || "対局終了"));
+      const rankingTitle = el("h3", "ranking-title", "順位");
+      const rankings = el("ol", "ranking-list");
+      (matchState.rankings || []).forEach((ranking) => {
+        const sign = ranking.pointDelta >= 0 ? "+" : "";
+        rankings.appendChild(el(
+          "li",
+          "",
+          `${ranking.label} ${ranking.name}: ${ranking.points.toLocaleString()}点 (${sign}${ranking.pointDelta.toLocaleString()})`
+        ));
+      });
+      panel.append(rankingTitle, rankings);
+      return panel;
+    }
+
+    panel.appendChild(el("h2", "section-title", "局終了"));
+    const nextRound = actionButton("次局へ", "次の局を配牌します。", false, "available-action");
+    nextRound.id = "nextRoundButton";
+    nextRound.addEventListener("click", handlers.onNextRound);
+    panel.appendChild(nextRound);
     return panel;
   }
 
@@ -290,6 +322,9 @@
       "",
       "和了結果:",
       JSON.stringify(state.winResult || null, null, 2),
+      "",
+      "対局進行:",
+      JSON.stringify(state.matchState || null, null, 2),
       "",
       "利用可能操作:",
       JSON.stringify(state.humanAvailableActions || [], null, 2),

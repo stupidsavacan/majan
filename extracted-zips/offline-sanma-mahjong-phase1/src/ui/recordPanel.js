@@ -58,8 +58,10 @@
       "record-summary",
       `最高打点: ${highest} / 最終プレイ: ${stats.lastPlayedAt || "なし"}`
     ));
+    const firstRound = latest && latest.rounds[0] ? latest.rounds[0] : null;
+    const lastRound = latest && latest.rounds.length > 0 ? latest.rounds[latest.rounds.length - 1] : null;
     const summary = el("div", "record-summary", latest
-      ? `${latest.createdAt} / ${latest.rounds[0].roundLabel} / ${latest.seed || "ランダムseed"}`
+      ? `${latest.createdAt} / ${firstRound.roundLabel}${lastRound !== firstRound ? `〜${lastRound.roundLabel}` : ""} / ${latest.seed || "ランダムseed"}`
       : "保存済み牌譜はありません。");
     root.appendChild(summary);
     const diagnostics = options.diagnostics || {};
@@ -70,18 +72,22 @@
 
     const history = el("ul", "record-history");
     records.slice().reverse().forEach((record) => {
-      const round = record.rounds && record.rounds[0] ? record.rounds[0] : {};
+      const round = record.rounds && record.rounds.length > 0 ? record.rounds[record.rounds.length - 1] : {};
       const result = round.result || {};
       const outcome = Number.isInteger(result.winnerIndex)
         ? `${record.players[result.winnerIndex] ? record.players[result.winnerIndex].name : "和了者"} ${result.winType || "和了"}`
         : "流局";
-      history.appendChild(el("li", "", `${record.createdAt} / ${round.roundLabel || "局"} / ${outcome}`));
+      history.appendChild(el("li", "", `${record.createdAt} / ${record.rounds.length}局 / ${outcome} / ${record.matchEndReason || "終了"}`));
     });
     root.appendChild(history);
 
     const events = el("ol", "record-events");
-    const latestEvents = latest && latest.rounds[0] ? latest.rounds[0].events : [];
-    latestEvents.forEach((event) => events.appendChild(el("li", "", eventText(event))));
+    const latestRounds = latest && Array.isArray(latest.rounds) ? latest.rounds : [];
+    latestRounds.forEach((round) => {
+      (round.events || []).forEach((event) => {
+        events.appendChild(el("li", "", `${round.roundLabel}: ${eventText(event)}`));
+      });
+    });
     root.appendChild(events);
 
     const textarea = el("textarea", "transfer-textarea");

@@ -16,21 +16,15 @@
   const CpuStrategy = Sanma.CpuStrategy;
   const AssistManager = Sanma.AssistManager;
   const GameRecord = Sanma.GameRecord;
-
-  const windLabels = { east: "東", south: "南", west: "西" };
+  const MatchManager = Sanma.MatchManager;
 
   class GameEngine {
     constructor({ ruleConfig, seed, onChange }) {
       this.ruleConfig = RuleConfig.createRuleConfig(ruleConfig);
       this.seed = seed || "";
       this.onChange = typeof onChange === "function" ? onChange : function noop() {};
-      this.round = {
-        roundWind: "east",
-        handNumber: 1,
-        honba: 0,
-        riichiSticks: 0,
-        dealerIndex: 0,
-      };
+      this.matchManager = new MatchManager({ ruleConfig: this.ruleConfig, seed: this.seed });
+      this.round = this.matchManager.getRoundSnapshot();
       this.players = [];
       this.wall = null;
       this.turnIndex = 0;
@@ -48,14 +42,12 @@
     }
 
     startRound() {
-      this.wall = new Wall(this.ruleConfig, { seed: this.seed });
-      this.cpuRandom = Sanma.createRandom(this.seed ? `${this.seed}:cpu` : "");
-      this.assistRandom = Sanma.createRandom(this.seed ? `${this.seed}:assist` : "");
-      this.players = [
-        new Player({ id: 0, name: "あなた", seatWind: "east", isHuman: true, points: this.ruleConfig.initialPoints }),
-        new Player({ id: 1, name: "CPU 1", seatWind: "south", isHuman: false, points: this.ruleConfig.initialPoints }),
-        new Player({ id: 2, name: "CPU 2", seatWind: "west", isHuman: false, points: this.ruleConfig.initialPoints }),
-      ];
+      this.round = this.matchManager.getRoundSnapshot();
+      const roundSeed = this.seed ? `${this.seed}:${this.round.label}:${this.round.honba}` : "";
+      this.wall = new Wall(this.ruleConfig, { seed: roundSeed });
+      this.cpuRandom = Sanma.createRandom(roundSeed ? `${roundSeed}:cpu` : "");
+      this.assistRandom = Sanma.createRandom(roundSeed ? `${roundSeed}:assist` : "");
+      this.players = this.matchManager.state.players.map((player) => new Player(player));
       this.turnIndex = this.round.dealerIndex;
       this.phase = "dealing";
       this.logs = [];
@@ -65,13 +57,23 @@
       this.lastDiscard = null;
       this.callWindow = null;
       this.dealInitialHands();
-      this.gameRecord = GameRecord.create({
-        seed: this.seed,
-        ruleConfig: this.ruleConfig,
-        players: this.players,
+      const roundRecordInput = {
         roundLabel: this.getRoundLabel(),
+        dealerIndex: this.round.dealerIndex,
         honba: this.round.honba,
-      });
+        riichiSticks: this.round.riichiSticks,
+        startingPoints: this.players.map((player) => player.points),
+      };
+      if (!this.gameRecord) {
+        this.gameRecord = GameRecord.create(Object.assign({
+          matchId: this.matchManager.state.matchId,
+          seed: this.seed,
+          ruleConfig: this.ruleConfig,
+          players: this.players,
+        }, roundRecordInput));
+      } else {
+        GameRecord.addRound(this.gameRecord, roundRecordInput);
+      }
       this.recordGameEvent("deal", {
         dealerIndex: this.round.dealerIndex,
         hands: this.players.map((player) => ({
@@ -86,8 +88,18 @@
         random: this.assistRandom,
       }));
       this.phase = "human-discard";
-      this.addLog("配牌しました。あなたは親です。切る牌をクリック/タップしてください。");
+      this.addLog(`配牌しました。${this.players[this.round.dealerIndex].name}が親です。切る牌をクリック/タップしてください。`);
       this.emitChange();
+    }
+
+    startNextRound() {
+      if (!this.matchManager.startNextRound()) {
+        this.addLog(this.matchManager.state.matchEnded ? "対局は終了しています。" : "まだ次局へ進めません。");
+        this.emitChange();
+        return false;
+      }
+      this.startRound();
+      return true;
     }
 
     dealInitialHands() {
@@ -292,7 +304,6 @@
       if (!settlement.applied) return false;
 
       this.phase = "win-ended";
-      this.round.riichiSticks = 0;
       this.callWindow = null;
       this.winResult = {
         winnerIndex: player.id,
@@ -436,7 +447,6 @@
         return;
       }
       this.phase = "win-ended";
-      this.round.riichiSticks = 0;
       this.winResult = {
         winnerIndex: this.humanPlayer.id,
         winnerName: this.humanPlayer.name,
@@ -476,7 +486,6 @@
         return;
       }
       this.phase = "win-ended";
-      this.round.riichiSticks = 0;
       this.callWindow = null;
       this.winResult = {
         winnerIndex: this.humanPlayer.id,
@@ -649,15 +658,40 @@
 
     finishGameRecord(result) {
       if (!this.gameRecord || this.gameRecord.completedAt) return;
-      GameRecord.finishRound(
-        this.gameRecord,
-        result,
-        this.players.map((player) => player.points)
-      );
+      const currentRound = this.gameRecord.rounds[this.gameRecord.rounds.length - 1];
+      if (currentRound && currentRound.result) return;
+      const safeResult = this.withDrawTenpai(result);
+      const points = this.players.map((player) => player.points);
+      GameRecord.completeRound(this.gameRecord, safeResult, points, {
+        dealerIndex: this.round.dealerIndex,
+        honba: this.round.honba,
+        riichiSticks: this.round.riichiSticks,
+        pointMovement: safeResult.settlement ? safeResult.settlement.changes : [],
+      });
+      this.matchManager.syncRound(this.round);
+      const matchState = this.matchManager.completeRound(safeResult, this.players);
+      this.round.riichiSticks = matchState.riichiSticks;
+      if (matchState.matchEnded) {
+        GameRecord.finishMatch(
+          this.gameRecord,
+          points,
+          matchState.rankings,
+          matchState.endReason
+        );
+      }
+    }
+
+    withDrawTenpai(result) {
+      const safeResult = Object.assign({}, result || {});
+      if (safeResult.type !== "exhaustive_draw" || safeResult.dealerTenpai !== undefined) return safeResult;
+      const dealer = this.players[this.round.dealerIndex];
+      const tiles = ActionResolver.getAnalysisTiles(dealer);
+      safeResult.dealerTenpai = HandAnalysis.analyzeTenpai(tiles, this.ruleConfig).isTenpai;
+      return safeResult;
     }
 
     getRoundLabel() {
-      return `${windLabels[this.round.roundWind]}${this.round.handNumber}局`;
+      return Sanma.RoundManager.roundLabel(this.round.roundWind, this.round.handNumber);
     }
 
     analyzeHumanWin(winType) {
@@ -677,6 +711,8 @@
     }
 
     getState() {
+      this.matchManager.syncRound(this.round);
+      this.matchManager.syncPlayers(this.players);
       const humanHand = this.humanPlayer ? this.humanPlayer.hand : [];
       const humanWinAnalysis = this.analyzeHumanWin("tsumo");
       const humanAgariAnalysis = humanWinAnalysis.agari;
@@ -706,6 +742,7 @@
         lastDiscard: this.lastDiscard,
         callWindow: this.callWindow,
         winResult: this.winResult,
+        matchState: this.matchManager.getState(),
         gameRecord: this.gameRecord,
         seed: this.seed,
       };

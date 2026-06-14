@@ -5,11 +5,33 @@
   box-shadow:0 0 1.2rem rgba(248,181,0,.35)
 }
 
-.win-result {
+.win-result,.match-flow-panel {
+  grid-column:1/-1;
   padding:.85rem;
   border:1px solid rgba(248,181,0,.55);
   border-radius:1rem;
   background:rgba(248,181,0,.1)
+}
+
+.match-flow-panel {
+  text-align:center
+}
+
+.match-end-reason,.ranking-title {
+  color:#ffe5a3
+}
+
+.ranking-title {
+  margin:.8rem 0 .35rem
+}
+
+.ranking-list {
+  width:min(30rem,100%);
+  margin:0 auto;
+  padding-left:1.8rem;
+  color:var(--muted);
+  text-align:left;
+  line-height:1.7
 }
 
 .win-result-title {

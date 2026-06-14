@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline Sanma Mahjong - Phase 9.2</title>
+  <title>Offline Sanma Mahjong - Phase 10</title>
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/yuji-mai-embedded.css" />
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/main.css" />
   <link rel="stylesheet" href="extracted-zips/offline-sanma-mahjong-phase1/src/styles/phase4.css" />
@@ -14,11 +14,11 @@
   <div id="app" class="app-shell">
     <header class="top-bar">
       <div>
-        <h1>オフライン三麻 Phase 9.2</h1>
-        <p class="subtitle">ルール・得点・ソース整形監査版</p>
+        <h1>オフライン三麻 Phase 10</h1>
+        <p class="subtitle">対局進行・局管理版</p>
       </div>
       <div class="top-actions">
-        <button id="newGameButton" type="button">新しい局</button>
+        <button id="newGameButton" type="button">新しい対局</button>
         <button id="settingsButton" type="button">設定</button>
         <button id="recordsButton" type="button">牌譜・成績</button>
         <button id="debugButton" type="button">デバッグ</button>
@@ -41,7 +41,7 @@
       <div id="settingsRoot" class="settings-grid"></div>
       <section id="settingsTransferRoot" class="transfer-panel"></section>
       <div class="panel-actions">
-        <button id="saveSettingsButton" value="close" type="submit">保存して新しい局</button>
+        <button id="saveSettingsButton" value="close" type="submit">保存して新しい対局</button>
       </div>
     </form>
   </dialog>
@@ -66,7 +66,7 @@
         <div>
           <label class="field-label" for="seedInput">固定seed</label>
           <input id="seedInput" type="text" placeholder="例: sanma-001" />
-          <button id="applySeedButton" value="close" type="submit">seedで新しい局</button>
+          <button id="applySeedButton" value="close" type="submit">seedで新しい対局</button>
           <button id="resetStorageButton" type="button" class="danger">全保存データをリセット</button>
         </div>
         <pre id="debugRoot" class="debug-output"></pre>
@@ -75,6 +75,11 @@
   </dialog>
 
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RuleConfig.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RoundManager.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/HonbaManager.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/RankingManager.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/EndConditionManager.js"></script>
+  <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/MatchManager.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/Tile.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/HandAnalysis.js"></script>
   <script src="extracted-zips/offline-sanma-mahjong-phase1/src/game/DoraCalculator.js"></script>

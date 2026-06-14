@@ -18,12 +18,14 @@ const settings = Sanma.RuleConfig.createRuleConfig({
   allowChi: false,
   highScoreMode: true,
   northMode: "normal-tile",
+  matchLength: "tonpuu",
 });
 const exported = Sanma.SettingsExportImport.exportSettings(settings);
 const imported = Sanma.SettingsExportImport.importSettings(exported);
 assert(imported.ok, "設定JSONを再インポートできません");
 assert(imported.settings.allowChi === false, "設定JSONでallowChiを往復できません");
 assert(imported.settings.highScoreMode === true, "設定JSONでhighScoreModeを往復できません");
+assert(imported.settings.matchLength === "tonpuu", "設定JSONで対局形式を往復できません");
 assert(!Sanma.SettingsExportImport.importSettings("{broken-json").ok, "不正な設定JSONを受理しました");
 assert(!Sanma.SettingsExportImport.importSettings('{"unknown":true}').ok, "既知項目のない設定JSONを受理しました");
 assert(Sanma.SettingsStorage.saveSettings(settings), "設定を保存できません");
@@ -107,7 +109,8 @@ engine.humanPlayer.hand = [
 engine.phase = "human-discard";
 engine.turnIndex = 0;
 engine.claimHumanTsumo();
-assert(engine.gameRecord.completedAt, "GameEngineが和了時に牌譜を完了できません");
+assert(engine.gameRecord.rounds[0].result, "GameEngineが和了時に局結果を確定できません");
+assert(!engine.gameRecord.completedAt, "連続対局の途中で牌譜全体を完了しました");
 assert(
   engine.gameRecord.rounds[0].events.some((event) => event.type === "win")
     && engine.gameRecord.rounds[0].events.some((event) => event.type === "score_settlement"),

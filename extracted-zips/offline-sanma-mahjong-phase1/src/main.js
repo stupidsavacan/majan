@@ -30,7 +30,7 @@
     lastAppError = `${context}: ${detail}`;
     console.error(lastAppError, error);
     if (messagePanel) {
-      messagePanel.textContent = `エラー: ${detail}。「新しい局」または保存データのリセットで復旧できます。`;
+      messagePanel.textContent = `エラー: ${detail}。「新しい対局」または保存データのリセットで復旧できます。`;
     }
   }
 
@@ -57,6 +57,7 @@
   function diagnostics() {
     const requiredModules = [
       "RuleConfig", "TileUtil", "HandAnalysis", "DoraCalculator", "YakuAnalysis", "ScoreCalculator", "Settlement",
+      "RoundManager", "HonbaManager", "RankingManager", "EndConditionManager", "MatchManager",
       "RiichiManager", "KanManager", "KitaManager", "ActionResolver", "CpuStrategy", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
@@ -64,7 +65,7 @@
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: "9.2",
+      app_phase: 10,
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -103,6 +104,7 @@
         onKan: safeAction("カン確認", () => engine.requestHumanKan()),
         onCall: safeAction("鳴き", (actionId, optionIndex) => engine.claimHumanCall(actionId, optionIndex)),
         onSkipCall: safeAction("鳴きスキップ", () => engine.skipHumanCall()),
+        onNextRound: safeAction("次局へ", () => engine.startNextRound()),
       });
       Sanma.RenderTable.renderMessages(messagePanel, state);
       Sanma.RenderTable.renderDebug(debugRoot, state);
@@ -122,7 +124,7 @@
         onChange: render,
       });
     } catch (error) {
-      showError(error, "新しい局");
+      showError(error, "新しい対局");
     }
   }
 
@@ -178,7 +180,7 @@
 
   function bindUi() {
     requiredElement("newGameButton").addEventListener("click", safeAction(
-      "新しい局ボタン",
+      "新しい対局ボタン",
       () => startNewRound({ seed: currentSeed })
     ));
     requiredElement("settingsButton").addEventListener("click", safeAction("設定画面", () => {

@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 9.2
+# Offline Sanma Mahjong - Phase 10
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 9.2では既存の立直・一発・平和・ドラ・フリテン・立直後制約を実際の和了・操作経路へ接続し、CSSを含むソース整形監査を追加しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 10では局単位のゲームを連続対局へ拡張し、親・本場・供託・点棒・順位・終局条件を管理します。
 
 ## 起動方法
 
@@ -138,6 +138,16 @@
 - 非生成CSSの通常改行化とJS/CSSソース整形監査
 - `PHASE9_2_RULES_SCORING_AUDIT.md`
 
+## Phase 10で実装済み
+
+- 一局戦・東風戦・半荘戦の連続対局進行
+- 親移動、親和了・親聴牌流局の連荘、本場・供託の繰越
+- 点棒を保持した次局配牌、トビ・オーラス終了判定
+- 親・局・本場・供託・点棒・次局ボタン・最終順位のUI表示
+- 複数局牌譜、対局ID、局別点棒移動、最終順位の保存
+- `MatchManager`、`RoundManager`、`HonbaManager`、`RankingManager`、`EndConditionManager`
+- `tests/match-flow.test.js` と `PHASE10_REPORT.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -146,7 +156,8 @@
 - 呼び出し窓で鳴くか、スキップして進行できます。
 - 門前聴牌時は `リーチ`、北抜きルールで北がある場合は `北抜き` を操作できます。
 - その後、自分が自動でツモり、再び打牌できます。
-- `新しい局` で最初から配牌し直します。
+- `次局へ` で点棒を保持したまま次の局へ進みます。
+- `新しい対局` で東1局から対局を開始し直します。
 - `設定` で Phase 1 時点のRuleConfigを変更できます。
 - `設定` で設定JSONを表示・インポート・初期化できます。
 - `牌譜・成績` で最新の履歴、成績、牌譜JSONを確認できます。
@@ -158,29 +169,27 @@
 
 - カンの実行、嶺上牌、槓ドラ、槓による一発消し
 - 同巡フリテン、見逃しフリテンなどの完全なフリテン
-- 流局処理の完全実装
-- 局進行
+- ノーテン罰符を含む流局処理の完全実装
 - 実際に牌を交換する内部補助
 
 ## 既知の問題
 
-- プレイヤーは常に東家スタートです。
-- 山が尽きた場合は簡易的に終了ログを出すだけです。
+- 山が尽きた場合は親の聴牌判定のみ行い、ノーテン罰符は移動しません。
 - 裏ドラ・槓ドラ・槓裏ドラは未実装です。
 - CPUは鳴き・ロンを自動スキップします。
 - CPU戦略のシャンテン計算と打牌評価は簡易版で、押し引き・安全牌・打点期待値は未対応です。
 - AssistManagerは設定判定と整合性ログのみで、牌交換は行いません。
 - 牌譜はイベント一覧で、アニメーション再生には未対応です。
-- 対局・成績は現在の簡易1局進行を1対局として集計します。
+- ダブロン、アガリ止め、南入・西入などの詳細な終局ルールは未実装です。
 - カンは候補検出とデバッグ表示のみで、実行は未実装です。
 - 副露を含む役・符計算は既存判定へ副露牌を合成する基礎対応で、詳細精度はPhase 6以降の監査対象です。
 
 ## 次のPhaseでやるべきこと
 
-Phase 10以降では以下を追加する候補です。
+Phase 11以降では以下を追加する候補です。
 
-- 複数局・対局進行
 - カン実行、完全なフリテン
+- ノーテン罰符、ダブロン、アガリ止め、詳細な延長戦条件
 - 副露を含む役・符計算の詳細精度向上
 - CPUロン・ポンの安全な割り込み処理と押し引き
 
@@ -189,6 +198,11 @@ Phase 10以降では以下を追加する候補です。
 - `index.html`
 - `src/main.js`
 - `src/game/RuleConfig.js`
+- `src/game/RoundManager.js`
+- `src/game/HonbaManager.js`
+- `src/game/RankingManager.js`
+- `src/game/EndConditionManager.js`
+- `src/game/MatchManager.js`
 - `src/game/Tile.js`
 - `src/game/HandAnalysis.js`
 - `src/game/DoraCalculator.js`
@@ -223,6 +237,8 @@ Phase 10以降では以下を追加する候補です。
 - `tests/regression.test.js`
 - `tests/source-format.test.js`
 - `tests/rules-scoring-regression.test.js`
+- `tests/match-flow.test.js`
+- `PHASE10_REPORT.md`
 - `PHASE8_REPORT.md`
 - `PHASE9_REPORT.md`
 - `PHASE9_BROWSER_CHECKLIST.md`

@@ -10,6 +10,11 @@ const Sanma = loadModules([
 ]);
 const requiredModules = [
   "Sanma.RuleConfig",
+  "Sanma.RoundManager",
+  "Sanma.HonbaManager",
+  "Sanma.RankingManager",
+  "Sanma.EndConditionManager",
+  "Sanma.MatchManager",
   "Sanma.Wall",
   "Sanma.GameEngine",
   "Sanma.HandAnalysis",
@@ -69,6 +74,12 @@ referencedIds.forEach((id) => {
 const scriptSources = [...canonicalIndex.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
 assert(new Set(scriptSources).size === scriptSources.length, "index.html has duplicate script tags");
 const requiredScriptOrder = [
+  "src/game/RuleConfig.js",
+  "src/game/RoundManager.js",
+  "src/game/HonbaManager.js",
+  "src/game/RankingManager.js",
+  "src/game/EndConditionManager.js",
+  "src/game/MatchManager.js",
   "src/game/DoraCalculator.js",
   "src/game/GameRecord.js",
   "src/storage/settingsStorage.js",
@@ -88,6 +99,26 @@ requiredScriptOrder.slice(1).forEach((source, index) => {
   );
 });
 
+const repositoryRootIndexPath = path.resolve(projectRoot, "..", "..", "index.html");
+const isNestedCanonicalApp = path.basename(projectRoot) === "offline-sanma-mahjong-phase1"
+  && path.basename(path.dirname(projectRoot)) === "extracted-zips";
+if (isNestedCanonicalApp && fs.existsSync(repositoryRootIndexPath)) {
+  const repositoryRootIndex = fs.readFileSync(repositoryRootIndexPath, "utf8");
+  [
+    "src/game/RoundManager.js",
+    "src/game/HonbaManager.js",
+    "src/game/RankingManager.js",
+    "src/game/EndConditionManager.js",
+    "src/game/MatchManager.js",
+    "src/main.js",
+  ].forEach((source) => {
+    assert(
+      repositoryRootIndex.includes(`extracted-zips/offline-sanma-mahjong-phase1/${source}`),
+      `root index.html is missing canonical ${source}`
+    );
+  });
+}
+
 const settingsTransferSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui", "settingsExportImport.js"), "utf8");
 const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui", "recordPanel.js"), "utf8");
 ["settingsJson", "exportSettingsButton", "importSettingsButton", "resetSettingsButton"].forEach((id) => {
@@ -98,7 +129,7 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 });
 
 console.log(JSON.stringify({
-  phase: "9.2",
+  phase: 10,
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

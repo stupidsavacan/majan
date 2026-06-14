@@ -8,6 +8,11 @@ const projectRoot = fs.existsSync(path.resolve(__dirname, "..", "src", "game", "
 
 const gameModules = [
   "src/game/RuleConfig.js",
+  "src/game/RoundManager.js",
+  "src/game/HonbaManager.js",
+  "src/game/RankingManager.js",
+  "src/game/EndConditionManager.js",
+  "src/game/MatchManager.js",
   "src/game/Tile.js",
   "src/game/HandAnalysis.js",
   "src/game/DoraCalculator.js",

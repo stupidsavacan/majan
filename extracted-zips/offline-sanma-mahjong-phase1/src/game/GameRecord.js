@@ -23,8 +23,12 @@
     return {
       roundLabel: options.roundLabel || "東1局",
       honba: Number(options.honba) || 0,
+      dealerIndex: Number.isInteger(options.dealerIndex) ? options.dealerIndex : 0,
+      riichiSticks: Number(options.riichiSticks) || 0,
+      startingPoints: (options.startingPoints || []).map((points) => Number(points) || 0),
       events: [],
       result: null,
+      pointMovement: [],
     };
   }
 
@@ -33,14 +37,18 @@
     const createdAt = new Date().toISOString();
     recordSequence += 1;
     return {
-      version: 1,
+      version: 2,
       id: `record-${Date.now().toString(36)}-${recordSequence.toString(36)}`,
+      matchId: String(options.matchId || ""),
+      phase: 10,
       createdAt,
       seed: String(options.seed || ""),
       ruleConfig: clone(options.ruleConfig || {}),
       players: (options.players || []).map(playerSnapshot),
       rounds: [createRound(options)],
       finalPoints: [],
+      finalRankings: [],
+      matchEndReason: "",
       completedAt: null,
     };
   }
@@ -81,6 +89,7 @@
       type: input.type || (input.winnerIndex === undefined ? "exhaustive_draw" : "win"),
       winnerIndex: Number.isInteger(input.winnerIndex) ? input.winnerIndex : null,
       winType: input.winType || null,
+      dealerTenpai: Boolean(input.dealerTenpai),
       yaku: (yaku.yaku || []).concat(yaku.dora || []).map((item) => item.name),
       yakuman: (yaku.yakuman || []).map((item) => item.name),
       score: {
@@ -99,13 +108,37 @@
     };
   }
 
-  function finishRound(record, result, finalPoints) {
+  function completeRound(record, result, finalPoints, metadata) {
     const round = currentRound(record);
     if (!round || record.completedAt) return record;
     round.result = compactResult(result);
+    const details = metadata || {};
+    if (Number.isInteger(details.dealerIndex)) round.dealerIndex = details.dealerIndex;
+    if (Number.isFinite(details.honba)) round.honba = details.honba;
+    if (Number.isFinite(details.riichiSticks)) round.riichiSticks = details.riichiSticks;
+    round.pointMovement = Array.isArray(details.pointMovement)
+      ? clone(details.pointMovement)
+      : (round.result.changes || []).map((change) => ({
+        playerIndex: change.playerIndex,
+        delta: change.delta,
+        after: change.after,
+      }));
     record.finalPoints = (finalPoints || []).map((points) => Number(points) || 0);
+    return record;
+  }
+
+  function finishMatch(record, finalPoints, rankings, reason) {
+    if (!record || record.completedAt) return record;
+    record.finalPoints = (finalPoints || []).map((points) => Number(points) || 0);
+    record.finalRankings = clone(rankings || []);
+    record.matchEndReason = reason || "";
     record.completedAt = new Date().toISOString();
     return record;
+  }
+
+  function finishRound(record, result, finalPoints) {
+    completeRound(record, result, finalPoints);
+    return finishMatch(record, finalPoints, [], "");
   }
 
   function normalize(record) {
@@ -113,14 +146,25 @@
       throw new Error("牌譜データの形式が不正です。");
     }
     const normalized = clone(record);
+    normalized.version = Number(normalized.version) || 1;
+    normalized.matchId = typeof normalized.matchId === "string" ? normalized.matchId : "";
+    normalized.phase = Number(normalized.phase) || 8;
     normalized.rounds.forEach((round) => {
       if (!round || typeof round !== "object") throw new Error("局データの形式が不正です。");
+      round.roundLabel = round.roundLabel || "東1局";
+      round.honba = Number(round.honba) || 0;
+      round.dealerIndex = Number.isInteger(round.dealerIndex) ? round.dealerIndex : 0;
+      round.riichiSticks = Number(round.riichiSticks) || 0;
+      round.startingPoints = Array.isArray(round.startingPoints) ? round.startingPoints : [];
+      round.pointMovement = Array.isArray(round.pointMovement) ? round.pointMovement : [];
       round.events = Array.isArray(round.events)
         ? round.events.slice(-MAX_EVENTS_PER_ROUND)
         : [];
     });
     normalized.players = Array.isArray(normalized.players) ? normalized.players : [];
     normalized.finalPoints = Array.isArray(normalized.finalPoints) ? normalized.finalPoints : [];
+    normalized.finalRankings = Array.isArray(normalized.finalRankings) ? normalized.finalRankings : [];
+    normalized.matchEndReason = typeof normalized.matchEndReason === "string" ? normalized.matchEndReason : "";
     return normalized;
   }
 
@@ -137,6 +181,8 @@
     create,
     addRound,
     addEvent,
+    completeRound,
+    finishMatch,
     finishRound,
     normalize,
     serialize,

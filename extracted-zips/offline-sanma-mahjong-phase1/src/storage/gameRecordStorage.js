@@ -134,8 +134,8 @@
 
   function updateStats(record) {
     const stats = loadStats();
-    const round = record && record.rounds ? record.rounds[record.rounds.length - 1] : null;
-    const result = round && round.result ? round.result : {};
+    const rounds = record && Array.isArray(record.rounds) ? record.rounds : [];
+    const results = rounds.map((round) => round && round.result ? round.result : {});
     const human = (record.players || []).find((player) => player.isHuman) || record.players[0];
     const humanIndex = human && Number.isInteger(human.id) ? human.id : 0;
     const initialPoints = human ? Number(human.initialPoints) || 0 : 0;
@@ -144,14 +144,17 @@
 
     stats.gamesPlayed += 1;
     stats.roundsPlayed += Array.isArray(record.rounds) ? record.rounds.length : 1;
-    if (Number.isInteger(result.winnerIndex)) {
-      if (result.winnerIndex === humanIndex) stats.wins += 1;
-      else stats.losses += 1;
-    }
-    if (result.score && result.score.isYakuman) stats.yakumanCount += 1;
+    results.forEach((result) => {
+      if (Number.isInteger(result.winnerIndex)) {
+        if (result.winnerIndex === humanIndex) stats.wins += 1;
+        else stats.losses += 1;
+      }
+      if (result.score && result.score.isYakuman) stats.yakumanCount += 1;
+    });
     stats.totalScoreMovement += finalPoints - initialPoints;
     stats.lastPlayedAt = record.completedAt || new Date().toISOString();
-    if (result.score && result.score.isValidWin) {
+    results.forEach((result) => {
+      if (!result.score || !result.score.isValidWin) return;
       const candidate = {
         winnerIndex: result.winnerIndex,
         winType: result.winType,
@@ -163,7 +166,7 @@
       if (!stats.highestHand || scoreRank(candidate) > scoreRank(stats.highestHand)) {
         stats.highestHand = candidate;
       }
-    }
+    });
     writeJson(STATS_KEY, stats);
     return stats;
   }

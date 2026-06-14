@@ -8,7 +8,20 @@
   const defaultRuleConfig = Object.freeze({
     playerCount: 3,
     gameLength: "hanchan",
+    matchLength: "hanchan",
     initialPoints: 35000,
+    startingPoints: 35000,
+    returnPoints: 40000,
+    allowTobi: true,
+    allowSouthRound: true,
+    honbaPoints: Object.freeze({ ron: 300, tsumoTotal: 300 }),
+    riichiStickValue: 1000,
+    renchanPolicy: Object.freeze({
+      dealerWin: true,
+      dealerTenpaiDraw: true,
+      dealerNotenDraw: false,
+    }),
+    doubleRonPolicy: Object.freeze({ allowed: true, honbaIncrement: 1 }),
 
     northMode: "kita-dora",
     allowChi: true,
@@ -43,10 +56,11 @@
 
   const normalSettings = [
     {
-      key: "gameLength",
+      key: "matchLength",
       label: "対局形式",
       type: "select",
       options: [
+        { value: "single", label: "一局戦" },
         { value: "hanchan", label: "半荘" },
         { value: "tonpuu", label: "東風" },
       ],
@@ -82,7 +96,23 @@
   ];
 
   function createRuleConfig(overrides) {
-    const merged = Object.assign({}, defaultRuleConfig, overrides || {});
+    const input = overrides || {};
+    const merged = Object.assign({}, defaultRuleConfig, input);
+    const requestedLength = input.matchLength || input.gameLength || defaultRuleConfig.matchLength;
+    merged.matchLength = ["single", "tonpuu", "hanchan"].includes(requestedLength)
+      ? requestedLength
+      : defaultRuleConfig.matchLength;
+    merged.gameLength = merged.matchLength;
+    const requestedPoints = Number.isFinite(input.startingPoints)
+      ? input.startingPoints
+      : Number.isFinite(input.initialPoints)
+        ? input.initialPoints
+        : defaultRuleConfig.startingPoints;
+    merged.startingPoints = requestedPoints;
+    merged.initialPoints = requestedPoints;
+    merged.honbaPoints = Object.assign({}, defaultRuleConfig.honbaPoints, input.honbaPoints || {});
+    merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
+    merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
     merged.playerCount = 3;
     merged.localYaku = false;
     merged.countedDoubleYakuman = false;
@@ -100,7 +130,7 @@
     }[config.northMode];
 
     return [
-      config.gameLength === "hanchan" ? "半荘" : "東風",
+      config.matchLength === "single" ? "一局戦" : config.matchLength === "hanchan" ? "半荘" : "東風",
       northLabel,
       config.allowChi ? "チーあり" : "チーなし",
       config.tsumoLoss ? "ツモ損あり" : "ツモ損なし",

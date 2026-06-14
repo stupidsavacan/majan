@@ -10,6 +10,7 @@ const testFiles = [
   "rules-scoring-regression.test.js",
   "tile-design.test.js",
   "table-layout.test.js",
+  "match-flow.test.js",
   "cpu-strategy.test.js",
   "storage-records.test.js",
   "smoke.test.js",
@@ -25,8 +26,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 9.2 test run failed.");
+  console.error("\nPhase 10 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 9.2 tests passed.");
+console.log("\nAll Phase 10 tests passed.");

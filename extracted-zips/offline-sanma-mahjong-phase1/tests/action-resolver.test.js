@@ -5,6 +5,11 @@ const vm = require("vm");
 global.window = global;
 for (const file of [
   "src/game/RuleConfig.js",
+  "src/game/RoundManager.js",
+  "src/game/HonbaManager.js",
+  "src/game/RankingManager.js",
+  "src/game/EndConditionManager.js",
+  "src/game/MatchManager.js",
   "src/game/Tile.js",
   "src/game/HandAnalysis.js",
   "src/game/DoraCalculator.js",
