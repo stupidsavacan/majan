@@ -1,30 +1,45 @@
-# Phase 9.3 Additional Tile Design Feedback Patch
+# Phase 9.2 Tile Design Feedback Follow-up
 
-## 5s / 赤5s
+## Problem
+前回の修正では 5s / 赤5s のみ反映され、白・7p・8s が未反映だった。
 
-- 通常5sは赤5sと同じ形状を使用し、中央1本を赤、外側4本を緑にした。
-- 赤5sは同じ形状を使用し、5本すべてを赤にした。
-- 通常5sの中央赤アクセントを維持しつつ、赤5sは5本すべて赤にして視認性を高めた。
+## Changes
+- 白を無地化した。
+- 7p をユーザー編集SVGの赤/黒混合配置に置換した。
+- 8s をユーザー編集SVGの回転つき竹配置に置換した。
+- 5s / 赤5s の既存修正は維持した。
 
-## 変更範囲
+## 7p Coordinates
+```json
+[
+  { "cx": 21.5, "cy": 17.5, "r": 8.9, "fill": "red", "innerFill": "red" },
+  { "cx": 42, "cy": 28, "r": 8.9, "fill": "red", "innerFill": "red" },
+  { "cx": 25.5, "cy": 62, "r": 8.9, "fill": "black", "innerFill": "#fffaf0" },
+  { "cx": 61.5, "cy": 39, "r": 8.9, "fill": "red", "innerFill": "red" },
+  { "cx": 54, "cy": 62, "r": 8.9, "fill": "black", "innerFill": "#fffaf0" },
+  { "cx": 26, "cy": 89, "r": 8.9, "fill": "black", "innerFill": "#fffaf0" },
+  { "cx": 54, "cy": 89, "r": 8.9, "fill": "black", "innerFill": "#fffaf0" }
+]
+```
 
-- `src/ui/renderTiles.js` の5s色分け条件のみを変更した。
-- 通常5sと赤5sの配置・竹形状は共通のまま維持した。
-- 7s・9sの既存赤アクセントと赤5pの描画は変更していない。
+## 8s Coordinates and Rotations
+```json
+[
+  { "x": 15.237, "y": 25.988, "rotation": 0 },
+  { "x": 60.388, "y": 26.869, "rotation": 0 },
+  { "x": 46.75, "y": 32.25, "rotation": 130 },
+  { "x": 28.375, "y": 32.125, "rotation": 50 },
+  { "x": 15.363, "y": 80.119, "rotation": 0 },
+  { "x": 60.388, "y": 81.755, "rotation": 0 },
+  { "x": 28.97, "y": 74.103, "rotation": 130 },
+  { "x": 46.625, "y": 75.5, "rotation": 50 }
+]
+```
 
-## 検証
-
-- 通常5s: 竹要素5本、中央1本が赤、外側4本が緑
-- 赤5s: 竹要素5本、すべて赤
-- 通常5sと赤5s: 形状・配置一致
-- 7s・9s: 既存赤アクセント維持
-- 赤5p: 既存挙動維持
-- 全既存テストを再実行
-
-## 実ブラウザ確認
-
-- 通常5sのfill: `#168252`, `#168252`, `#c73333`, `#168252`, `#168252`
-- 赤5sのfill: `#c73333` × 5
-- 通常5sと赤5sのgeometry一致: `true`
-- 赤牌強調クラス維持: `true`
-- page error・console error・外部通信: 0件
+## Tests
+- `node tests/tile-design.test.js`: PASS
+- `node -c src/ui/renderTiles.js`: PASS
+- `node tests/run-all-tests.js`: NOT RUN locally in this container because the private repository could not be cloned into the execution filesystem; the existing suite entry point remains unchanged and the focused tile design test was expanded for 白・7p・8s・5s・赤5s.
+- app remains offline: PASS, no external fetch/CDN/font/image dependencies were added.
+- no external assets added: PASS
+- no image files added: PASS

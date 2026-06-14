@@ -71,6 +71,26 @@
       8: [[26, 20], [54, 20], [26, 44], [54, 44], [26, 68], [54, 68], [26, 92], [54, 92]],
       9: [[20, 24], [40, 24], [60, 24], [20, 56], [40, 56], [60, 56], [20, 88], [40, 88], [60, 88]],
     };
+    const customPinDesigns = {
+      7: [
+        { cx: 21.5, cy: 17.5, r: 8.9, fill: colors.red, innerFill: colors.red },
+        { cx: 42, cy: 28, r: 8.9, fill: colors.red, innerFill: colors.red },
+        { cx: 25.5, cy: 62, r: 8.9, fill: colors.black, innerFill: "#fffaf0" },
+        { cx: 61.5, cy: 39, r: 8.9, fill: colors.red, innerFill: colors.red },
+        { cx: 54, cy: 62, r: 8.9, fill: colors.black, innerFill: "#fffaf0" },
+        { cx: 26, cy: 89, r: 8.9, fill: colors.black, innerFill: "#fffaf0" },
+        { cx: 54, cy: 89, r: 8.9, fill: colors.black, innerFill: "#fffaf0" },
+      ],
+    };
+    const customDesign = customPinDesigns[tile.rank];
+    if (customDesign) {
+      customDesign.forEach(({ cx, cy, r, fill, innerFill }) => {
+        svg.appendChild(svgElement("circle", { cx, cy, r, fill }));
+        svg.appendChild(svgElement("circle", { cx, cy, r: r * 0.56, fill: innerFill }));
+        svg.appendChild(svgElement("circle", { cx, cy, r: r * 0.22, fill }));
+      });
+      return;
+    }
     const layout = layouts[tile.rank] || pin[tile.rank] || [];
     const radius = tile.rank === 1 ? 16.8 : 8.9;
     const isRedFive = tile.isRed && tile.rank === 5;
@@ -96,7 +116,16 @@
       5: [[28, 32], [52, 32], [40, 56], [28, 80], [52, 80]],
       6: [[29, 25], [51, 25], [29, 56], [51, 56], [29, 87], [51, 87]],
       7: [[40.4, 20.2], [21, 51.6], [40.4, 51.6], [60, 51.6], [21, 74.2], [40.4, 74.2], [60, 74.2]],
-      8: [[28, 20], [52, 20], [28, 44], [52, 44], [28, 68], [52, 68], [28, 92], [52, 92]],
+      8: [
+        { x: 15.237, y: 25.988, rotation: 0 },
+        { x: 60.388, y: 26.869, rotation: 0 },
+        { x: 46.75, y: 32.25, rotation: 130 },
+        { x: 28.375, y: 32.125, rotation: 50 },
+        { x: 15.363, y: 80.119, rotation: 0 },
+        { x: 60.388, y: 81.755, rotation: 0 },
+        { x: 28.97, y: 74.103, rotation: 130 },
+        { x: 46.625, y: 75.5, rotation: 50 },
+      ],
       9: [[20, 24], [40, 24], [60, 24], [20, 56], [40, 56], [60, 56], [20, 88], [40, 88], [60, 88]],
     };
     const designRed = { 5: { 2: true }, 7: { 0: true }, 9: { 1: true, 4: true, 7: true } };
@@ -111,11 +140,14 @@
     const capHeight = cleaned ? 3.312 : focused ? 4.6 : 4.2;
     const strokeWidth = cleaned ? 0.648 : 0.9;
 
-    layout.forEach(([x, y], index) => {
+    layout.forEach((entry, index) => {
+      const x = Array.isArray(entry) ? entry[0] : entry.x;
+      const y = Array.isArray(entry) ? entry[1] : entry.y;
+      const rotation = Array.isArray(entry) ? 0 : Number(entry.rotation || 0);
       const useRed = (designRed[tile.rank] && designRed[tile.rank][index])
         || (tile.isRed && tile.rank === 5);
       const fill = useRed ? colors.red : colors.green;
-      const group = svgElement("g", { transform: `translate(${x} ${y})` });
+      const group = svgElement("g", { transform: `translate(${x} ${y}) rotate(${rotation})` });
       group.appendChild(svgElement("rect", {
         x: -stemWidth / 2,
         y: -stemHeight / 2,
@@ -171,13 +203,16 @@
   }
 
   function renderHonor(svg, tile) {
-    const labels = { 1: "東", 2: "南", 3: "西", 4: "北", 5: "白", 6: "發", 7: "中" };
+    if (tile.rank === 5) {
+      return;
+    }
+
+    const labels = { 1: "東", 2: "南", 3: "西", 4: "北", 6: "發", 7: "中" };
     const fills = {
       1: colors.black,
       2: colors.black,
       3: colors.black,
       4: colors.black,
-      5: colors.blue,
       6: colors.green,
       7: colors.red,
     };
