@@ -31,6 +31,10 @@ const requiredModules = [
   "Sanma.CpuStrategy",
   "Sanma.AssistManager",
   "Sanma.GameRecord",
+  "Sanma.RecordIndex",
+  "Sanma.AdvancedStats",
+  "Sanma.ReplayViewer",
+  "Sanma.RecordListPanel",
   "Sanma.GameRecordStorage",
   "Sanma.SettingsExportImport",
   "Sanma.RecordPanel",
@@ -105,10 +109,14 @@ const requiredScriptOrder = [
   "src/game/InvariantChecker.js",
   "src/game/RecoveryManager.js",
   "src/storage/SaveMigration.js",
+  "src/storage/RecordIndex.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
+  "src/stats/AdvancedStats.js",
   "src/ui/renderTable.js",
   "src/ui/settingsExportImport.js",
+  "src/ui/ReplayViewer.js",
+  "src/ui/RecordListPanel.js",
   "src/ui/recordPanel.js",
   "src/main.js",
 ];
@@ -144,6 +152,10 @@ if (isNestedCanonicalApp && fs.existsSync(repositoryRootIndexPath)) {
     "src/game/InvariantChecker.js",
     "src/game/RecoveryManager.js",
     "src/storage/SaveMigration.js",
+    "src/storage/RecordIndex.js",
+    "src/stats/AdvancedStats.js",
+    "src/ui/ReplayViewer.js",
+    "src/ui/RecordListPanel.js",
     "src/main.js",
   ].forEach((source) => {
     assert(
@@ -158,12 +170,12 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 ["settingsJson", "exportSettingsButton", "importSettingsButton", "resetSettingsButton"].forEach((id) => {
   assert(settingsTransferSource.includes(`"${id}"`), `settings UI is missing generated id: ${id}`);
 });
-["recordsJson", "copyRecordsButton", "resetRecordsButton", "resetStatsButton"].forEach((id) => {
+["recordsJson", "recordImportJson", "copyRecordsButton", "importRecordButton", "resetRecordsButton", "resetStatsButton"].forEach((id) => {
   assert(recordPanelSource.includes(`"${id}"`), `records UI is missing generated id: ${id}`);
 });
 
 console.log(JSON.stringify({
-  phase: 12,
+  phase: 13,
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

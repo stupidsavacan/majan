@@ -6,6 +6,7 @@ const checkedJavaScriptRoots = [
   path.resolve(projectRoot, "src", "debug"),
   path.resolve(projectRoot, "src", "game"),
   path.resolve(projectRoot, "src", "storage"),
+  path.resolve(projectRoot, "src", "stats"),
   path.resolve(projectRoot, "src", "ui"),
   path.resolve(projectRoot, "tests"),
 ];

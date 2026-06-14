@@ -63,11 +63,12 @@
       "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
       "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
+      "RecordIndex", "AdvancedStats", "ReplayViewer", "RecordListPanel",
     ];
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: 12,
+      app_phase: 13,
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -78,6 +79,8 @@
       records: {
         count: recordDiagnostics.records.count,
         size_limit_policy: recordDiagnostics.records.sizeLimitPolicy,
+        size_bytes: recordDiagnostics.records.sizeBytes,
+        near_storage_limit: recordDiagnostics.records.nearStorageLimit,
       },
       state_machine: latestState ? latestState.gameState : null,
       invariants_ok: latestState && latestState.invariantReport
@@ -158,9 +161,12 @@
   }
 
   function renderRecords() {
+    const records = Sanma.GameRecordStorage.loadRecords();
     Sanma.RecordPanel.render(recordsRoot, {
-      records: Sanma.GameRecordStorage.loadRecords(),
+      records,
+      entries: Sanma.GameRecordStorage.loadIndex(records),
       stats: Sanma.GameRecordStorage.loadStats(),
+      advancedStats: Sanma.AdvancedStats.calculate(records),
       diagnostics: Sanma.GameRecordStorage.getDiagnostics(),
     }, {
       onCopy: (text, status) => {
@@ -181,6 +187,21 @@
       onResetStats: safeAction("成績リセット", () => {
         if (!Sanma.GameRecordStorage.resetStats()) throw new Error("成績をリセットできませんでした。");
         renderRecords();
+      }),
+      onDelete: safeAction("牌譜削除", (recordId) => {
+        if (!Sanma.GameRecordStorage.deleteRecord(recordId)) throw new Error("選択した牌譜を削除できませんでした。");
+        renderRecords();
+      }),
+      onImport: safeAction("牌譜インポート", (text, status) => {
+        const result = Sanma.GameRecordStorage.importRecord(text);
+        if (!result.ok) {
+          status.textContent = result.reason;
+          return;
+        }
+        committedRecordIds.add(result.record.id);
+        renderRecords();
+        const nextStatus = recordsRoot.querySelector(".transfer-status");
+        if (nextStatus) nextStatus.textContent = result.reason;
       }),
     });
   }

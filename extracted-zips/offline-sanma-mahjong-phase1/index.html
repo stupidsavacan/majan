@@ -3,19 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline Sanma Mahjong - Phase 12</title>
+  <title>Offline Sanma Mahjong - Phase 13</title>
   <link rel="stylesheet" href="src/styles/yuji-mai-embedded.css" />
   <link rel="stylesheet" href="src/styles/main.css" />
   <link rel="stylesheet" href="src/styles/phase4.css" />
   <link rel="stylesheet" href="src/styles/phase5.css" />
   <link rel="stylesheet" href="src/styles/phase8.css" />
+  <link rel="stylesheet" href="src/styles/phase13.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="top-bar">
       <div>
-        <h1>オフライン三麻 Phase 12</h1>
-        <p class="subtitle">対局進行・局管理版</p>
+        <h1>オフライン三麻 Phase 13</h1>
+        <p class="subtitle">牌譜再生・成績強化版</p>
       </div>
       <div class="top-actions">
         <button id="newGameButton" type="button">新しい対局</button>
@@ -108,12 +109,16 @@
   <script src="src/game/RecoveryManager.js"></script>
   <script src="src/game/GameEngine.js"></script>
   <script src="src/storage/SaveMigration.js"></script>
+  <script src="src/storage/RecordIndex.js"></script>
   <script src="src/storage/settingsStorage.js"></script>
   <script src="src/storage/gameRecordStorage.js"></script>
+  <script src="src/stats/AdvancedStats.js"></script>
   <script src="src/ui/renderTiles.js"></script>
   <script src="src/ui/renderTable.js"></script>
   <script src="src/ui/settingsPanel.js"></script>
   <script src="src/ui/settingsExportImport.js"></script>
+  <script src="src/ui/ReplayViewer.js"></script>
+  <script src="src/ui/RecordListPanel.js"></script>
   <script src="src/ui/recordPanel.js"></script>
   <script src="src/main.js"></script>
 </body>

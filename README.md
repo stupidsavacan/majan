@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 12
+# Offline Sanma Mahjong - Phase 13
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 12では状態機械、牌台帳、整合性検査、復旧処理、保存移行、デバッグイベントログを追加しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 13では牌譜一覧、簡易再生、詳細成績、牌譜インデックスを追加しています。
 
 ## 起動方法
 
@@ -15,7 +15,7 @@
 
 ## ソース保守方針
 
-- `src/debug`、`src/game`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
+- `src/debug`、`src/game`、`src/stats`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
 - 埋め込みフォントCSSなど明示した生成物だけ圧縮を許容します。
 - `tests/source-format.test.js` で、上記JavaScript全体と非生成CSSが少数行へ圧縮されていないことを確認します。
 
@@ -170,6 +170,16 @@
 - `DebugEventLog` による状態遷移、操作拒否、CPU判断、精算、復旧、保存移行のリングバッファ
 - `tests/state-integrity.test.js` と `PHASE12_REPORT.md`
 
+## Phase 13で実装済み
+
+- 日付・順位・最終点・最高打点・タグを表示する検索・絞り込み対応の牌譜一覧
+- 選択牌譜の詳細、JSONエクスポート、検証付きインポート、確認付き個別削除
+- 配牌・ツモ・打牌・副露・カン・抜き北・精算を使う前後移動・先頭末尾移動・自動再生
+- 古い形式や一部データ欠損牌譜の安全な部分再生と明示
+- 平均順位、平均最終点、最高最終点、和了種別、放銃、最高得点、役頻度、役満名、ルール別内訳
+- `RecordIndex` による最新順の軽量メタデータと保存サイズ診断
+- `tests/replay-stats.test.js` と `PHASE13_REPORT.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -183,7 +193,7 @@
 - `新しい対局` で東1局から対局を開始し直します。
 - `設定` で Phase 1 時点のRuleConfigを変更できます。
 - `設定` で設定JSONを表示・インポート・初期化できます。
-- `牌譜・成績` で最新の履歴、成績、牌譜JSONを確認できます。
+- `牌譜・成績` で牌譜の検索・再生・入出力・個別削除と詳細成績を確認できます。
 - `デバッグ` でseed固定や内部状態を確認できます。
 
 ## 未実装
@@ -200,7 +210,7 @@
 - CPUは鳴き・ロンを自動スキップします。
 - CPU戦略のシャンテン計算と打牌評価は簡易版で、押し引き・安全牌・打点期待値は未対応です。
 - AssistManagerは設定判定と整合性ログのみで、牌交換は行いません。
-- 牌譜はイベント一覧で、アニメーション再生には未対応です。
+- 古い牌譜は保存イベントの内容により、手牌・副露・点数の一部を表示できない場合があります。
 - ダブロン、アガリ止め、南入・西入などの詳細な終局ルールは未実装です。
 - 北抜き補充牌はPhase 11の明示方針として通常山から取得します。
 - トビは現在0点未満で終了し、0点ちょうどでは継続します。
@@ -208,7 +218,7 @@
 
 ## 次のPhaseでやるべきこと
 
-Phase 13以降では以下を追加する候補です。
+Phase 14以降では以下を追加する候補です。
 
 - ノーテン罰符、ダブロン、アガリ止め、詳細な延長戦条件
 - 槍槓割り込み窓、四槓散了、複数自己カン候補の選択UI
@@ -256,16 +266,22 @@ Phase 13以降では以下を追加する候補です。
 - `src/ui/renderTable.js`
 - `src/ui/settingsPanel.js`
 - `src/ui/settingsExportImport.js`
+- `src/ui/ReplayViewer.js`
+- `src/ui/RecordListPanel.js`
 - `src/ui/recordPanel.js`
 - `src/storage/settingsStorage.js`
 - `src/storage/gameRecordStorage.js`
+- `src/storage/RecordIndex.js`
 - `src/storage/SaveMigration.js`
+- `src/stats/AdvancedStats.js`
 - `src/styles/main.css`
 - `src/styles/phase4.css`
 - `src/styles/phase5.css`
 - `src/styles/phase8.css`
+- `src/styles/phase13.css`
 - `src/styles/yuji-mai-embedded.css`
 - `tests/storage-records.test.js`
+- `tests/replay-stats.test.js`
 - `tests/smoke.test.js`
 - `tests/regression.test.js`
 - `tests/source-format.test.js`
@@ -273,6 +289,7 @@ Phase 13以降では以下を追加する候補です。
 - `tests/match-flow.test.js`
 - `tests/advanced-rules.test.js`
 - `tests/state-integrity.test.js`
+- `PHASE13_REPORT.md`
 - `PHASE12_REPORT.md`
 - `PHASE11_REPORT.md`
 - `PHASE11_STATIC_AUDIT_FOLLOWUP.md`

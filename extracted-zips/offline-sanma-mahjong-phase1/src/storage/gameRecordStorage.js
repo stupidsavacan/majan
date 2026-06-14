@@ -3,7 +3,9 @@
   const SaveMigration = Sanma.SaveMigration;
   const RECORDS_KEY = "offlineSanma.phase8.records";
   const STATS_KEY = "offlineSanma.phase8.stats";
+  const INDEX_KEY = "offlineSanma.phase13.recordIndex";
   const MAX_RECORDS = 20;
+  const STORAGE_WARNING_BYTES = 4 * 1024 * 1024;
   const status = {
     readable: true,
     writable: true,
@@ -73,6 +75,48 @@
     }
   }
 
+  function writeIndex(entries) {
+    try {
+      localStorage.setItem(INDEX_KEY, JSON.stringify({
+        version: 1,
+        entries: entries || [],
+      }));
+      return true;
+    } catch (error) {
+      rememberError(error, "write");
+      return false;
+    }
+  }
+
+  function rebuildIndex(records) {
+    const entries = Sanma.RecordIndex.build(records || []);
+    writeIndex(entries);
+    return entries;
+  }
+
+  function indexMatchesRecords(entries, records) {
+    if (!Array.isArray(records)) return true;
+    if (entries.length !== records.length) return false;
+    const recordIds = new Set(records.map((record) => record && record.id).filter(Boolean));
+    return entries.every((entry) => entry && recordIds.has(entry.id));
+  }
+
+  function loadIndex(records) {
+    try {
+      const raw = localStorage.getItem(INDEX_KEY);
+      if (!raw) return rebuildIndex(Array.isArray(records) ? records : loadRecords());
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.entries)) throw new Error("牌譜インデックスの形式が不正です");
+      if (!indexMatchesRecords(parsed.entries, records)) throw new Error("牌譜本文とインデックスが一致しません");
+      return parsed.entries.slice().sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+    } catch (error) {
+      status.corruptedRecovered = true;
+      status.lastError = error.message;
+      backupCurrent(INDEX_KEY, "不正な牌譜インデックスを再構築しました");
+      return rebuildIndex(Array.isArray(records) ? records : loadRecords());
+    }
+  }
+
   function loadRecords() {
     const loaded = readJson(RECORDS_KEY, []);
     if (!Array.isArray(loaded)) {
@@ -94,7 +138,10 @@
       }
     });
     if (invalidRecovered) backupCurrent(RECORDS_KEY, "不正な牌譜を除外しました");
-    if (recovered) writeJson(RECORDS_KEY, records);
+    if (recovered) {
+      writeJson(RECORDS_KEY, records);
+      rebuildIndex(records);
+    }
     return records;
   }
 
@@ -110,7 +157,37 @@
     const existingIndex = records.findIndex((item) => item.id === normalized.id);
     if (existingIndex >= 0) records.splice(existingIndex, 1);
     records.push(normalized);
-    return writeJson(RECORDS_KEY, records.slice(-MAX_RECORDS));
+    const limited = records.slice(-MAX_RECORDS);
+    const saved = writeJson(RECORDS_KEY, limited);
+    if (saved) rebuildIndex(limited);
+    return saved;
+  }
+
+  function loadRecord(recordId) {
+    return loadRecords().find((record) => record.id === recordId) || null;
+  }
+
+  function deleteRecord(recordId) {
+    const records = loadRecords();
+    const remaining = records.filter((record) => record.id !== recordId);
+    if (remaining.length === records.length) return false;
+    const saved = writeJson(RECORDS_KEY, remaining);
+    if (saved) rebuildIndex(remaining);
+    return saved;
+  }
+
+  function importRecord(text) {
+    try {
+      const record = Sanma.GameRecord.deserialize(String(text || ""));
+      if (!record.id || !Array.isArray(record.rounds) || record.rounds.length === 0) {
+        throw new Error("牌譜データの形式が不正です");
+      }
+      if (!saveRecord(record)) throw new Error("牌譜を保存できませんでした");
+      return { ok: true, record, reason: "牌譜をインポートしました。" };
+    } catch (error) {
+      status.lastError = error.message;
+      return { ok: false, record: null, reason: `牌譜をインポートできません: ${error.message}` };
+    }
   }
 
   function loadStats() {
@@ -191,6 +268,7 @@
   function resetRecords() {
     try {
       localStorage.removeItem(RECORDS_KEY);
+      localStorage.removeItem(INDEX_KEY);
       return true;
     } catch (error) {
       rememberError(error, "write");
@@ -210,11 +288,14 @@
 
   function getDiagnostics() {
     const records = loadRecords();
+    const sizeBytes = Sanma.RecordIndex.sizeBytes(records);
     return {
       localStorage: Object.assign({}, status),
       records: {
         count: records.length,
         sizeLimitPolicy: `最新${MAX_RECORDS}件・1局${Sanma.GameRecord.MAX_EVENTS_PER_ROUND}イベント`,
+        sizeBytes,
+        nearStorageLimit: sizeBytes >= STORAGE_WARNING_BYTES,
       },
     };
   }
@@ -222,10 +303,18 @@
   Sanma.GameRecordStorage = {
     RECORDS_KEY,
     STATS_KEY,
+    INDEX_KEY,
     MAX_RECORDS,
+    STORAGE_WARNING_BYTES,
     defaultStats,
     loadRecords,
+    loadIndex,
+    indexMatchesRecords,
+    rebuildIndex,
+    loadRecord,
     saveRecord,
+    deleteRecord,
+    importRecord,
     loadStats,
     updateStats,
     commitRecord,

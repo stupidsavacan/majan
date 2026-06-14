@@ -15,6 +15,7 @@ const testFiles = [
   "match-flow.test.js",
   "cpu-strategy.test.js",
   "storage-records.test.js",
+  "replay-stats.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -28,8 +29,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 12 test run failed.");
+  console.error("\nPhase 13 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 12 tests passed.");
+console.log("\nAll Phase 13 tests passed.");
