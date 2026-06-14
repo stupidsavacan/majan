@@ -12,7 +12,9 @@
   }
 
   function isMenzen(player) {
-    return Sanma.RiichiManager.isMenzen(player);
+    return Sanma.RiichiRules
+      ? Sanma.RiichiRules.isMenzen(player)
+      : Sanma.RiichiManager.isMenzen(player);
   }
 
   function waitTypeForPattern(pattern, winningTile) {
@@ -50,7 +52,7 @@
     const winningTile = winType === "ron"
       ? (discardedTile || (state.lastDiscard && state.lastDiscard.tile) || null)
       : (player.lastDraw || null);
-    return {
+    const context = {
       winType,
       winnerIndex: playerIndex,
       loserIndex,
@@ -67,6 +69,15 @@
       doraIndicators: state.wall ? state.wall.doraIndicators : (state.doraIndicators || []),
       kitaDoraCount: (player.kitaTiles || []).length,
     };
+    return Sanma.EndTurnYakuResolver
+      ? Object.assign(context, Sanma.EndTurnYakuResolver.resolve({
+        state,
+        playerIndex,
+        winType,
+        loserIndex,
+        ruleConfig: state.ruleConfig || {},
+      }))
+      : context;
   }
 
   function analyzeWin(state, playerIndex, winType, discardedTile, loserIndex) {
@@ -151,6 +162,18 @@
     if (!lastDiscard || !lastDiscard.tile || lastDiscard.playerIndex === playerIndex) {
       return { enabled: false, reason: "対象となる他家の捨て牌がありません。", analysis: null };
     }
+    if (Sanma.FuritenManager) {
+      const furiten = Sanma.FuritenManager.checkRonEligibility({
+        state,
+        playerIndex,
+        winningTile: lastDiscard.tile,
+        sourcePlayerIndex: lastDiscard.playerIndex,
+        ruleConfig: state.ruleConfig || {},
+      });
+      if (!furiten.canRon) {
+        return { enabled: false, reason: furiten.reasons.join("・"), analysis: null, furiten };
+      }
+    }
     const player = state.players[playerIndex];
     if ((player.discards || []).some((tile) => tile && tile.baseId === lastDiscard.tile.baseId)) {
       return { enabled: false, reason: "フリテンのためロンできません。", analysis: null };
@@ -187,9 +210,14 @@
     const ron = ronAvailability(state, playerIndex);
     const pon = ponAvailability(state, playerIndex);
     const chi = chiAvailability(state, playerIndex);
-    const kan = Sanma.KanManager.describeAvailability(state, playerIndex);
-    const riichi = Sanma.RiichiManager.canDeclare(state, playerIndex);
+    const kan = Sanma.KanRules
+      ? Sanma.KanRules.describeAvailability(state, playerIndex, state.ruleConfig)
+      : Sanma.KanManager.describeAvailability(state, playerIndex);
+    const riichi = Sanma.RiichiRules
+      ? Sanma.RiichiRules.canDeclare(state, playerIndex)
+      : Sanma.RiichiManager.canDeclare(state, playerIndex);
     const kita = Sanma.KitaManager.canExtract(state, playerIndex);
+    const minkanAvailable = (kan.options || []).some((option) => option.type === "minkan");
 
     return [
       action("discard", "打牌", { enabled: isTurn && canDiscardPhase, reason: isTurn && canDiscardPhase ? "手番中です。" : "現在は打牌番ではありません。" }),
@@ -198,9 +226,9 @@
       action("pon", "ポン", pon),
       action("chi", "チー", chi),
       action("kan", "カン", {
-        enabled: !player.hasRiichi && isTurn && canDrawActionPhase && kan.enabled,
-        reason: player.hasRiichi ? "リーチ後はカンできません。" : canDrawActionPhase ? kan.reason : "鳴いた直後はカンできません。",
-        options: player.hasRiichi ? [] : kan.options,
+        enabled: kan.enabled && (minkanAvailable || (isTurn && canDrawActionPhase)),
+        reason: minkanAvailable || canDrawActionPhase ? kan.reason : "鳴いた直後はカンできません。",
+        options: kan.options,
       }),
       action("riichi", "リーチ", { enabled: isTurn && canDrawActionPhase && riichi.enabled, reason: canDrawActionPhase ? riichi.reason : "鳴いた直後はリーチできません。" }),
       action("kita", "北抜き", {

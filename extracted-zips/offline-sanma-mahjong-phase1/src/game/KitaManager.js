@@ -9,7 +9,9 @@
     const player = state && state.players ? state.players[playerIndex] : null;
     if (!player) return { enabled: false, reason: "プレイヤーが見つかりません。", options: [] };
     if (player.hasRiichi) return { enabled: false, reason: "リーチ後は北抜きできません。", options: [] };
-    if (!state.ruleConfig || state.ruleConfig.northMode !== "kita-dora") {
+    if (Sanma.SanmaRuleDetails
+      ? !Sanma.SanmaRuleDetails.canExtractKita(state.ruleConfig)
+      : (!state.ruleConfig || state.ruleConfig.northMode !== "kita-dora")) {
       return { enabled: false, reason: "北抜きルールではありません。", options: [] };
     }
     const options = northTiles(player);
@@ -30,8 +32,11 @@
     const index = player.hand.findIndex((tile) => tile.instanceId === target.instanceId);
     const extracted = player.hand.splice(index, 1)[0];
     player.kitaTiles.push(extracted);
-    const replacement = state.wall && typeof state.wall.draw === "function" ? state.wall.draw() : null;
+    const shouldReplace = !Sanma.SanmaRuleDetails
+      || Sanma.SanmaRuleDetails.shouldDrawKitaReplacement(state.ruleConfig);
+    const replacement = shouldReplace && state.wall && typeof state.wall.draw === "function" ? state.wall.draw() : null;
     if (replacement) player.receiveTile(replacement);
+    state.lastDrawContext = { playerIndex, isRinshan: false, isKitaReplacement: Boolean(replacement) };
     return {
       applied: true,
       extracted,

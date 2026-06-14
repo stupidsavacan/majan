@@ -15,6 +15,15 @@
       this.kitaTiles = [];
       this.hasRiichi = false;
       this.ippatsuActive = false;
+      this.riichi = {
+        declared: false,
+        turnIndex: null,
+        ippatsu: false,
+        discardLocked: false,
+        riichiStickPaid: false,
+      };
+      this.sameTurnFuriten = false;
+      this.riichiMissedWin = false;
       this.lastDraw = null;
     }
 
@@ -26,6 +35,7 @@
       if (!tile) return;
       this.hand.push(tile);
       this.lastDraw = tile;
+      this.sameTurnFuriten = false;
       this.sortHand();
     }
 
@@ -35,6 +45,7 @@
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
       this.ippatsuActive = false;
+      if (this.riichi) this.riichi.ippatsu = false;
       this.lastDraw = null;
       return tile;
     }
@@ -44,6 +55,7 @@
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
       this.ippatsuActive = false;
+      if (this.riichi) this.riichi.ippatsu = false;
       this.lastDraw = null;
       return tile;
     }

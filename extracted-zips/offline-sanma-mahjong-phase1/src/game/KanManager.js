@@ -58,6 +58,7 @@
   }
 
   function describeAvailability(state, playerIndex) {
+    if (Sanma.KanRules) return Sanma.KanRules.describeAvailability(state, playerIndex, state && state.ruleConfig);
     const player = state && state.players ? state.players[playerIndex] : null;
     if (player && player.hasRiichi) {
       return { enabled: false, reason: "リーチ後はカンできません。", options: [] };

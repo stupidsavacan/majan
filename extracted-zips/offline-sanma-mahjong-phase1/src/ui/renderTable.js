@@ -152,7 +152,7 @@
     const tsumoButton = actionButton(tsumo.enabled ? "ツモ和了" : "ツモ", tsumo.reason, !tsumo.enabled, tsumo.enabled ? "valid-win" : "");
     const riichiButton = actionButton("リーチ", riichi.reason, !riichi.enabled, riichi.enabled ? "available-action" : "");
     const kitaButton = actionButton("北抜き", kita.reason, !kita.enabled, kita.enabled ? "available-action" : "");
-    const kanButton = actionButton("カン確認", kan.reason, !kan.enabled, kan.enabled ? "available-action" : "");
+    const kanButton = actionButton("カン", kan.reason, !kan.enabled, kan.enabled ? "available-action" : "");
     if (tsumo.enabled) tsumoButton.addEventListener("click", handlers.onTsumo);
     if (riichi.enabled) riichiButton.addEventListener("click", handlers.onRiichi);
     if (kita.enabled) kitaButton.addEventListener("click", handlers.onKita);
@@ -180,8 +180,7 @@
     callWindow.actions.forEach((action) => {
       if (action.options && action.options.length > 0) {
         action.options.forEach((option, index) => {
-          const label = action.id === "kan" ? `${option.label}（判定のみ）` : option.label;
-          const button = actionButton(label, action.reason, false, action.id === "ron" ? "valid-win" : "available-action");
+          const button = actionButton(option.label, action.reason, false, action.id === "ron" ? "valid-win" : "available-action");
           button.addEventListener("click", () => handlers.onCall(action.id, index));
           actions.appendChild(button);
         });

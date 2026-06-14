@@ -30,7 +30,12 @@
     const ruleConfig = options.ruleConfig || {};
     const context = options.context || {};
     const indicators = Array.isArray(context.doraIndicators) ? context.doraIndicators : [];
+    const uraIndicators = context.isRiichi && ruleConfig.uraDora !== false
+      && Array.isArray(context.uraDoraIndicators)
+      ? context.uraDoraIndicators
+      : [];
     let normalDora = 0;
+    let uraDora = 0;
 
     const indicatorDetails = indicators.map((indicator) => {
       const doraBaseId = nextDoraBaseId(indicator);
@@ -46,25 +51,43 @@
         han,
       };
     });
+    const uraIndicatorDetails = uraIndicators.map((indicator) => {
+      const doraBaseId = nextDoraBaseId(indicator);
+      const matchingTiles = countMatchingTiles(tiles, doraBaseId);
+      uraDora += matchingTiles;
+      return {
+        indicatorBaseId: indicator && indicator.baseId ? indicator.baseId : null,
+        doraBaseId,
+        matchingTiles,
+        multiplier: 1,
+        han: matchingTiles,
+      };
+    });
 
     const redDora = ruleConfig.redDoraMode === "none"
       ? 0
       : tiles.filter((tile) => tile && tile.isRed).length;
-    const kitaDora = ruleConfig.northMode === "kita-dora"
+    const kitaAsDora = !ruleConfig.advancedRules
+      || !ruleConfig.advancedRules.sanma
+      || ruleConfig.advancedRules.sanma.kitaAsDora !== false;
+    const kitaDora = ruleConfig.northMode === "kita-dora" && kitaAsDora
       ? Math.max(0, Number(context.kitaDoraCount) || 0)
       : 0;
     const items = [];
     if (normalDora > 0) items.push({ id: "dora", name: "ドラ", han: normalDora, isDora: true });
+    if (uraDora > 0) items.push({ id: "ura-dora", name: "裏ドラ", han: uraDora, isDora: true });
     if (redDora > 0) items.push({ id: "red-dora", name: "赤ドラ", han: redDora, isDora: true });
     if (kitaDora > 0) items.push({ id: "kita-dora", name: "抜き北ドラ", han: kitaDora, isDora: true });
 
     return {
-      totalHan: normalDora + redDora + kitaDora,
+      totalHan: normalDora + uraDora + redDora + kitaDora,
       normalDora,
+      uraDora,
       redDora,
       kitaDora,
       items,
       indicatorDetails,
+      uraIndicatorDetails,
     };
   }
 

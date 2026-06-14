@@ -13,6 +13,9 @@
   const RiichiManager = Sanma.RiichiManager;
   const KanManager = Sanma.KanManager;
   const KitaManager = Sanma.KitaManager;
+  const FuritenManager = Sanma.FuritenManager;
+  const RiichiRules = Sanma.RiichiRules;
+  const KanRules = Sanma.KanRules;
   const CpuStrategy = Sanma.CpuStrategy;
   const AssistManager = Sanma.AssistManager;
   const GameRecord = Sanma.GameRecord;
@@ -37,6 +40,8 @@
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
+      this.lastDrawContext = null;
+      this.pendingWinContext = null;
       this.gameRecord = null;
       this.startRound();
     }
@@ -56,6 +61,8 @@
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
+      this.lastDrawContext = null;
+      this.pendingWinContext = null;
       this.dealInitialHands();
       const roundRecordInput = {
         roundLabel: this.getRoundLabel(),
@@ -152,6 +159,7 @@
 
     handleDiscard(discarderIndex, discarded) {
       this.lastDiscard = { playerIndex: discarderIndex, tile: discarded };
+      this.lastDrawContext = null;
       if (discarderIndex !== this.humanPlayer.id) {
         const windowState = CallWindow.create(this, this.humanPlayer.id);
         if (windowState) {
@@ -190,6 +198,7 @@
           return;
         }
         player.receiveTile(drawn);
+        this.lastDrawContext = { playerIndex: player.id, isRinshan: false };
         this.addLog(`${player.name} がツモりました。`);
         this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
         this.recordAssist(AssistManager.evaluateDraw({
@@ -237,6 +246,7 @@
           return;
         }
         this.humanPlayer.receiveTile(drawn);
+        this.lastDrawContext = { playerIndex: this.humanPlayer.id, isRinshan: false };
         this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, drawn));
         this.recordAssist(AssistManager.evaluateDraw({
           state: this,
@@ -401,6 +411,7 @@
         return;
       }
       this.humanPlayer.receiveTile(drawn);
+      this.lastDrawContext = { playerIndex: this.humanPlayer.id, isRinshan: false };
       this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, drawn));
       this.recordAssist(AssistManager.evaluateDraw({
         state: this,
@@ -525,11 +536,16 @@
         return;
       }
       if (actionId === "kan") {
-        this.addLog("カンはPhase 5では判定・表示のみです。今回はスキップします。");
-        this.skipHumanCall();
+        if (FuritenManager && this.callWindow.actions.some((candidate) => candidate.id === "ron")) {
+          FuritenManager.markMissedRon(this, this.humanPlayer.id);
+        }
+        this.applyHumanKan(option);
         return;
       }
       if (actionId !== "pon" && actionId !== "chi") return;
+      if (FuritenManager && this.callWindow.actions.some((candidate) => candidate.id === "ron")) {
+        FuritenManager.markMissedRon(this, this.humanPlayer.id);
+      }
       if (!option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
         this.addLog("鳴き情報が不正なため、操作をスキップしました。");
         this.skipHumanCall();
@@ -572,9 +588,12 @@
         open: true,
       });
       this.humanPlayer.lastDraw = null;
-      this.players.forEach((player) => {
-        player.ippatsuActive = false;
-      });
+      if (RiichiRules) RiichiRules.clearIppatsu(this);
+      else {
+        this.players.forEach((player) => {
+          player.ippatsuActive = false;
+        });
+      }
       this.turnIndex = this.humanPlayer.id;
       this.phase = "caller-discard";
       this.lastDiscard = null;
@@ -593,6 +612,9 @@
     skipHumanCall() {
       if (this.phase !== "human-call" || !this.callWindow) return;
       const discarderIndex = this.callWindow.fromPlayerIndex;
+      if (FuritenManager && this.callWindow.actions.some((action) => action.id === "ron")) {
+        FuritenManager.markMissedRon(this, this.humanPlayer.id);
+      }
       CallWindow.close(this.callWindow, "スキップ");
       this.addLog("鳴きをスキップしました。");
       this.recordGameEvent("call", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, action: "skip" });
@@ -605,7 +627,9 @@
         this.emitChange();
         return;
       }
-      const result = RiichiManager.declare(this, this.humanPlayer.id);
+      const result = RiichiRules
+        ? RiichiRules.declare(this, this.humanPlayer.id)
+        : RiichiManager.declare(this, this.humanPlayer.id);
       this.addLog(result.reason);
       if (result.applied) {
         this.recordGameEvent("riichi", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name });
@@ -637,9 +661,54 @@
     }
 
     requestHumanKan() {
-      const availability = KanManager.describeAvailability(this, this.humanPlayer.id);
-      this.addLog(availability.enabled ? "カン可能牌を検出しました。Phase 5では判定・デバッグ表示のみです。" : availability.reason);
+      if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
+        this.addLog("現在はカンできません。");
+        this.emitChange();
+        return;
+      }
+      const availability = KanRules
+        ? KanRules.describeAvailability(this, this.humanPlayer.id, this.ruleConfig)
+        : KanManager.describeAvailability(this, this.humanPlayer.id);
+      if (!availability.enabled) {
+        this.addLog(availability.reason);
+        this.emitChange();
+        return;
+      }
+      this.applyHumanKan(availability.options[0]);
+    }
+
+    applyHumanKan(option) {
+      if (!KanRules) {
+        this.addLog("カンルール管理が読み込まれていません。");
+        this.emitChange();
+        return false;
+      }
+      const result = KanRules.applyKan({
+        state: this,
+        playerIndex: this.humanPlayer.id,
+        kanAction: option,
+        ruleConfig: this.ruleConfig,
+      });
+      this.addLog(result.reason);
+      if (!result.applied) {
+        this.emitChange();
+        return false;
+      }
+      this.turnIndex = this.humanPlayer.id;
+      this.phase = result.replacement ? "human-discard" : "round-ended";
+      this.recordGameEvent("kan", {
+        playerIndex: this.humanPlayer.id,
+        playerName: this.humanPlayer.name,
+        kanType: result.kanType,
+        tiles: result.meld.tiles.map(TileUtil.getTileShortLabel),
+      });
+      if (result.replacement) {
+        this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
+      } else {
+        this.finishGameRecord({ type: "exhaustive_draw", reason: "嶺上牌を取得できませんでした。" });
+      }
       this.emitChange();
+      return true;
     }
 
     playerTileEvent(player, tile) {

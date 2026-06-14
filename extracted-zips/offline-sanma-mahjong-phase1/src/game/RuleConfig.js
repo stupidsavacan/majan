@@ -36,6 +36,40 @@
     kanDora: true,
     kanUraDora: true,
     kitaDora: true,
+    advancedRules: Object.freeze({
+      furiten: Object.freeze({
+        genbutsu: true,
+        sameTurn: true,
+        riichiMissedWin: true,
+        tsumoAllowedWhileFuriten: true,
+      }),
+      riichi: Object.freeze({
+        requiresMenzen: true,
+        minPoints: 1000,
+        forbidIfNoDrawLeft: true,
+        ippatsu: true,
+        uraDora: true,
+      }),
+      kan: Object.freeze({
+        rinshan: true,
+        chankan: true,
+        kanDora: true,
+        kanUra: true,
+        allowAnkanAfterRiichiOnlyIfWaitUnchanged: true,
+      }),
+      endTurnYaku: Object.freeze({
+        haitei: true,
+        houtei: true,
+        rinshanKaihou: true,
+        chankan: true,
+      }),
+      sanma: Object.freeze({
+        kita: true,
+        kitaDrawReplacement: true,
+        kitaAsDora: true,
+        ronOnKitaPolicy: "disallow",
+      }),
+    }),
 
     doubleYakuman: true,
     countedYakuman: true,
@@ -113,6 +147,27 @@
     merged.honbaPoints = Object.assign({}, defaultRuleConfig.honbaPoints, input.honbaPoints || {});
     merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
     merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
+    const advancedInput = input.advancedRules || {};
+    merged.advancedRules = {};
+    Object.keys(defaultRuleConfig.advancedRules).forEach((key) => {
+      merged.advancedRules[key] = Object.assign(
+        {},
+        defaultRuleConfig.advancedRules[key],
+        advancedInput[key] || {}
+      );
+    });
+    if (!advancedInput.riichi || advancedInput.riichi.uraDora === undefined) {
+      merged.advancedRules.riichi.uraDora = merged.uraDora !== false;
+    }
+    if (!advancedInput.kan || advancedInput.kan.kanDora === undefined) {
+      merged.advancedRules.kan.kanDora = merged.kanDora !== false;
+    }
+    if (!advancedInput.kan || advancedInput.kan.kanUra === undefined) {
+      merged.advancedRules.kan.kanUra = merged.kanUraDora !== false;
+    }
+    if (!advancedInput.sanma || advancedInput.sanma.kitaAsDora === undefined) {
+      merged.advancedRules.sanma.kitaAsDora = merged.kitaDora !== false;
+    }
     merged.playerCount = 3;
     merged.localYaku = false;
     merged.countedDoubleYakuman = false;

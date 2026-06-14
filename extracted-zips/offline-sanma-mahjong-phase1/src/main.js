@@ -58,14 +58,15 @@
     const requiredModules = [
       "RuleConfig", "TileUtil", "HandAnalysis", "DoraCalculator", "YakuAnalysis", "ScoreCalculator", "Settlement",
       "RoundManager", "HonbaManager", "RankingManager", "EndConditionManager", "MatchManager",
-      "RiichiManager", "KanManager", "KitaManager", "ActionResolver", "CpuStrategy", "AssistManager",
+      "RiichiManager", "KanManager", "KitaManager", "FuritenManager", "RiichiRules", "KanRules",
+      "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
     ];
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: 10,
+      app_phase: 11,
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -101,7 +102,7 @@
         onTsumo: safeAction("ツモ和了", () => engine.claimHumanTsumo()),
         onRiichi: safeAction("リーチ", () => engine.declareHumanRiichi()),
         onKita: safeAction("北抜き", () => engine.extractHumanKita()),
-        onKan: safeAction("カン確認", () => engine.requestHumanKan()),
+        onKan: safeAction("カン", () => engine.requestHumanKan()),
         onCall: safeAction("鳴き", (actionId, optionIndex) => engine.claimHumanCall(actionId, optionIndex)),
         onSkipCall: safeAction("鳴きスキップ", () => engine.skipHumanCall()),
         onNextRound: safeAction("次局へ", () => engine.startNextRound()),

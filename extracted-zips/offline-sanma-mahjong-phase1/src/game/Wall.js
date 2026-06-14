@@ -37,6 +37,7 @@
       this.shuffle();
       this.deadWall = [];
       this.doraIndicators = [];
+      this.rinshanDrawCount = 0;
       this.initializeDeadWallAndDora();
     }
 
@@ -93,6 +94,30 @@
 
     draw() {
       return this.tiles.shift() || null;
+    }
+
+    drawRinshan() {
+      if (this.rinshanDrawCount >= 4) return null;
+      const drawIndex = this.deadWall.length - 1 - this.rinshanDrawCount;
+      const replacement = this.deadWall.splice(drawIndex, 1)[0] || null;
+      if (!replacement) return null;
+      const supplement = this.tiles.pop() || null;
+      if (supplement) this.deadWall.push(supplement);
+      this.rinshanDrawCount += 1;
+      return replacement;
+    }
+
+    revealKanDora() {
+      const indicatorIndex = this.doraIndicators.length * 2;
+      const indicator = this.deadWall[indicatorIndex] || null;
+      if (indicator) this.doraIndicators.push(indicator);
+      return indicator;
+    }
+
+    getUraDoraIndicators() {
+      return this.doraIndicators
+        .map((indicator, index) => this.deadWall[index * 2 + 1] || null)
+        .filter(Boolean);
     }
 
     remainingCount() {

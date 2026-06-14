@@ -83,6 +83,10 @@
     const pattern = agariResult.bestPattern;
     if (context.isRiichi && context.isMenzen) addYaku("riichi", "リーチ", 1, 0, "門前でリーチを宣言しています。");
     if (context.isRiichi && context.isIppatsu && context.isMenzen) addYaku("ippatsu", "一発", 1, 0, "リーチ後の一発有効中に和了しています。");
+    if (context.isHaitei) addYaku("haitei", "海底摸月", 1, 1, "海底牌で自摸和了しています。");
+    if (context.isHoutei) addYaku("houtei", "河底撈魚", 1, 1, "河底牌でロン和了しています。");
+    if (context.isRinshan) addYaku("rinshan-kaihou", "嶺上開花", 1, 1, "嶺上牌で自摸和了しています。");
+    if (context.isChankan) addYaku("chankan", "槍槓", 1, 1, "加槓牌をロン和了しています。");
     if (pattern.type === "kokushi") {
       addYakuman("kokushi-musou", "国士無双", "十三種の么九牌を揃えた和了形です。");
     } else {

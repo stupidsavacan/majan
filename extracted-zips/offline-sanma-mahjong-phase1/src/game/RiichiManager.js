@@ -2,6 +2,7 @@
   const Sanma = global.Sanma = global.Sanma || {};
 
   function isMenzen(player) {
+    if (Sanma.RiichiRules) return Sanma.RiichiRules.isMenzen(player);
     return Boolean(player && (player.melds || []).every((meld) => meld.open === false));
   }
 
@@ -15,6 +16,7 @@
   }
 
   function canDeclare(state, playerIndex) {
+    if (Sanma.RiichiRules) return Sanma.RiichiRules.canDeclare(state, playerIndex);
     const player = state && state.players ? state.players[playerIndex] : null;
     if (!player) return { enabled: false, reason: "プレイヤーが見つかりません。" };
     if (player.hasRiichi) return { enabled: false, reason: "すでにリーチしています。" };
@@ -27,6 +29,7 @@
   }
 
   function declare(state, playerIndex) {
+    if (Sanma.RiichiRules) return Sanma.RiichiRules.declare(state, playerIndex);
     const availability = canDeclare(state, playerIndex);
     if (!availability.enabled) return { applied: false, reason: availability.reason };
     const player = state.players[playerIndex];
