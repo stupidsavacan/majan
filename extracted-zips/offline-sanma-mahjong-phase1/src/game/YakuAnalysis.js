@@ -67,10 +67,22 @@
     }
 
     if (!agariResult.isAgari || !agariResult.bestPattern) {
-      return { hasYaku: false, yaku, yakuman, totalHan: 0, isYakuman: false, reason: "和了形ではありません。", context };
+      return {
+        hasYaku: false,
+        yaku,
+        yakuman,
+        dora: [],
+        doraDetails: null,
+        totalHan: 0,
+        isYakuman: false,
+        reason: "和了形ではありません。",
+        context,
+      };
     }
 
     const pattern = agariResult.bestPattern;
+    if (context.isRiichi && context.isMenzen) addYaku("riichi", "リーチ", 1, 0, "門前でリーチを宣言しています。");
+    if (context.isRiichi && context.isIppatsu && context.isMenzen) addYaku("ippatsu", "一発", 1, 0, "リーチ後の一発有効中に和了しています。");
     if (pattern.type === "kokushi") {
       addYakuman("kokushi-musou", "国士無双", "十三種の么九牌を揃えた和了形です。");
     } else {
@@ -104,12 +116,20 @@
       }
     }
 
-    const totalHan = yaku.reduce((sum, item) => sum + item.han, 0);
+    const yakuHan = yaku.reduce((sum, item) => sum + item.han, 0);
     const hasYaku = yaku.length > 0 || yakuman.length > 0;
+    const doraDetails = Sanma.DoraCalculator.calculate({ tiles, ruleConfig, context });
+    const dora = yaku.length > 0 && yakuman.length === 0 ? doraDetails.items : [];
+    const doraHan = dora.reduce((sum, item) => sum + item.han, 0);
+    const totalHan = yakuman.length > 0 ? 0 : yakuHan + doraHan;
     return {
       hasYaku,
       yaku,
       yakuman,
+      dora,
+      doraDetails,
+      yakuHan,
+      doraHan,
       totalHan,
       isYakuman: yakuman.length > 0,
       reason: hasYaku ? yakuman.concat(yaku).map((item) => item.name).join("、") : "和了形ですが役がありません。",

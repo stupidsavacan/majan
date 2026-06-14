@@ -32,6 +32,7 @@
     const player = state.players[playerIndex];
     player.points -= 1000;
     player.hasRiichi = true;
+    player.ippatsuActive = true;
     if (state.round) state.round.riichiSticks = (Number(state.round.riichiSticks) || 0) + 1;
     return { applied: true, reason: `${player.name || "プレイヤー"}がリーチを宣言しました。` };
   }

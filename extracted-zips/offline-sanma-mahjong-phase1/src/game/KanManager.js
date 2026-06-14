@@ -58,6 +58,10 @@
   }
 
   function describeAvailability(state, playerIndex) {
+    const player = state && state.players ? state.players[playerIndex] : null;
+    if (player && player.hasRiichi) {
+      return { enabled: false, reason: "リーチ後はカンできません。", options: [] };
+    }
     const options = getOptions(state, playerIndex);
     return options.length > 0
       ? { enabled: true, reason: "カン可能な牌があります。Phase 5では判定・表示のみです。", options }

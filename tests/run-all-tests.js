@@ -7,6 +7,7 @@ const testFiles = [
   "yaku-analysis.test.js",
   "score-calculator.test.js",
   "action-resolver.test.js",
+  "rules-scoring-regression.test.js",
   "cpu-strategy.test.js",
   "storage-records.test.js",
   "smoke.test.js",
@@ -22,8 +23,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 9.1 test run failed.");
+  console.error("\nPhase 9.2 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 9.1 tests passed.");
+console.log("\nAll Phase 9.2 tests passed.");

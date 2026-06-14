@@ -6,7 +6,7 @@ const gameRoot = fs.existsSync(path.resolve(__dirname, "..", "src", "game", "Til
   ? ""
   : "extracted-zips/offline-sanma-mahjong-phase1";
 global.window = global;
-for (const file of ["src/game/Tile.js", "src/game/HandAnalysis.js", "src/game/YakuAnalysis.js"]) {
+for (const file of ["src/game/Tile.js", "src/game/HandAnalysis.js", "src/game/DoraCalculator.js", "src/game/YakuAnalysis.js"]) {
   vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", gameRoot, file), "utf8"), { filename: file });
 }
 

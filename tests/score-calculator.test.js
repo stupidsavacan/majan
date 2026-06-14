@@ -10,6 +10,7 @@ for (const file of [
   "src/game/RuleConfig.js",
   "src/game/Tile.js",
   "src/game/HandAnalysis.js",
+  "src/game/DoraCalculator.js",
   "src/game/YakuAnalysis.js",
   "src/game/ScoreCalculator.js",
   "src/game/Settlement.js",

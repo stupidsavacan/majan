@@ -8,6 +8,7 @@
   function canExtract(state, playerIndex) {
     const player = state && state.players ? state.players[playerIndex] : null;
     if (!player) return { enabled: false, reason: "プレイヤーが見つかりません。", options: [] };
+    if (player.hasRiichi) return { enabled: false, reason: "リーチ後は北抜きできません。", options: [] };
     if (!state.ruleConfig || state.ruleConfig.northMode !== "kita-dora") {
       return { enabled: false, reason: "北抜きルールではありません。", options: [] };
     }

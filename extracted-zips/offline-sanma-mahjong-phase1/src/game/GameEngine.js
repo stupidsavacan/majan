@@ -114,6 +114,14 @@
         return;
       }
 
+      const target = this.humanPlayer.hand.find((tile) => tile.instanceId === instanceId);
+      if (this.humanPlayer.hasRiichi
+        && (!target || !this.humanPlayer.lastDraw || target.instanceId !== this.humanPlayer.lastDraw.instanceId)) {
+        this.addLog("リーチ後はツモ切りのみです。");
+        this.emitChange();
+        return;
+      }
+
       const discarded = this.humanPlayer.discardTileByInstanceId(instanceId);
       if (!discarded) {
         this.addLog("その牌は手牌にありません。");
@@ -232,6 +240,18 @@
     }
 
     chooseCpuDiscardIndex(player) {
+      if (player.hasRiichi) {
+        const lastDrawIndex = player.lastDraw
+          ? player.hand.findIndex((tile) => tile.instanceId === player.lastDraw.instanceId)
+          : -1;
+        if (lastDrawIndex < 0) {
+          this.addCpuActionLog(player, "打牌失敗", "リーチ後のツモ牌が見つからないため安全に局を終了します。");
+          return -1;
+        }
+        this.addCpuActionLog(player, "ツモ切り", "リーチ後のためツモ牌をそのまま切ります。");
+        return lastDrawIndex;
+      }
+
       const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
       const decision = CpuStrategy.chooseDiscard({
         player,
@@ -383,7 +403,13 @@
     }
 
     createHumanWinContext(winType) {
-      return ActionResolver.createWinContext(this, this.humanPlayer.id, winType, this.lastDiscard ? this.lastDiscard.playerIndex : 1);
+      return ActionResolver.createWinContext(
+        this,
+        this.humanPlayer.id,
+        winType,
+        this.lastDiscard ? this.lastDiscard.playerIndex : 1,
+        winType === "ron" && this.lastDiscard ? this.lastDiscard.tile : null
+      );
     }
 
     claimHumanTsumo() {
@@ -477,6 +503,11 @@
         this.emitChange();
         return;
       }
+      if (this.humanPlayer.hasRiichi) {
+        this.addLog("リーチ後は鳴けません。");
+        this.emitChange();
+        return;
+      }
       const action = this.callWindow.actions.find((candidate) => candidate.id === actionId);
       const option = action && action.options ? action.options[Number(optionIndex) || 0] : null;
       if (!action || !option) {
@@ -532,6 +563,9 @@
         open: true,
       });
       this.humanPlayer.lastDraw = null;
+      this.players.forEach((player) => {
+        player.ippatsuActive = false;
+      });
       this.turnIndex = this.humanPlayer.id;
       this.phase = "caller-discard";
       this.lastDiscard = null;

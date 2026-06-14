@@ -14,6 +14,7 @@
       this.melds = [];
       this.kitaTiles = [];
       this.hasRiichi = false;
+      this.ippatsuActive = false;
       this.lastDraw = null;
     }
 
@@ -33,6 +34,7 @@
       if (index < 0) return null;
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
+      this.ippatsuActive = false;
       this.lastDraw = null;
       return tile;
     }
@@ -41,6 +43,7 @@
       if (index < 0 || index >= this.hand.length) return null;
       const [tile] = this.hand.splice(index, 1);
       this.discards.push(tile);
+      this.ippatsuActive = false;
       this.lastDraw = null;
       return tile;
     }

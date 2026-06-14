@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 9.1
+# Offline Sanma Mahjong - Phase 9.2
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 9.1ではPhase 8/9相当機能の保存監査、起動堅牢化、UI配線、文書・テスト完全性を検証しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 9.2では既存の立直・一発・平和・ドラ・フリテン・立直後制約を実際の和了・操作経路へ接続し、CSSを含むソース整形監査を追加しています。
 
 ## 起動方法
 
@@ -16,8 +16,8 @@
 ## ソース保守方針
 
 - `src/game`、`src/storage`、`src/ui`、`tests` 配下のJavaScriptはminify・圧縮せず、レビュー可能な改行・インデントを維持します。
-- 生成済みHTMLや埋め込みフォントCSSは圧縮を許容します。
-- `tests/source-format.test.js` で、上記JavaScript全体が少数行へ圧縮されていないことを確認します。
+- 埋め込みフォントCSSなど明示した生成物だけ圧縮を許容します。
+- `tests/source-format.test.js` で、上記JavaScript全体と非生成CSSが少数行へ圧縮されていないことを確認します。
 
 ## Phase 1で実装済み
 
@@ -126,6 +126,18 @@
 - `src/game`、`src/storage`、`src/ui`、`tests` 全JavaScriptのソース整形監査
 - `PHASE9_REPORT.md`、`PHASE9_BROWSER_CHECKLIST.md`、`PHASE9_1_CLEANUP_STORAGE_AUDIT.md`
 
+## Phase 9.2で実装済み
+
+- リーチ・一発を通常役として点数計算へ反映
+- 和了牌と待ち形を実戦経路で判定し、両面待ちの平和へ反映
+- 通常ドラ・赤ドラ・抜き北ドラ・高得点モードの赤表示牌倍率
+- ドラ単独役なしの無効化と役満時のドラ無視
+- リーチ後のツモ切り制約、鳴き・北抜き・カン候補の抑止
+- 自分の河に同種牌がある場合の基本フリテン
+- 構造化牌譜イベントの時系列・重複・上限回帰テスト
+- 非生成CSSの通常改行化とJS/CSSソース整形監査
+- `PHASE9_2_RULES_SCORING_AUDIT.md`
+
 ## 操作方法
 
 - 自分の手牌をクリック / タップすると打牌します。
@@ -144,8 +156,8 @@
 
 以下はまだ未実装です。
 
-- カンの実行、嶺上牌、槓ドラ
-- リーチ後の打牌制限、フリテン、 ippatsu
+- カンの実行、嶺上牌、槓ドラ、槓による一発消し
+- 同巡フリテン、見逃しフリテンなどの完全なフリテン
 - 流局処理の完全実装
 - 局進行
 - 実際に牌を交換する内部補助
@@ -154,7 +166,7 @@
 
 - プレイヤーは常に東家スタートです。
 - 山が尽きた場合は簡易的に終了ログを出すだけです。
-- ドラ表示牌は表示のみで、点数計算にはまだ使いません。
+- 裏ドラ・槓ドラ・槓裏ドラは未実装です。
 - CPUは鳴き・ロンを自動スキップします。
 - CPU戦略のシャンテン計算と打牌評価は簡易版で、押し引き・安全牌・打点期待値は未対応です。
 - AssistManagerは設定判定と整合性ログのみで、牌交換は行いません。
@@ -168,7 +180,7 @@
 Phase 10以降では以下を追加する候補です。
 
 - 複数局・対局進行
-- カン実行、リーチ後制約、フリテン
+- カン実行、完全なフリテン
 - 副露を含む役・符計算の詳細精度向上
 - CPUロン・ポンの安全な割り込み処理と押し引き
 
@@ -179,6 +191,7 @@ Phase 10以降では以下を追加する候補です。
 - `src/game/RuleConfig.js`
 - `src/game/Tile.js`
 - `src/game/HandAnalysis.js`
+- `src/game/DoraCalculator.js`
 - `src/game/YakuAnalysis.js`
 - `src/game/ScoreCalculator.js`
 - `src/game/Settlement.js`
@@ -209,7 +222,9 @@ Phase 10以降では以下を追加する候補です。
 - `tests/smoke.test.js`
 - `tests/regression.test.js`
 - `tests/source-format.test.js`
+- `tests/rules-scoring-regression.test.js`
 - `PHASE8_REPORT.md`
 - `PHASE9_REPORT.md`
 - `PHASE9_BROWSER_CHECKLIST.md`
 - `PHASE9_1_CLEANUP_STORAGE_AUDIT.md`
+- `PHASE9_2_RULES_SCORING_AUDIT.md`

@@ -56,7 +56,7 @@
 
   function diagnostics() {
     const requiredModules = [
-      "RuleConfig", "TileUtil", "HandAnalysis", "YakuAnalysis", "ScoreCalculator", "Settlement",
+      "RuleConfig", "TileUtil", "HandAnalysis", "DoraCalculator", "YakuAnalysis", "ScoreCalculator", "Settlement",
       "RiichiManager", "KanManager", "KitaManager", "ActionResolver", "CpuStrategy", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
@@ -64,7 +64,7 @@
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: "9.1",
+      app_phase: "9.2",
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {

@@ -13,6 +13,7 @@ const requiredModules = [
   "Sanma.Wall",
   "Sanma.GameEngine",
   "Sanma.HandAnalysis",
+  "Sanma.DoraCalculator",
   "Sanma.YakuAnalysis",
   "Sanma.ScoreCalculator",
   "Sanma.ActionResolver",
@@ -68,6 +69,7 @@ referencedIds.forEach((id) => {
 const scriptSources = [...canonicalIndex.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
 assert(new Set(scriptSources).size === scriptSources.length, "index.html has duplicate script tags");
 const requiredScriptOrder = [
+  "src/game/DoraCalculator.js",
   "src/game/GameRecord.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
@@ -96,7 +98,7 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 });
 
 console.log(JSON.stringify({
-  phase: "9.1",
+  phase: "9.2",
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

@@ -81,7 +81,7 @@
       type: input.type || (input.winnerIndex === undefined ? "exhaustive_draw" : "win"),
       winnerIndex: Number.isInteger(input.winnerIndex) ? input.winnerIndex : null,
       winType: input.winType || null,
-      yaku: (yaku.yaku || []).map((item) => item.name),
+      yaku: (yaku.yaku || []).concat(yaku.dora || []).map((item) => item.name),
       yakuman: (yaku.yakuman || []).map((item) => item.name),
       score: {
         isValidWin: Boolean(score.isValidWin),

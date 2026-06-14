@@ -128,7 +128,9 @@
     const hand = el("div", "tile-row human-hand");
     (player.hand || []).filter(Boolean).forEach((tile) => {
       const tileNode = RenderTiles.createTileButton(tile, { small: false });
-      tileNode.disabled = !canDiscard;
+      const riichiLocked = player.hasRiichi
+        && (!player.lastDraw || tile.instanceId !== player.lastDraw.instanceId);
+      tileNode.disabled = !canDiscard || riichiLocked;
       tileNode.addEventListener("click", () => handlers.onDiscard(tile.instanceId));
       tileNode.addEventListener("touchend", (event) => {
         event.preventDefault();
@@ -207,6 +209,7 @@
     panel.appendChild(el("div", "win-result-payment", `支払い合計: ${payment.toLocaleString()}点`));
     const yakuNames = [
       ...((winResult.yaku && winResult.yaku.yaku) || []).map((item) => item.name),
+      ...((winResult.yaku && winResult.yaku.dora) || []).map((item) => `${item.name} ${item.han}`),
       ...((winResult.yaku && winResult.yaku.yakuman) || []).map((item) => item.name),
     ];
     panel.appendChild(el("div", "win-result-yaku", `役: ${yakuNames.join("、") || "なし"}`));
@@ -268,6 +271,8 @@
       "役判定:",
       `hasYaku: ${Boolean(yaku.hasYaku)}`,
       `役: ${yaku.yaku && yaku.yaku.length > 0 ? yaku.yaku.map((item) => item.name).join("、") : "なし"}`,
+      `ドラ: ${yaku.dora && yaku.dora.length > 0 ? yaku.dora.map((item) => `${item.name} ${item.han}`).join("、") : "なし"}`,
+      `ドラ詳細: ${JSON.stringify(yaku.doraDetails || {}, null, 2)}`,
       `totalHan: ${yaku.totalHan || 0}`,
       `役満: ${yaku.yakuman && yaku.yakuman.length > 0 ? yaku.yakuman.map((item) => item.name).join("、") : "なし"}`,
       `理由: ${yaku.reason || ""}`,
@@ -296,6 +301,7 @@
       JSON.stringify((state.players || []).map((player) => ({
         player: player.name,
         hasRiichi: player.hasRiichi,
+        ippatsuActive: player.ippatsuActive,
         melds: player.melds,
         kitaTiles: player.kitaTiles,
       })), null, 2),

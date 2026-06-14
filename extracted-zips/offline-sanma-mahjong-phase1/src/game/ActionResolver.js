@@ -15,9 +15,41 @@
     return Sanma.RiichiManager.isMenzen(player);
   }
 
-  function createWinContext(state, playerIndex, winType, loserIndex) {
+  function waitTypeForPattern(pattern, winningTile) {
+    if (!pattern || !winningTile) return null;
+    const tileType = winningTile.baseId;
+    if (pattern.type === "chiitoitsu") return "tanki";
+    if (pattern.type !== "standard") return null;
+
+    const candidates = [];
+    if (pattern.pair && pattern.pair.tileTypes.includes(tileType)) candidates.push("tanki");
+    (pattern.melds || []).forEach((meld) => {
+      if (!meld.tileTypes.includes(tileType)) return;
+      if (meld.kind === "triplet") {
+        candidates.push("shanpon");
+        return;
+      }
+      if (meld.kind !== "sequence") return;
+      const ranks = meld.tileTypes.map((type) => Number(type[0]));
+      const winningRank = Number(tileType[0]);
+      if (winningRank === ranks[1]) {
+        candidates.push("kanchan");
+      } else if ((ranks[0] === 1 && winningRank === 3) || (ranks[0] === 7 && winningRank === 7)) {
+        candidates.push("penchan");
+      } else if (winningRank === ranks[0] || winningRank === ranks[2]) {
+        candidates.push("ryanmen");
+      }
+    });
+
+    return ["ryanmen", "kanchan", "penchan", "tanki", "shanpon"].find((type) => candidates.includes(type)) || null;
+  }
+
+  function createWinContext(state, playerIndex, winType, loserIndex, discardedTile) {
     const player = state.players[playerIndex];
     const round = state.round || {};
+    const winningTile = winType === "ron"
+      ? (discardedTile || (state.lastDiscard && state.lastDiscard.tile) || null)
+      : (player.lastDraw || null);
     return {
       winType,
       winnerIndex: playerIndex,
@@ -29,6 +61,9 @@
       roundWind: round.roundWind || "east",
       isMenzen: isMenzen(player),
       isRiichi: Boolean(player.hasRiichi),
+      isIppatsu: Boolean(player.ippatsuActive),
+      winningTile,
+      waitType: null,
       doraIndicators: state.wall ? state.wall.doraIndicators : (state.doraIndicators || []),
       kitaDoraCount: (player.kitaTiles || []).length,
     };
@@ -37,8 +72,9 @@
   function analyzeWin(state, playerIndex, winType, discardedTile, loserIndex) {
     const player = state.players[playerIndex];
     const tiles = getAnalysisTiles(player, discardedTile ? [discardedTile] : []);
-    const context = createWinContext(state, playerIndex, winType, loserIndex);
+    const context = createWinContext(state, playerIndex, winType, loserIndex, discardedTile);
     const agariResult = Sanma.HandAnalysis.analyzeAgari(tiles, state.ruleConfig || {});
+    context.waitType = waitTypeForPattern(agariResult.bestPattern, context.winningTile);
     const yakuResult = Sanma.YakuAnalysis.analyzeYaku({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, context });
     const scoreResult = Sanma.ScoreCalculator.calculateScore({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, yakuResult, context });
     return { tiles, context, agariResult, yakuResult, scoreResult };
@@ -49,6 +85,9 @@
   }
 
   function ponAvailability(state, playerIndex) {
+    if (state.players[playerIndex] && state.players[playerIndex].hasRiichi) {
+      return { enabled: false, reason: "リーチ後はポンできません。", options: [] };
+    }
     const lastDiscard = state.lastDiscard;
     if (!lastDiscard || !lastDiscard.tile || lastDiscard.playerIndex === playerIndex) {
       return { enabled: false, reason: "対象となる他家の捨て牌がありません。", options: [] };
@@ -69,6 +108,9 @@
   }
 
   function chiAvailability(state, playerIndex) {
+    if (state.players[playerIndex] && state.players[playerIndex].hasRiichi) {
+      return { enabled: false, reason: "リーチ後はチーできません。", options: [] };
+    }
     const lastDiscard = state.lastDiscard;
     if (!state.ruleConfig || state.ruleConfig.allowChi !== true) {
       return { enabled: false, reason: "チーなしルールです。", options: [] };
@@ -108,6 +150,10 @@
     const lastDiscard = state.lastDiscard;
     if (!lastDiscard || !lastDiscard.tile || lastDiscard.playerIndex === playerIndex) {
       return { enabled: false, reason: "対象となる他家の捨て牌がありません。", analysis: null };
+    }
+    const player = state.players[playerIndex];
+    if ((player.discards || []).some((tile) => tile && tile.baseId === lastDiscard.tile.baseId)) {
+      return { enabled: false, reason: "フリテンのためロンできません。", analysis: null };
     }
     const analysis = analyzeWin(state, playerIndex, "ron", lastDiscard.tile, lastDiscard.playerIndex);
     return analysis.scoreResult.isValidWin
@@ -151,9 +197,17 @@
       action("ron", "ロン", ron, { analysis: ron.analysis }),
       action("pon", "ポン", pon),
       action("chi", "チー", chi),
-      action("kan", "カン", { enabled: isTurn && canDrawActionPhase && kan.enabled, reason: canDrawActionPhase ? kan.reason : "鳴いた直後はカンできません。", options: kan.options }),
+      action("kan", "カン", {
+        enabled: !player.hasRiichi && isTurn && canDrawActionPhase && kan.enabled,
+        reason: player.hasRiichi ? "リーチ後はカンできません。" : canDrawActionPhase ? kan.reason : "鳴いた直後はカンできません。",
+        options: player.hasRiichi ? [] : kan.options,
+      }),
       action("riichi", "リーチ", { enabled: isTurn && canDrawActionPhase && riichi.enabled, reason: canDrawActionPhase ? riichi.reason : "鳴いた直後はリーチできません。" }),
-      action("kita", "北抜き", { enabled: isTurn && canDrawActionPhase && kita.enabled, reason: canDrawActionPhase ? kita.reason : "鳴いた直後は北抜きできません。", options: kita.options }),
+      action("kita", "北抜き", {
+        enabled: !player.hasRiichi && isTurn && canDrawActionPhase && kita.enabled,
+        reason: player.hasRiichi ? "リーチ後は北抜きできません。" : canDrawActionPhase ? kita.reason : "鳴いた直後は北抜きできません。",
+        options: player.hasRiichi ? [] : kita.options,
+      }),
     ];
   }
 
@@ -163,6 +217,7 @@
 
   Sanma.ActionResolver = {
     getAnalysisTiles,
+    waitTypeForPattern,
     createWinContext,
     analyzeWin,
     getAvailableActions,
