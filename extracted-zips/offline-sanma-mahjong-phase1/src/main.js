@@ -68,7 +68,7 @@
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: 13,
+      app_phase: "14.1",
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -112,6 +112,8 @@
         onRiichi: safeAction("リーチ", () => engine.declareHumanRiichi()),
         onKita: safeAction("北抜き", () => engine.extractHumanKita()),
         onKan: safeAction("カン", () => engine.requestHumanKan()),
+        onSelectKan: safeAction("カン候補選択", (optionIndex) => engine.selectHumanKan(optionIndex)),
+        onCancelKan: safeAction("カン候補取消", () => engine.cancelHumanKanChoice()),
         onCall: safeAction("鳴き", (actionId, optionIndex) => engine.claimHumanCall(actionId, optionIndex)),
         onSkipCall: safeAction("鳴きスキップ", () => engine.skipHumanCall()),
         onNextRound: safeAction("次局へ", () => engine.startNextRound()),

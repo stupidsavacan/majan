@@ -194,6 +194,83 @@
     return Object.assign(result, { reason: "国士無双に必要な13種の么九牌と対子が揃っていません。" });
   }
 
+  function describeFixedMeld(meld, ruleConfig) {
+    const tiles = meld && Array.isArray(meld.tiles) ? meld.tiles : [];
+    if (tiles.length < 3) return null;
+    const indices = tiles.slice(0, 3).map(getTypeIndex);
+    if (indices.some((index) => !isLegalTypeIndex(index, ruleConfig))) return null;
+    let kind = null;
+    if (meld.type === "chi") {
+      const sorted = indices.slice().sort((left, right) => left - right);
+      const types = sorted.map((index) => tileTypes[index]);
+      const sameSuit = types.every((type) => type.suit === types[0].suit);
+      const sequence = sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1;
+      if (!sameSuit || !sequence || !["p", "s"].includes(types[0].suit)) return null;
+      indices.splice(0, indices.length, ...sorted);
+      kind = "sequence";
+    } else if (indices.every((index) => index === indices[0])) {
+      kind = "triplet";
+    }
+    if (!kind) return null;
+    return Object.assign(describeGroup(kind, indices), {
+      fixed: true,
+      open: meld.open !== false,
+      isKan: meld.type === "kan" || tiles.length >= 4,
+      sourceMeld: meld,
+    });
+  }
+
+  function isStandardAgariWithMelds(concealedTiles, fixedMelds, ruleConfig) {
+    const fixedGroups = (fixedMelds || []).map((meld) => describeFixedMeld(meld, ruleConfig));
+    if (fixedGroups.some((group) => !group) || fixedGroups.length > 4) {
+      return invalidAgariResult("standard", "固定面子の構造が不正です。", concealedTiles.length);
+    }
+    const converted = toCountArray(concealedTiles, ruleConfig);
+    const expectedConcealedCount = 14 - fixedGroups.length * 3;
+    if (!converted.isValid) return invalidAgariResult("standard", converted.reason, converted.tileCount);
+    if (converted.tileCount !== expectedConcealedCount) {
+      return invalidAgariResult(
+        "standard",
+        `固定面子${fixedGroups.length}組では手牌${expectedConcealedCount}枚が必要です。`,
+        converted.tileCount
+      );
+    }
+
+    for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
+      if (converted.counts[pairIndex] < 2) continue;
+      const remaining = converted.counts.slice();
+      remaining[pairIndex] -= 2;
+      const concealedMelds = findMelds(remaining, []);
+      if (concealedMelds && concealedMelds.length === 4 - fixedGroups.length) {
+        return {
+          isAgari: true,
+          type: "standard",
+          typeLabel: "固定面子付き4面子1雀頭",
+          pair: describeGroup("pair", [pairIndex, pairIndex]),
+          melds: concealedMelds.concat(fixedGroups),
+          fixedMelds: fixedGroups,
+          tileCount: 14,
+          concealedTileCount: converted.tileCount,
+          reason: "固定面子を保持した和了形に分解できます。",
+        };
+      }
+    }
+    return invalidAgariResult("standard", "固定面子を含む4面子1雀頭に分解できません。", converted.tileCount);
+  }
+
+  function analyzeAgariWithMelds(concealedTiles, fixedMelds, ruleConfig) {
+    const melds = Array.isArray(fixedMelds) ? fixedMelds : [];
+    if (melds.length === 0) return analyzeAgari(concealedTiles, ruleConfig);
+    const standard = isStandardAgariWithMelds(concealedTiles, melds, ruleConfig);
+    return {
+      isAgari: standard.isAgari,
+      patterns: standard.isAgari ? [standard] : [],
+      bestPattern: standard.isAgari ? standard : null,
+      tileCount: standard.tileCount,
+      reason: standard.reason,
+    };
+  }
+
   function analyzeAgari(tiles, ruleConfig) {
     const converted = toCountArray(tiles, ruleConfig);
     if (!converted.isValid) {
@@ -306,6 +383,9 @@
     isStandardAgari,
     isChiitoitsuAgari,
     isKokushiAgari,
+    describeFixedMeld,
+    isStandardAgariWithMelds,
+    analyzeAgariWithMelds,
     analyzeAgari,
     analyzeTenpai,
   };

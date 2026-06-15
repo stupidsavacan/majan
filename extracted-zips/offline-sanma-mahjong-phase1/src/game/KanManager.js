@@ -65,7 +65,7 @@
     }
     const options = getOptions(state, playerIndex);
     return options.length > 0
-      ? { enabled: true, reason: "カン可能な牌があります。Phase 5では判定・表示のみです。", options }
+      ? { enabled: true, reason: "カン可能な牌があります。", options }
       : { enabled: false, reason: "カン可能な牌はありません。", options };
   }
 

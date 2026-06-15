@@ -175,7 +175,7 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 });
 
 console.log(JSON.stringify({
-  phase: 13,
+  phase: "14.1",
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

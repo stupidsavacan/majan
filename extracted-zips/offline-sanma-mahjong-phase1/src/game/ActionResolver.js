@@ -26,6 +26,7 @@
     const candidates = [];
     if (pattern.pair && pattern.pair.tileTypes.includes(tileType)) candidates.push("tanki");
     (pattern.melds || []).forEach((meld) => {
+      if (meld.fixed) return;
       if (!meld.tileTypes.includes(tileType)) return;
       if (meld.kind === "triplet") {
         candidates.push("shanpon");
@@ -83,9 +84,15 @@
 
   function analyzeWin(state, playerIndex, winType, discardedTile, loserIndex) {
     const player = state.players[playerIndex];
-    const tiles = getAnalysisTiles(player, discardedTile ? [discardedTile] : []);
+    const concealedTiles = (player.hand || []).slice().concat(discardedTile ? [discardedTile] : []);
+    const fixedTiles = (player.melds || []).flatMap((meld) => Array.isArray(meld.tiles) ? meld.tiles : []);
+    const tiles = concealedTiles.concat(fixedTiles);
     const context = createWinContext(state, playerIndex, winType, loserIndex, discardedTile);
-    const agariResult = Sanma.HandAnalysis.analyzeAgari(tiles, state.ruleConfig || {});
+    const agariResult = Sanma.HandAnalysis.analyzeAgariWithMelds(
+      concealedTiles,
+      player.melds || [],
+      state.ruleConfig || {}
+    );
     context.waitType = waitTypeForPattern(agariResult.bestPattern, context.winningTile);
     const yakuResult = Sanma.YakuAnalysis.analyzeYaku({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, context });
     const scoreResult = Sanma.ScoreCalculator.calculateScore({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, yakuResult, context });

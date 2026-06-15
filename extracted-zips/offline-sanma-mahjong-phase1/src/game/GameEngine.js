@@ -38,6 +38,7 @@
       this.logs = [];
       this.cpuThinkingLog = [];
       this.assistEvents = [];
+      this.assistUsage = { opening: 0, drawsByPlayer: Object.create(null) };
       this.cpuRandom = Math.random;
       this.assistRandom = Math.random;
       this.winResult = null;
@@ -45,6 +46,8 @@
       this.callWindow = null;
       this.lastDrawContext = null;
       this.pendingWinContext = null;
+      this.pendingKanChoice = null;
+      this.pendingKanAttempt = null;
       this.gameRecord = null;
       this.debugEventLog = DebugEventLog.create();
       this.stateMachine = GameStateMachine.create("idle", this.debugEventLog);
@@ -65,11 +68,14 @@
       this.logs = [];
       this.cpuThinkingLog = [];
       this.assistEvents = [];
+      this.assistUsage = { opening: 0, drawsByPlayer: Object.create(null) };
       this.winResult = null;
       this.lastDiscard = null;
       this.callWindow = null;
       this.lastDrawContext = null;
       this.pendingWinContext = null;
+      this.pendingKanChoice = null;
+      this.pendingKanAttempt = null;
       this.cpuTaskActive = false;
       GameStateMachine.cancelAll(this.stateMachine, "新しい局を開始");
       GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, "配牌開始");
@@ -95,7 +101,7 @@
         dealerIndex: this.round.dealerIndex,
         hands: this.players.map((player) => ({
           playerIndex: player.id,
-          tiles: player.hand.map(TileUtil.getTileShortLabel),
+          tiles: player.hand.map((tile) => this.tileSnapshot(tile)),
         })),
       });
       this.recordAssist(AssistManager.evaluateOpening({
@@ -288,6 +294,7 @@
         if (this.tryCpuTsumo(player)) return;
         if (this.tryCpuKita(player)) return;
         if (this.tryCpuTsumo(player)) return;
+        if (this.tryCpuKan(player)) return;
         this.tryCpuRiichi(player);
         const discardIndex = this.chooseCpuDiscardIndex(player);
         const discarded = player.discardTileAt(discardIndex);
@@ -447,7 +454,7 @@
         this.recordGameEvent("kita", {
           playerIndex: player.id,
           playerName: player.name,
-          tile: TileUtil.getTileShortLabel(result.extracted),
+          tile: this.tileSnapshot(result.extracted),
         });
         if (!result.replacement) {
           this.phase = "round-ended";
@@ -466,6 +473,15 @@
         if (this.tryCpuTsumo(player)) return true;
       }
       return false;
+    }
+
+    tryCpuKan(player) {
+      const availability = KanRules.describeAvailability(this, player.id, this.ruleConfig);
+      const option = (availability.options || []).find((candidate) => candidate.type !== "minkan");
+      if (!availability.enabled || !option) return false;
+      this.addCpuActionLog(player, "カン", option.label || option.type);
+      this.beginKanAttempt(player.id, option);
+      return this.phase === "human-call" || this.phase === "win-ended" || this.phase === "round-ended";
     }
 
     tryCpuRiichi(player) {
@@ -499,6 +515,16 @@
       if (!event) return;
       this.assistEvents.unshift(event);
       this.assistEvents = this.assistEvents.slice(0, 20);
+      if (event.applied) {
+        this.recordGameEvent("assist", {
+          phase: event.phase,
+          playerIndex: event.playerIndex,
+          beforeShanten: event.beforeShanten,
+          afterShanten: event.afterShanten,
+          outgoing: this.tileSnapshot(event.outgoing),
+          incoming: this.tileSnapshot(event.incoming),
+        });
+      }
     }
 
     endRoundForInvalidDraw(reason) {
@@ -602,6 +628,23 @@
         return;
       }
       const analysis = action.analysis;
+      const metadata = this.callWindow.kind === "chankan"
+        ? {
+          isChankan: true,
+          kanType: this.callWindow.kanType,
+          isAnkanKokushiException: Boolean(this.callWindow.isAnkanKokushiException),
+        }
+        : {};
+      return this.resolveRonWin(this.humanPlayer.id, analysis, metadata);
+    }
+
+    resolveRonWin(winnerIndex, analysis, metadata) {
+      const winner = this.players[winnerIndex];
+      if (!winner || !analysis || !analysis.scoreResult || !analysis.scoreResult.isValidWin) {
+        this.addLog("ロン和了情報が不正です。");
+        this.emitChange();
+        return false;
+      }
       const settlement = Settlement.applySettlement({
         players: this.players,
         scoreResult: analysis.scoreResult,
@@ -612,21 +655,43 @@
         this.emitChange();
         return;
       }
+      const details = metadata || {};
       this.phase = "win-ended";
       this.callWindow = null;
+      this.pendingKanAttempt = null;
       this.winResult = {
-        winnerIndex: this.humanPlayer.id,
-        winnerName: this.humanPlayer.name,
+        winnerIndex,
+        winnerName: winner.name,
         winType: "ron",
         yaku: analysis.yakuResult,
         score: analysis.scoreResult,
         settlement,
+        context: analysis.context,
       };
-      this.addLog(`あなたがロン和了しました。${analysis.scoreResult.limitName || `${analysis.scoreResult.han}飜${analysis.scoreResult.fu}符`} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
-      this.recordGameEvent("win", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, winType: "ron" });
+      this.addLog(`${winner.name}がロン和了しました。${analysis.scoreResult.limitName || `${analysis.scoreResult.han}飜${analysis.scoreResult.fu}符`} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
+      if (details.isChankan) {
+        this.recordGameEvent("chankan", {
+          playerIndex: winnerIndex,
+          playerName: winner.name,
+          fromPlayerIndex: analysis.context.loserIndex,
+          kanType: details.kanType,
+          isAnkanKokushiException: details.isAnkanKokushiException,
+          decision: "accept",
+        });
+      }
+      this.recordGameEvent("win", {
+        playerIndex: winnerIndex,
+        playerName: winner.name,
+        winType: "ron",
+        isChankan: Boolean(details.isChankan),
+        kanType: details.kanType || null,
+        isAnkanKokushiException: Boolean(details.isAnkanKokushiException),
+      });
       this.recordGameEvent("score_settlement", { changes: settlement.changes });
       this.finishGameRecord(this.winResult);
+      this.pendingWinContext = null;
       this.emitChange();
+      return true;
     }
 
     claimHumanCall(actionId, optionIndex) {
@@ -725,7 +790,8 @@
         playerName: this.humanPlayer.name,
         action: actionId,
         fromPlayerIndex: option.fromPlayerIndex,
-        tiles: meldTiles.map(TileUtil.getTileShortLabel),
+        tiles: meldTiles.map((tile) => this.tileSnapshot(tile)),
+        calledTile: this.tileSnapshot(option.tile),
       });
       this.emitChange();
     }
@@ -740,6 +806,26 @@
       const discarderIndex = this.callWindow.fromPlayerIndex;
       if (FuritenManager && this.callWindow.actions.some((action) => action.id === "ron")) {
         FuritenManager.markMissedRon(this, this.humanPlayer.id);
+      }
+      if (this.callWindow.kind === "chankan") {
+        const declarerIndex = this.callWindow.fromPlayerIndex;
+        const kanType = this.callWindow.kanType;
+        this.recordGameEvent("chankan", {
+          playerIndex: this.humanPlayer.id,
+          playerName: this.humanPlayer.name,
+          fromPlayerIndex: declarerIndex,
+          kanType,
+          decision: "skip",
+        });
+        CallWindow.close(this.callWindow, "槍槓見逃し");
+        this.callWindow = null;
+        this.pendingWinContext = null;
+        const result = this.finalizePendingKan();
+        if (result && result.applied && declarerIndex !== this.humanPlayer.id && this.phase === "cpu-running") {
+          this.emitChange();
+          this.runCpuUntilHumanTurn();
+        }
+        return true;
       }
       CallWindow.close(this.callWindow, "スキップ");
       this.addLog("鳴きをスキップしました。");
@@ -782,7 +868,7 @@
         this.recordGameEvent("kita", {
           playerIndex: this.humanPlayer.id,
           playerName: this.humanPlayer.name,
-          tile: TileUtil.getTileShortLabel(result.extracted),
+          tile: this.tileSnapshot(result.extracted),
         });
         if (result.replacement) this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
       }
@@ -810,9 +896,56 @@
       if (!availability.enabled) {
         this.addLog(availability.reason);
         this.emitChange();
-        return;
+        return false;
       }
-      this.applyHumanKan(availability.options[0]);
+      if (availability.options.length > 1) {
+        this.pendingKanChoice = {
+          isOpen: true,
+          playerIndex: this.humanPlayer.id,
+          options: availability.options.slice(),
+        };
+        this.phase = "human-kan-choice";
+        this.addLog("複数のカン候補があります。実行するカンを選択してください。");
+        this.recordGameEvent("kan_choice_open", {
+          playerIndex: this.humanPlayer.id,
+          options: availability.options.map((option) => ({
+            type: option.type,
+            label: option.label,
+            tile: option.tile ? TileUtil.getTileShortLabel(option.tile) : null,
+          })),
+        });
+        this.emitChange();
+        return true;
+      }
+      return this.applyHumanKan(availability.options[0]);
+    }
+
+    selectHumanKan(optionIndex) {
+      const pending = this.pendingKanChoice;
+      const index = Number(optionIndex);
+      if (!pending || !pending.isOpen || !Number.isInteger(index) || !pending.options[index]) {
+        this.addLog("選択されたカン候補は利用できません。");
+        this.emitChange();
+        return false;
+      }
+      const selected = pending.options[index];
+      this.pendingKanChoice = null;
+      this.phase = "human-discard";
+      return this.applyHumanKan(selected);
+    }
+
+    cancelHumanKanChoice() {
+      if (!this.pendingKanChoice || !this.pendingKanChoice.isOpen) {
+        this.addLog("取り消せるカン選択はありません。");
+        this.emitChange();
+        return false;
+      }
+      this.recordGameEvent("kan_choice_cancel", { playerIndex: this.humanPlayer.id });
+      this.pendingKanChoice = null;
+      this.phase = "human-discard";
+      this.addLog("カン選択を取り消しました。");
+      this.emitChange();
+      return true;
     }
 
     applyHumanKan(option) {
@@ -821,40 +954,169 @@
         this.emitChange();
         return false;
       }
-      const result = KanRules.applyKan({
+      this.pendingKanChoice = null;
+      return this.beginKanAttempt(this.humanPlayer.id, option);
+    }
+
+    beginKanAttempt(playerIndex, option) {
+      const attempt = KanRules.prepareKan({
         state: this,
-        playerIndex: this.humanPlayer.id,
+        playerIndex,
         kanAction: option,
+        ruleConfig: this.ruleConfig,
+      });
+      this.addLog(attempt.reason);
+      if (!attempt.prepared) {
+        this.emitChange();
+        return false;
+      }
+      this.pendingKanAttempt = attempt;
+      this.recordGameEvent("kan_attempt", {
+        playerIndex,
+        playerName: this.players[playerIndex].name,
+        kanType: attempt.kanType,
+        tile: TileUtil.getTileShortLabel(attempt.declaredTile),
+      });
+      const interrupt = this.findChankanInterrupt(attempt);
+      if (interrupt) return this.openOrResolveChankan(interrupt, attempt);
+      return Boolean(this.finalizePendingKan().applied);
+    }
+
+    findChankanInterrupt(attempt) {
+      if (!attempt || !["kakan", "ankan"].includes(attempt.kanType)) return null;
+      const kanRules = (this.ruleConfig.advancedRules && this.ruleConfig.advancedRules.kan) || {};
+      if (kanRules.chankan === false) return null;
+      const declaredTile = attempt.declaredTile;
+      const previousContext = this.pendingWinContext;
+      for (let offset = 1; offset < this.players.length; offset += 1) {
+        const playerIndex = (attempt.playerIndex + offset) % this.players.length;
+        const furiten = FuritenManager.checkRonEligibility({
+          state: this,
+          playerIndex,
+          winningTile: declaredTile,
+          sourcePlayerIndex: attempt.playerIndex,
+          ruleConfig: this.ruleConfig,
+        });
+        if (!furiten.canRon) continue;
+        const isAnkanKokushiException = attempt.kanType === "ankan";
+        this.pendingWinContext = {
+          isChankan: true,
+          sourcePlayerIndex: attempt.playerIndex,
+          winningTile: declaredTile,
+          kanType: attempt.kanType,
+          isAnkanKokushiException,
+        };
+        const analysis = ActionResolver.analyzeWin(
+          this,
+          playerIndex,
+          "ron",
+          declaredTile,
+          attempt.playerIndex
+        );
+        const isKokushi = analysis.agariResult
+          && analysis.agariResult.bestPattern
+          && analysis.agariResult.bestPattern.type === "kokushi";
+        if (analysis.scoreResult.isValidWin && (attempt.kanType === "kakan" || isKokushi)) {
+          return { playerIndex, analysis, isAnkanKokushiException };
+        }
+      }
+      this.pendingWinContext = previousContext;
+      return null;
+    }
+
+    openOrResolveChankan(interrupt, attempt) {
+      const winner = this.players[interrupt.playerIndex];
+      this.recordGameEvent("chankan_offer", {
+        playerIndex: interrupt.playerIndex,
+        playerName: winner.name,
+        fromPlayerIndex: attempt.playerIndex,
+        kanType: attempt.kanType,
+        isAnkanKokushiException: interrupt.isAnkanKokushiException,
+      });
+      if (!winner.isHuman) {
+        return this.resolveRonWin(interrupt.playerIndex, interrupt.analysis, {
+          isChankan: true,
+          kanType: attempt.kanType,
+          isAnkanKokushiException: interrupt.isAnkanKokushiException,
+        });
+      }
+      this.callWindow = {
+        isOpen: true,
+        kind: "chankan",
+        playerIndex: interrupt.playerIndex,
+        fromPlayerIndex: attempt.playerIndex,
+        tile: attempt.declaredTile,
+        kanType: attempt.kanType,
+        isAnkanKokushiException: interrupt.isAnkanKokushiException,
+        actions: [{
+          id: "ron",
+          label: "槍槓ロン",
+          enabled: true,
+          reason: "カン宣言牌でロン和了できます。",
+          analysis: interrupt.analysis,
+        }],
+      };
+      this.phase = "human-call";
+      this.addLog("槍槓ロンを選択できます。");
+      this.emitChange();
+      return true;
+    }
+
+    finalizePendingKan() {
+      const attempt = this.pendingKanAttempt;
+      if (!attempt) return { applied: false, reason: "確定待ちのカンがありません。" };
+      this.pendingKanAttempt = null;
+      this.pendingWinContext = null;
+      const result = KanRules.finalizeKan({
+        state: this,
+        attempt,
         ruleConfig: this.ruleConfig,
       });
       this.addLog(result.reason);
       if (!result.applied) {
         this.emitChange();
-        return false;
+        return result;
       }
-      this.turnIndex = this.humanPlayer.id;
-      this.phase = result.replacement ? "human-discard" : "round-ended";
+      const player = this.players[attempt.playerIndex];
+      this.turnIndex = attempt.playerIndex;
+      this.phase = result.replacement
+        ? (player.isHuman ? "human-discard" : "cpu-running")
+        : "round-ended";
       this.recordGameEvent("kan", {
-        playerIndex: this.humanPlayer.id,
-        playerName: this.humanPlayer.name,
+        playerIndex: attempt.playerIndex,
+        playerName: player.name,
         kanType: result.kanType,
-        tiles: result.meld.tiles.map(TileUtil.getTileShortLabel),
+        tiles: result.meld.tiles.map((tile) => this.tileSnapshot(tile)),
+        meldIndex: result.kanType === "kakan" ? attempt.requested.meldIndex : null,
+        consumedTileInstanceIds: (attempt.requested.consumeInstanceIds || []).slice(),
+        fromPlayerIndex: attempt.requested.fromPlayerIndex,
+        calledTile: result.kanType === "minkan" ? this.tileSnapshot(attempt.requested.tile) : null,
       });
       if (result.replacement) {
-        this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
+        this.recordGameEvent("draw", this.playerTileEvent(player, result.replacement));
       } else {
         this.finishGameRecord({ type: "exhaustive_draw", reason: "嶺上牌を取得できませんでした。" });
       }
       this.emitChange();
-      return true;
+      return result;
     }
 
     playerTileEvent(player, tile) {
       return {
         playerIndex: player.id,
         playerName: player.name,
-        tile: tile ? TileUtil.getTileShortLabel(tile) : null,
+        tile: this.tileSnapshot(tile),
         tileInstanceId: tile ? tile.instanceId : null,
+      };
+    }
+
+    tileSnapshot(tile) {
+      if (!tile) return null;
+      return {
+        instanceId: tile.instanceId,
+        baseId: tile.baseId,
+        label: TileUtil.getTileShortLabel(tile),
+        isRed: Boolean(tile.isRed),
       };
     }
 
@@ -958,6 +1220,8 @@
           : [],
         lastDiscard: this.lastDiscard,
         callWindow: this.callWindow,
+        pendingKanChoice: this.pendingKanChoice,
+        pendingKanAttempt: this.pendingKanAttempt,
         winResult: this.winResult,
         matchState: this.matchManager.getState(),
         gameRecord: this.gameRecord,

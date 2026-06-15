@@ -134,7 +134,7 @@ kakanState.players[0].hand = hand(["green"]);
 const kakanAction = Sanma.KanRules.getAvailableKanActions({ state: kakanState, playerIndex: 0 })
   .find((option) => option.type === "kakan");
 const kakanResult = Sanma.KanRules.applyKan({ state: kakanState, playerIndex: 0, kanAction: kakanAction });
-assert(kakanResult.applied && kakanResult.chankanContext && kakanState.players[0].melds[0].tiles.length === 4, "加槓または槍槓文脈を処理できませんでした");
+assert(kakanResult.applied && !kakanResult.chankanContext && kakanState.players[0].melds[0].tiles.length === 4, "加槓の直接確定処理が不正です");
 
 const chankanState = state();
 chankanState.pendingWinContext = { isChankan: true };

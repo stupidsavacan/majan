@@ -36,6 +36,9 @@
 
     const center = el("section", "center-board");
     center.append(tableInfo, renderDiscards(state.players), doraPanel);
+    if (state.pendingKanChoice && state.pendingKanChoice.isOpen) {
+      center.appendChild(renderKanChoice(state.pendingKanChoice, handlers));
+    }
     if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers));
     if (state.winResult) center.appendChild(renderWinResult(state.winResult));
     if (state.matchState && state.matchState.roundEnded) {
@@ -121,6 +124,7 @@
     const head = el("div", "human-head");
     let statusLabel = "CPU思考中";
     if (canDiscard) statusLabel = "打牌してください";
+    else if (phase === "human-kan-choice") statusLabel = "カン候補を選択してください";
     else if (phase === "human-call") statusLabel = "鳴き・ロンを選択してください";
     else if (state.matchState && state.matchState.matchEnded) statusLabel = "対局終了";
     else if (state.matchState && state.matchState.roundEnded) statusLabel = "局終了";
@@ -170,6 +174,28 @@
 
     section.append(head, hand, renderMelds(player), actions);
     return section;
+  }
+
+  function renderKanChoice(pendingKanChoice, handlers) {
+    const panel = el("section", "call-window kan-choice-window");
+    panel.appendChild(el("h2", "section-title", "カン候補"));
+    panel.appendChild(el("div", "call-window-message", "実行するカンを選択するか、取り消してください。"));
+    const actions = el("div", "call-window-actions");
+    pendingKanChoice.options.forEach((option, index) => {
+      const button = actionButton(
+        option.label || `${option.type || "kan"} ${option.tile ? TileUtil.getTileShortLabel(option.tile) : ""}`,
+        `${option.type || "kan"}を実行します。`,
+        false,
+        "available-action"
+      );
+      button.addEventListener("click", () => handlers.onSelectKan(index));
+      actions.appendChild(button);
+    });
+    const cancel = actionButton("取り消し", "手牌や局面を変更せずに戻ります。", false, "");
+    cancel.addEventListener("click", handlers.onCancelKan);
+    actions.appendChild(cancel);
+    panel.appendChild(actions);
+    return panel;
   }
 
   function renderCallWindow(callWindow, handlers) {

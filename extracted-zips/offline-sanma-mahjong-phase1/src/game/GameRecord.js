@@ -38,9 +38,10 @@
     recordSequence += 1;
     return {
       version: 2,
+      eventSchemaVersion: 2,
       id: `record-${Date.now().toString(36)}-${recordSequence.toString(36)}`,
       matchId: String(options.matchId || ""),
-      phase: 13,
+      phase: 14.1,
       createdAt,
       seed: String(options.seed || ""),
       ruleConfig: clone(options.ruleConfig || {}),
@@ -147,6 +148,7 @@
     }
     const normalized = clone(record);
     normalized.version = Number(normalized.version) || 1;
+    normalized.eventSchemaVersion = Number(normalized.eventSchemaVersion) || 1;
     normalized.matchId = typeof normalized.matchId === "string" ? normalized.matchId : "";
     normalized.phase = Number(normalized.phase) || 8;
     normalized.rounds.forEach((round) => {

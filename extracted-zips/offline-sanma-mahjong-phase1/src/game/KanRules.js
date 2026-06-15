@@ -20,7 +20,8 @@
   }
 
   function sameWaits(left, right) {
-    return left.length > 0 && left.length === right.length && left.every((value, index) => value === right[index]);
+    return left.length > 0 && left.length === right.length
+      && left.every((value, index) => value === right[index]);
   }
 
   function riichiAnkanKeepsWait(state, playerIndex, option) {
@@ -28,8 +29,7 @@
     if (!player || !player.lastDraw || option.type !== "ankan") return false;
     const before = analysisTiles(player).filter((tile) => tile.instanceId !== player.lastDraw.instanceId);
     const consumed = new Set(option.consumeInstanceIds || []);
-    const afterHand = (player.hand || []).filter((tile) => !consumed.has(tile.instanceId));
-    const after = afterHand.slice();
+    const after = (player.hand || []).filter((tile) => !consumed.has(tile.instanceId));
     (player.melds || []).forEach((meld) => {
       after.push(...(Array.isArray(meld.tiles) ? meld.tiles.slice(0, 3) : []));
     });
@@ -67,17 +67,17 @@
     }) || null;
   }
 
-  function applyKan(input) {
+  function prepareKan(input) {
     const options = input || {};
     const state = options.state || {};
     const player = state.players && state.players[options.playerIndex];
     const requested = findCurrentOption(state, options.playerIndex, options.kanAction);
-    if (!player || !requested) return { applied: false, reason: "指定されたカンは実行できません。" };
+    if (!player || !requested) return { prepared: false, reason: "指定されたカンは実行できません。" };
 
     const consumed = (requested.consumeInstanceIds || []).map((instanceId) =>
       player.hand.find((tile) => tile.instanceId === instanceId)
     );
-    if (consumed.some((tile) => !tile)) return { applied: false, reason: "カンに必要な牌が不足しています。" };
+    if (consumed.some((tile) => !tile)) return { prepared: false, reason: "カンに必要な牌が不足しています。" };
 
     const discardOwner = requested.type === "minkan" ? state.players[requested.fromPlayerIndex] : null;
     const discardIndex = discardOwner && requested.tile
@@ -86,11 +86,42 @@
     if (requested.type === "minkan" && (discardIndex < 0
       || !state.lastDiscard
       || state.lastDiscard.tile.instanceId !== requested.tile.instanceId)) {
-      return { applied: false, reason: "明槓対象の捨て牌が見つかりません。" };
+      return { prepared: false, reason: "明槓対象の捨て牌が見つかりません。" };
     }
 
+    return {
+      prepared: true,
+      reason: "カン宣言を受け付けました。",
+      playerIndex: options.playerIndex,
+      requested,
+      declaredTile: requested.tile || consumed[0],
+      consumed,
+      discardOwner,
+      discardIndex,
+      kanType: requested.type,
+    };
+  }
+
+  function finalizeKan(input) {
+    const options = input || {};
+    const state = options.state || {};
+    const sourceAttempt = options.attempt || {};
+    const attempt = sourceAttempt.prepared
+      ? prepareKan({
+        state,
+        playerIndex: sourceAttempt.playerIndex,
+        kanAction: sourceAttempt.requested,
+        ruleConfig: options.ruleConfig,
+      })
+      : prepareKan(options);
+    if (!attempt.prepared) return { applied: false, reason: attempt.reason };
+
+    const player = state.players[attempt.playerIndex];
+    const requested = attempt.requested;
+    const consumed = attempt.consumed;
     const consumedIds = new Set(requested.consumeInstanceIds);
     player.hand = player.hand.filter((tile) => !consumedIds.has(tile.instanceId));
+
     let meld;
     if (requested.type === "kakan") {
       meld = player.melds[requested.meldIndex];
@@ -99,7 +130,7 @@
       meld.tiles = meld.tiles.concat(consumed[0]);
       meld.open = true;
     } else {
-      if (requested.type === "minkan") discardOwner.discards.splice(discardIndex, 1);
+      if (requested.type === "minkan") attempt.discardOwner.discards.splice(attempt.discardIndex, 1);
       meld = {
         type: "kan",
         kanType: requested.type,
@@ -112,19 +143,25 @@
 
     if (Sanma.RiichiRules) Sanma.RiichiRules.clearIppatsu(state);
     const rules = rulesFor(state, options.ruleConfig);
-    const doraIndicator = rules.kanDora !== false && state.wall && typeof state.wall.revealKanDora === "function"
+    const doraIndicator = rules.kanDora !== false && state.wall
+      && typeof state.wall.revealKanDora === "function"
       ? state.wall.revealKanDora()
       : null;
-    const replacement = rules.rinshan !== false && state.wall && typeof state.wall.drawRinshan === "function"
+    const replacement = rules.rinshan !== false && state.wall
+      && typeof state.wall.drawRinshan === "function"
       ? state.wall.drawRinshan()
       : null;
     if (replacement) player.receiveTile(replacement);
-    state.lastDrawContext = { playerIndex: options.playerIndex, isRinshan: Boolean(replacement), kanType: requested.type };
+    state.lastDrawContext = {
+      playerIndex: attempt.playerIndex,
+      isRinshan: Boolean(replacement),
+      kanType: requested.type,
+    };
     state.lastKanContext = {
-      playerIndex: options.playerIndex,
+      playerIndex: attempt.playerIndex,
       kanType: requested.type,
       tile: requested.tile,
-      chankanEligible: requested.type === "kakan" && rules.chankan !== false,
+      chankanEligible: false,
     };
     state.lastDiscard = null;
     state.callWindow = null;
@@ -135,16 +172,22 @@
       meld,
       replacement,
       doraIndicator,
-      chankanContext: state.lastKanContext.chankanEligible
-        ? { isChankan: true, sourcePlayerIndex: options.playerIndex, winningTile: requested.tile }
-        : null,
+      attempt,
     };
+  }
+
+  function applyKan(input) {
+    const attempt = prepareKan(input);
+    if (!attempt.prepared) return { applied: false, reason: attempt.reason };
+    return finalizeKan(Object.assign({}, input, { attempt }));
   }
 
   Sanma.KanRules = {
     getAvailableKanActions,
     describeAvailability,
     riichiAnkanKeepsWait,
+    prepareKan,
+    finalizeKan,
     applyKan,
   };
 })(window);

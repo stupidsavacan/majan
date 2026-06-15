@@ -20,6 +20,7 @@
     dealing: "dealing",
     "human-draw": "waitingForDraw",
     "human-discard": "waitingForDiscard",
+    "human-kan-choice": "resolvingAction",
     "caller-discard": "waitingForDiscard",
     "human-call": "waitingForCall",
     "cpu-running": "resolvingAction",

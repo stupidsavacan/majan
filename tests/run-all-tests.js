@@ -16,6 +16,11 @@ const testFiles = [
   "cpu-strategy.test.js",
   "storage-records.test.js",
   "replay-stats.test.js",
+  "phase14-1-runtime.test.js",
+  "phase14-1-kan-choice.test.js",
+  "phase14-1-chankan.test.js",
+  "phase14-1-fixed-meld-scoring.test.js",
+  "phase14-1-assist-replay.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -29,8 +34,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 13 test run failed.");
+  console.error("\nPhase 14.1 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 13 tests passed.");
+console.log("\nAll Phase 14.1 tests passed.");

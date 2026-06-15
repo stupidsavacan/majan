@@ -22,8 +22,27 @@
     };
   }
 
+  function tileLabel(tile) {
+    if (typeof tile === "string") return tile;
+    return tile && (tile.label || tile.baseId) ? (tile.label || tile.baseId) : "?";
+  }
+
+  function sameTile(left, right) {
+    if (left && right && typeof left === "object" && typeof right === "object"
+      && left.instanceId && right.instanceId) {
+      return left.instanceId === right.instanceId;
+    }
+    return tileLabel(left) === tileLabel(right);
+  }
+
   function removeTile(hand, tile) {
-    const index = hand.lastIndexOf(tile);
+    let index = -1;
+    for (let cursor = hand.length - 1; cursor >= 0; cursor -= 1) {
+      if (sameTile(hand[cursor], tile)) {
+        index = cursor;
+        break;
+      }
+    }
     if (index >= 0) hand.splice(index, 1);
   }
 
@@ -41,7 +60,7 @@
     if (event.type === "deal" && Array.isArray(data.hands)) {
       data.hands.forEach((entry) => {
         if (entry && playerZone(view, "hands", entry.playerIndex) && Array.isArray(entry.tiles)) {
-          view.hands[entry.playerIndex] = entry.tiles.slice();
+          view.hands[entry.playerIndex] = clone(entry.tiles);
         }
       });
     } else if (event.type === "draw" && playerZone(view, "hands", playerIndex) && data.tile) {
@@ -65,7 +84,8 @@
       playerZone(view, "melds", playerIndex).push({ type: data.action || "call", tiles });
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
       if (sourceDiscards && sourceDiscards.length) {
-        sourceDiscards.pop();
+        if (data.calledTile) removeTile(sourceDiscards, data.calledTile);
+        else sourceDiscards.pop();
       }
     } else if (
       event.type === "kita"
@@ -81,8 +101,28 @@
       && playerZone(view, "melds", playerIndex)
     ) {
       const tiles = Array.isArray(data.tiles) ? data.tiles.slice() : [];
-      tiles.forEach((tile) => removeTile(playerZone(view, "hands", playerIndex), tile));
-      playerZone(view, "melds", playerIndex).push({ type: data.kanType || "kan", tiles });
+      const melds = playerZone(view, "melds", playerIndex);
+      (data.consumedTileInstanceIds || []).forEach((instanceId) => {
+        removeTile(playerZone(view, "hands", playerIndex), { instanceId });
+      });
+      if (!Array.isArray(data.consumedTileInstanceIds)) {
+        tiles.forEach((tile) => removeTile(playerZone(view, "hands", playerIndex), tile));
+      }
+      if (data.kanType === "kakan" && Number.isInteger(data.meldIndex) && melds[data.meldIndex]) {
+        melds[data.meldIndex] = { type: "kakan", tiles };
+      } else {
+        melds.push({ type: data.kanType || "kan", tiles });
+      }
+      const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
+      if (data.kanType === "minkan" && sourceDiscards) removeTile(sourceDiscards, data.calledTile);
+    } else if (
+      event.type === "assist"
+      && playerZone(view, "hands", playerIndex)
+      && data.outgoing
+      && data.incoming
+    ) {
+      removeTile(playerZone(view, "hands", playerIndex), data.outgoing);
+      playerZone(view, "hands", playerIndex).push(data.incoming);
     } else if (event.type === "score_settlement" && Array.isArray(data.changes)) {
       data.changes.forEach((change) => {
         if (
@@ -153,7 +193,7 @@
   function eventText(event) {
     if (!event) return "開始";
     const data = event.data || {};
-    const details = [data.playerName, data.tile, data.action, data.kanType, data.reason].filter(Boolean);
+    const details = [data.playerName, data.tile ? tileLabel(data.tile) : null, data.action, data.kanType, data.reason].filter(Boolean);
     return `${event.index || ""} ${event.type}${details.length ? `: ${details.join(" / ")}` : ""}`.trim();
   }
 
@@ -165,14 +205,19 @@
   }
 
   function tileNode(label) {
-    return el("span", "replay-tile", label || "?");
+    return el("span", "replay-tile", tileLabel(label));
   }
 
   function renderZone(title, items) {
     const zone = el("div", "replay-zone");
     zone.appendChild(el("strong", "replay-zone-title", title));
     const row = el("div", "replay-tile-row");
-    (items || []).forEach((item) => row.appendChild(tileNode(typeof item === "string" ? item : (item.tiles || []).join(" "))));
+    (items || []).forEach((item) => {
+      const label = item && Array.isArray(item.tiles)
+        ? item.tiles.map(tileLabel).join(" ")
+        : tileLabel(item);
+      row.appendChild(tileNode(label));
+    });
     zone.appendChild(row);
     return zone;
   }
@@ -272,6 +317,8 @@
     jumpToEnd,
     setRound,
     eventText,
+    tileLabel,
+    sameTile,
     mount,
     clone,
   };

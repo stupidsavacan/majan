@@ -31,7 +31,7 @@
 
   function classifyTriplet(group, context) {
     const tileType = firstTileType(group);
-    const actualMeld = findActualMeld(context, tileType);
+    const actualMeld = group && group.sourceMeld ? group.sourceMeld : findActualMeld(context, tileType);
     const completedByRon = !actualMeld
       && context.winType === "ron"
       && context.waitType === "shanpon"
