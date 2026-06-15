@@ -12,7 +12,6 @@
     redDoraMode: Object.freeze({ type: "enum", values: Object.freeze(["standard", "none", "custom"]) }),
     kuitan: Object.freeze({ type: "boolean" }),
     atozuke: Object.freeze({ type: "boolean" }),
-    startingPoints: Object.freeze({ type: "integer", min: 10000, max: 100000 }),
   });
 
   function publicSettings(settings) {

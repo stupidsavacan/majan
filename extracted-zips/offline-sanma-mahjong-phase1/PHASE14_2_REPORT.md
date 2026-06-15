@@ -8,7 +8,7 @@ Phase 14.2の必須項目を実装し、中央テストランナーへ回帰テ�
 
 | 項目 | 実装 | 回帰テスト |
 | --- | --- | --- |
-| 設定JSONインポート | 公開UI設定だけを明示allowlistで受理し、未知キー・内部設定・不正enum・不正数値を入力全体として拒否 | `tests/settings-import-hardening.test.js` |
+| 設定JSONインポート | `RuleConfig.normalSettings`と一致する公開UI設定だけを明示allowlistで受理し、`startingPoints`を含む未知キー・内部設定・不正enum・不正数値を入力全体として拒否 | `tests/settings-import-hardening.test.js` |
 | seed長 | 最大128文字。129文字以上はエンジン・Wallへ渡す前に拒否 | `tests/settings-import-hardening.test.js`, `tests/smoke.test.js` |
 | 牌譜インポート | JSON解析前の文字数制限と、players・rounds・events・文字列長・result型の検証を実施 | `tests/record-import-hardening.test.js` |
 | AdvancedStats防御 | `yaku`・`yakuman`などの型を確認し、不正値を空配列として扱う | `tests/record-import-hardening.test.js` |
@@ -32,6 +32,7 @@ Phase 14.2の必須項目を実装し、中央テストランナーへ回帰テ�
 ## インポートと保存
 
 - 設定インポートは検証前に`RuleConfig.createRuleConfig`へ渡しません。
+- `startingPoints`は公開UI項目ではないため、正しい数値形式でもインポートとエクスポートの対象外です。
 - 不正な設定インポートは現在の設定を変更しません。
 - 牌譜インポートは無制限データをdeep cloneする前に上限と型を検証します。
 - 不正牌譜は保存されません。

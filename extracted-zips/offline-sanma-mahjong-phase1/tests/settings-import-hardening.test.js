@@ -23,6 +23,7 @@ function attempt(value) {
   { advancedRules: {} },
   { northMode: "invalid" },
   { redDoraMode: "invalid" },
+  { startingPoints: 35000 },
   { startingPoints: -1 },
   { startingPoints: 100001 },
   { allowChi: "true" },
@@ -44,9 +45,13 @@ const valid = attempt({
   redDoraMode: "standard",
   kuitan: true,
   atozuke: true,
-  startingPoints: 35000,
 });
 assert(valid.ok && activeConfig.allowChi === false && activeConfig.startingPoints === 35000, "公開UI設定をインポートできません");
+assert(
+  Object.keys(Sanma.SettingsExportImport.PUBLIC_SETTINGS_SCHEMA).sort().join(",")
+    === Sanma.RuleConfig.normalSettings.map((setting) => setting.key).sort().join(","),
+  "設定インポートallowlistが公開UI設定と一致しません"
+);
 assert(activeConfig.riichiStickValue === 1000, "拒否したriichiStickValueが有効設定へ混入しました");
 const riichiEngine = createEngine(Sanma, "settings-riichi-value", activeConfig);
 riichiEngine.humanPlayer.hand = [
@@ -68,7 +73,12 @@ assert(
 
 const exported = Sanma.SettingsExportImport.exportSettings(activeConfig);
 assert(Sanma.SettingsExportImport.importSettings(exported).ok, "公開設定のエクスポートを再インポートできません");
-assert(!exported.includes("advancedRules") && !exported.includes("dramaticOpeningHandRate"), "設定エクスポートへ内部設定が混入しました");
+assert(
+  !exported.includes("advancedRules")
+    && !exported.includes("dramaticOpeningHandRate")
+    && !exported.includes("startingPoints"),
+  "設定エクスポートへ非公開設定が混入しました"
+);
 
 const seed128 = "s".repeat(128);
 const seed129 = "s".repeat(129);
