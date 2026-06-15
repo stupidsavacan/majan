@@ -62,8 +62,8 @@
       yaku.push({ id, name, hanClosed, hanOpen, han, isYakuman: false, reason });
     }
 
-    function addYakuman(id, name, reason) {
-      yakuman.push({ id, name, yakuman: 1, isYakuman: true, reason });
+    function addYakuman(id, name, reason, multiplier) {
+      yakuman.push({ id, name, yakuman: Number(multiplier) || 1, isYakuman: true, reason });
     }
 
     if (!agariResult.isAgari || !agariResult.bestPattern) {
@@ -81,6 +81,8 @@
     }
 
     const pattern = agariResult.bestPattern;
+    if (context.isTenho) addYakuman("tenho", "天和", "親の配牌時のツモ和了です。");
+    if (context.isChiho) addYakuman("chiho", "地和", "子の第一ツモでの和了です。");
     if (context.isRiichi && context.isMenzen) addYaku("riichi", "リーチ", 1, 0, "門前でリーチを宣言しています。");
     if (context.isRiichi && context.isIppatsu && context.isMenzen) addYaku("ippatsu", "一発", 1, 0, "リーチ後の一発有効中に和了しています。");
     if (context.isHaitei) addYaku("haitei", "海底摸月", 1, 1, "海底牌で自摸和了しています。");
@@ -88,7 +90,17 @@
     if (context.isRinshan) addYaku("rinshan-kaihou", "嶺上開花", 1, 1, "嶺上牌で自摸和了しています。");
     if (context.isChankan) addYaku("chankan", "槍槓", 1, 1, "加槓牌をロン和了しています。");
     if (pattern.type === "kokushi") {
-      addYakuman("kokushi-musou", "国士無双", "十三種の么九牌を揃えた和了形です。");
+      const isThirteenWait = Boolean(
+        context.winningTile
+        && pattern.duplicate
+        && pattern.duplicate.tileType === context.winningTile.baseId
+      );
+      addYakuman(
+        isThirteenWait ? "kokushi-musou-13-wait" : "kokushi-musou",
+        isThirteenWait ? "国士無双十三面待ち" : "国士無双",
+        isThirteenWait ? "十三種すべてを待つ国士無双です。" : "十三種の么九牌を揃えた和了形です。",
+        isThirteenWait && ruleConfig.doubleYakuman !== false ? 2 : 1
+      );
     } else {
       if (context.winType === "tsumo" && context.isMenzen) addYaku("menzen-tsumo", "門前清自摸和", 1, 0, "門前で自摸和了しています。");
       if (tiles.length > 0 && tiles.every(isSimple) && (context.isMenzen || ruleConfig.kuitan !== false)) addYaku("tanyao", "断么九", 1, 1, "手牌が数牌の2から8だけで構成されています。");

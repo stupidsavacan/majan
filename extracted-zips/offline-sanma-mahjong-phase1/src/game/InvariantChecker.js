@@ -36,6 +36,16 @@
     if (state && state.phase === "human-call" && !state.callWindow) {
       errors.push("鳴き待ち状態ですが呼び出し窓がありません");
     }
+    const human = players.find((player) => player && player.isHuman);
+    if (state && state.phase === "human-discard" && human && state.turnIndex !== human.id) {
+      errors.push("人間打牌状態ですが手番が人間ではありません");
+    }
+    if (state && state.phase === "human-call" && state.callWindow && state.callWindow.isOpen === false) {
+      errors.push("人間呼び出し状態ですが呼び出し窓が閉じています");
+    }
+    if (state && state.phase === "win-ended" && state.callWindow) {
+      errors.push("和了終了後に呼び出し窓が残っています");
+    }
     if (state && state.callWindow) {
       if (!Array.isArray(state.callWindow.actions) || state.callWindow.actions.length === 0) {
         errors.push("呼び出し窓に操作候補がありません");
@@ -44,6 +54,22 @@
         errors.push("呼び出し窓の打牌者が不明です");
       }
       warnings.push("呼び出し窓はスキップ操作またはRecoveryManagerで閉じられます");
+    }
+    const dealer = players[round.dealerIndex];
+    if (state && dealer && !dealer.isHuman
+      && state.initialDealerDiscardPending === false
+      && state.lastDiscard
+      && state.lastDiscard.playerIndex === dealer.id
+      && !dealer.lastDraw
+      && dealer.hand.length !== Math.max(0, 13 - (dealer.melds || []).length * 3)) {
+      errors.push("CPU親の初回打牌後の手牌枚数が不正です");
+    }
+    if (state && state.lastDrawContext && state.lastDrawContext.isRinshan) {
+      const rinshanPlayer = players[state.lastDrawContext.playerIndex];
+      if (!rinshanPlayer || !rinshanPlayer.lastDraw
+        || !rinshanPlayer.hand.some((tile) => tile.instanceId === rinshanPlayer.lastDraw.instanceId)) {
+        errors.push("嶺上牌が手牌またはlastDrawに存在しません");
+      }
     }
 
     const tileLedger = state && state.wall

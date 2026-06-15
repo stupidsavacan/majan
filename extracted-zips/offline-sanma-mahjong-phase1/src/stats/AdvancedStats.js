@@ -17,13 +17,14 @@
   }
 
   function scoreFromResult(result, playerIndex) {
-    const positive = (result.changes || [])
+    const positive = (Array.isArray(result.changes) ? result.changes : [])
       .find((change) => change && change.playerIndex === playerIndex && Number(change.delta) > 0);
     return positive ? Number(positive.delta) : null;
   }
 
   function calculate(records) {
-    const entries = Sanma.RecordIndex.build(records || []);
+    const safeRecords = Array.isArray(records) ? records : [];
+    const entries = Sanma.RecordIndex.build(safeRecords);
     const ranks = entries.map((entry) => entry.finalRank);
     const finalPoints = entries.map((entry) => entry.finalPoints);
     const yakuFrequency = {};
@@ -42,13 +43,14 @@
     let dealInKnownRounds = 0;
     const winScores = [];
 
-    (records || []).forEach((record) => {
+    safeRecords.forEach((record) => {
+      if (!record || typeof record !== "object") return;
       const playerIndex = Sanma.RecordIndex.humanIndex(record);
       const rules = record.ruleConfig || {};
       addMode(modes.highScoreMode, rules.highScoreMode);
       addMode(modes.allowChi, rules.allowChi);
       addMode(modes.tsumoLoss, rules.tsumoLoss);
-      (record.rounds || []).forEach((round) => {
+      (Array.isArray(record.rounds) ? record.rounds : []).forEach((round) => {
         const result = round && round.result;
         if (!result || !Number.isInteger(result.winnerIndex)) return;
         if (result.winnerIndex === playerIndex) {
@@ -57,13 +59,15 @@
           if (result.winType === "ron") ronWins += 1;
           const score = scoreFromResult(result, playerIndex);
           if (Number.isFinite(score)) winScores.push(score);
-          (result.yaku || []).forEach((name) => {
+          const yaku = Array.isArray(result.yaku) ? result.yaku : [];
+          const yakuman = Array.isArray(result.yakuman) ? result.yakuman : [];
+          yaku.forEach((name) => {
             if (name) yakuFrequency[name] = (yakuFrequency[name] || 0) + 1;
           });
-          (result.yakuman || []).forEach((name) => {
+          yakuman.forEach((name) => {
             if (name) yakumanNames[name] = (yakumanNames[name] || 0) + 1;
           });
-          if ((result.score && result.score.isYakuman) || (result.yakuman || []).length) yakumanCount += 1;
+          if ((result.score && result.score.isYakuman) || yakuman.length) yakumanCount += 1;
         } else {
           losses += 1;
           if (result.winType === "ron" && Array.isArray(result.changes) && result.changes.length > 0) {

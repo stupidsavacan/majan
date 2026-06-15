@@ -178,10 +178,7 @@
 
   function importRecord(text) {
     try {
-      const record = Sanma.GameRecord.deserialize(String(text || ""));
-      if (!record.id || !Array.isArray(record.rounds) || record.rounds.length === 0) {
-        throw new Error("牌譜データの形式が不正です");
-      }
+      const record = Sanma.GameRecord.deserializeImported(String(text || ""));
       if (!saveRecord(record)) throw new Error("牌譜を保存できませんでした");
       return { ok: true, record, reason: "牌譜をインポートしました。" };
     } catch (error) {
@@ -245,8 +242,8 @@
       const candidate = {
         winnerIndex: result.winnerIndex,
         winType: result.winType,
-        yaku: result.yaku || [],
-        yakuman: result.yakuman || [],
+        yaku: Array.isArray(result.yaku) ? result.yaku : [],
+        yakuman: Array.isArray(result.yakuman) ? result.yakuman : [],
         score: result.score,
         playedAt: stats.lastPlayedAt,
       };

@@ -115,7 +115,10 @@
   }
 
   function calculateLimit(han, fu, yakuResult, ruleConfig) {
-    const yakumanCount = yakuResult.isYakuman ? Math.max(1, yakuResult.yakuman.length) : 0;
+    const yakumanEntries = Array.isArray(yakuResult.yakuman) ? yakuResult.yakuman : [];
+    const yakumanCount = yakuResult.isYakuman
+      ? Math.max(1, yakumanEntries.reduce((sum, item) => sum + Math.max(1, Number(item && item.yakuman) || 1), 0))
+      : 0;
     if (yakumanCount) {
       return {
         limitName: "役満",

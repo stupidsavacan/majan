@@ -17,6 +17,7 @@ const requiredModules = [
   "Sanma.EndConditionManager",
   "Sanma.MatchManager",
   "Sanma.Wall",
+  "Sanma.SeedPolicy",
   "Sanma.GameEngine",
   "Sanma.HandAnalysis",
   "Sanma.DoraCalculator",
@@ -53,9 +54,16 @@ requiredModules.forEach((name) => {
 
 const config = Sanma.RuleConfig.createRuleConfig({});
 assert(config && config.northMode, "RuleConfig could not create a config");
+const seedInputIndex = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+assert(/id="seedInput"[^>]*maxlength="128"/.test(seedInputIndex), "seed input must enforce the 128-character limit");
 
-const wall = new Sanma.Wall(config, "phase6-smoke-wall");
+const wall = new Sanma.Wall(config, { seed: "phase6-smoke-wall" });
 assert(wall.totalKnownTileCount([]) === 108, "Wall did not create 108 sanma tiles");
+const sameSeedWall = new Sanma.Wall(config, { seed: "phase6-smoke-wall" });
+const differentSeedWall = new Sanma.Wall(config, { seed: "phase6-smoke-wall-other" });
+const wallOrder = (target) => target.tiles.slice(0, 20).map((tile) => tile.instanceId).join(",");
+assert(wallOrder(wall) === wallOrder(sameSeedWall), "同一seedで山順が一致しません");
+assert(wallOrder(wall) !== wallOrder(differentSeedWall), "異なるseedで山順が変化しません");
 
 const engine = new Sanma.GameEngine({ ruleConfig: config, seed: "phase6-smoke-engine", onChange: function noop() {} });
 assert(engine.players.length === 3 && engine.humanPlayer.hand.length === 14, "GameEngine did not start a round");
@@ -175,7 +183,7 @@ const recordPanelSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui",
 });
 
 console.log(JSON.stringify({
-  phase: "14.1",
+  phase: "14.2",
   testSuite: "smoke",
   requiredModules,
   mustReturnNonZeroOnFailure: true,

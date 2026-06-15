@@ -227,5 +227,5 @@
     showTab(listPanel);
   }
 
-  Sanma.RecordPanel = { render };
+  Sanma.RecordPanel = { render, renderAdvancedStats };
 })(window);

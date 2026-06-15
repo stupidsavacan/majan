@@ -311,3 +311,26 @@ canonical runtime の唯一の実行入口は、リポジトリ直下の `index.
 - `PHASE9_BROWSER_CHECKLIST.md`
 - `PHASE9_1_CLEANUP_STORAGE_AUDIT.md`
 - `PHASE9_2_RULES_SCORING_AUDIT.md`
+
+## Phase 14.2 critical bug sweep
+
+- 実際の親ローテーションを維持し、CPU親は配牌時の14枚から余分な通常ツモなしで初打牌します。
+- 設定JSONインポートは公開UI設定の明示allowlistと値検証を通し、未知・内部・不正値を含む入力全体を拒否します。
+- seedは128文字まで受理し、129文字以上は新局開始前に拒否します。
+- 牌譜インポートはJSON解析・複製前の文字数上限と、3人・局数・イベント数・文字列長・結果型の検証を行います。
+- 保存済み牌譜の書き込み失敗は警告と診断へ記録し、卓の描画を継続します。
+- 開局アシスト後も親の`lastDraw`は手牌内の牌を指します。
+- CPU暗槓・加槓後の嶺上牌でツモ和了を再判定し、和了時は打牌せず決済します。
+- RecoveryManagerは到達不能な`human-draw`や停止した`cpu-running`を残さず、合法な操作状態へ進行します。
+- 天和・地和・国士無双十三面待ち・複合役満倍率を得点計算へ接続しました。
+- CPU通常ロンを捨牌反応へ接続し、フリテン判定とロン優先を適用します。
+
+Phase 14.2で残る範囲:
+
+- CPUポン・チー・明槓は未実装です。
+- CPU戦略は単純で、押し引き・安全牌判断・打点期待値AIは未実装です。
+- ダブロン、南入・西入は未実装です。
+- ZIP workflow hardening pending。
+- 全状態を網羅するphase-aware invariant coverage pending。
+
+実装・回帰テストの詳細は`PHASE14_2_REPORT.md`を参照してください。

@@ -7,29 +7,26 @@
     }
   }
 
-  function closeStuckActionWindow(state) {
-    if (!state || !state.callWindow) {
-      return { ok: false, reason: "復旧対象の呼び出し窓がありません" };
-    }
-    const fromPlayerIndex = state.callWindow.fromPlayerIndex;
-    if (Sanma.CallWindow) Sanma.CallWindow.close(state.callWindow, "状態復旧");
-    state.callWindow = null;
-    if (state.phase === "human-call") {
-      state.turnIndex = Number.isInteger(fromPlayerIndex) && state.players && state.players.length
-        ? (fromPlayerIndex + 1) % state.players.length
-        : 0;
-      state.phase = state.turnIndex === 0 ? "human-draw" : "cpu-running";
-    }
-    if (state.stateMachine && Sanma.GameStateMachine) {
+  function sync(state, label) {
+    if (state && state.stateMachine && Sanma.GameStateMachine) {
       Sanma.GameStateMachine.syncLegacy(
         state.stateMachine,
         state.phase,
         state.matchManager && state.matchManager.state,
-        "呼び出し窓を復旧"
+        label
       );
     }
-    record(state, "呼び出し窓を閉じました");
-    return { ok: true, reason: "不正な状態を検出しました。呼び出し窓を閉じて復旧しました。" };
+  }
+
+  function emit(state) {
+    if (state && typeof state.emitChange === "function") state.emitChange();
+  }
+
+  function humanPlayerIndex(state) {
+    const player = state && Array.isArray(state.players)
+      ? state.players.find((candidate) => candidate && candidate.isHuman)
+      : null;
+    return player && Number.isInteger(player.id) ? player.id : 0;
   }
 
   function cancelPendingCpuTask(state) {
@@ -40,6 +37,52 @@
     }
     record(state, "CPU処理を解除しました");
     return { ok: true, reason: "CPU処理を解除して復旧しました。" };
+  }
+
+  function resumeTurn(engine, nextPlayerIndex, label) {
+    if (!engine || !Array.isArray(engine.players) || !engine.players[nextPlayerIndex]) {
+      return { ok: false, reason: "復旧後の手番を決定できません" };
+    }
+    cancelPendingCpuTask(engine);
+    engine.turnIndex = nextPlayerIndex;
+    const humanIndex = humanPlayerIndex(engine);
+    if (nextPlayerIndex === humanIndex) {
+      const human = engine.players[humanIndex];
+      if (human.lastDraw) {
+        engine.phase = "human-discard";
+        sync(engine, label);
+        emit(engine);
+      } else if (typeof engine.drawForHumanManually === "function") {
+        engine.phase = "human-draw";
+        sync(engine, label);
+        engine.drawForHumanManually();
+      } else {
+        return { ok: false, reason: "人間手番を再開するツモ処理がありません" };
+      }
+    } else {
+      engine.phase = "cpu-running";
+      sync(engine, label);
+      emit(engine);
+      if (typeof engine.runCpuUntilHumanTurn !== "function") {
+        return { ok: false, reason: "CPU手番を再開する処理がありません" };
+      }
+      engine.runCpuUntilHumanTurn();
+    }
+    record(engine, label, { nextPlayerIndex, phase: engine.phase });
+    return { ok: true, reason: "不正な状態を検出し、進行可能な状態へ復旧しました。" };
+  }
+
+  function closeStuckActionWindow(state) {
+    if (!state || !state.callWindow) {
+      return { ok: false, reason: "復旧対象の呼び出し窓がありません" };
+    }
+    const fromPlayerIndex = state.callWindow.fromPlayerIndex;
+    if (Sanma.CallWindow) Sanma.CallWindow.close(state.callWindow, "状態復旧");
+    state.callWindow = null;
+    const nextPlayerIndex = Number.isInteger(fromPlayerIndex) && state.players && state.players.length
+      ? (fromPlayerIndex + 1) % state.players.length
+      : humanPlayerIndex(state);
+    return resumeTurn(state, nextPlayerIndex, "呼び出し窓を閉じて復旧しました");
   }
 
   function resetCurrentRound(engine) {
@@ -72,12 +115,19 @@
     }
     if (engine.callWindow) return closeStuckActionWindow(engine);
     if (report && report.tileLedger && !report.tileLedger.ok) return resetCurrentRound(engine);
-    return cancelPendingCpuTask(engine);
+    if (engine.phase === "cpu-running") {
+      return resumeTurn(engine, engine.turnIndex, "停止したCPU手番を再開しました");
+    }
+    cancelPendingCpuTask(engine);
+    sync(engine, "復旧処理を完了しました");
+    emit(engine);
+    return { ok: true, reason: "復旧しました。" };
   }
 
   Sanma.RecoveryManager = {
     closeStuckActionWindow,
     cancelPendingCpuTask,
+    resumeTurn,
     resetCurrentRound,
     backupCorruptedStorage,
     recover,

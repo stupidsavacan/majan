@@ -22,6 +22,14 @@ const testFiles = [
   "phase14-1-fixed-meld-scoring.test.js",
   "phase14-1-assist-replay.test.js",
   "cpu-dealer-start-round.test.js",
+  "settings-import-hardening.test.js",
+  "record-import-hardening.test.js",
+  "storage-render-failure.test.js",
+  "assist-lastdraw-integrity.test.js",
+  "cpu-kan-rinshan-win.test.js",
+  "recovery-manager.test.js",
+  "yakuman-multiplicity.test.js",
+  "cpu-ron-reaction.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -35,8 +43,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 14.1 test run failed.");
+  console.error("\nPhase 14.2 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 14.1 tests passed.");
+console.log("\nAll Phase 14.2 tests passed.");

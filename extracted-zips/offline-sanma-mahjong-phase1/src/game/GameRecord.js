@@ -1,11 +1,94 @@
 (function attachGameRecord(global) {
   const Sanma = global.Sanma = global.Sanma || {};
   const MAX_EVENTS_PER_ROUND = 300;
+  const MAX_IMPORT_CHARS = 1024 * 1024;
+  const MAX_ROUNDS = 64;
+  const MAX_STRING_LENGTH = 2048;
+  const REQUIRED_PLAYER_COUNT = 3;
   let recordSequence = 0;
 
   function clone(value) {
     if (value === undefined) return null;
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function isObject(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+
+  function validateStringLengths(value) {
+    const queue = [value];
+    while (queue.length > 0) {
+      const current = queue.pop();
+      if (typeof current === "string" && current.length > MAX_STRING_LENGTH) {
+        throw new Error(`牌譜内の文字列は${MAX_STRING_LENGTH}文字以内で指定してください。`);
+      }
+      if (Array.isArray(current)) queue.push(...current);
+      else if (isObject(current)) queue.push(...Object.keys(current), ...Object.values(current));
+    }
+  }
+
+  function validateResult(result) {
+    if (result === null || result === undefined) return;
+    if (!isObject(result)) throw new Error("局結果の形式が不正です。");
+    ["yaku", "yakuman"].forEach((key) => {
+      if (result[key] !== undefined && !Array.isArray(result[key])) {
+        throw new Error(`局結果の${key}は配列で指定してください。`);
+      }
+    });
+    if (result.score !== undefined && result.score !== null) {
+      if (!isObject(result.score)) throw new Error("局結果のscore形式が不正です。");
+      ["isValidWin", "isYakuman"].forEach((key) => {
+        if (result.score[key] !== undefined && typeof result.score[key] !== "boolean") {
+          throw new Error(`局結果のscore.${key}は真偽値で指定してください。`);
+        }
+      });
+      ["han", "fu"].forEach((key) => {
+        if (result.score[key] !== undefined
+          && result.score[key] !== null
+          && !Number.isFinite(result.score[key])) {
+          throw new Error(`局結果のscore.${key}は数値で指定してください。`);
+        }
+      });
+      if (result.score.limitName !== undefined && typeof result.score.limitName !== "string") {
+        throw new Error("局結果のscore.limitNameは文字列で指定してください。");
+      }
+    }
+    if (result.changes !== undefined && !Array.isArray(result.changes)) {
+      throw new Error("局結果のchangesは配列で指定してください。");
+    }
+  }
+
+  function validateImportedRecord(record) {
+    if (!isObject(record) || !record.id || !Array.isArray(record.rounds) || record.rounds.length === 0) {
+      throw new Error("牌譜データの形式が不正です。");
+    }
+    if (!Array.isArray(record.players) || record.players.length !== REQUIRED_PLAYER_COUNT) {
+      throw new Error(`牌譜のプレイヤー数は${REQUIRED_PLAYER_COUNT}人である必要があります。`);
+    }
+    if (record.rounds.length > MAX_ROUNDS) throw new Error(`牌譜の局数は${MAX_ROUNDS}局以内で指定してください。`);
+    if (typeof record.seed === "string" && record.seed.length > 128) {
+      throw new Error("牌譜のseedは128文字以内で指定してください。");
+    }
+    validateStringLengths(record);
+    record.rounds.forEach((round) => {
+      if (!isObject(round) || !Array.isArray(round.events)) throw new Error("局データの形式が不正です。");
+      if (round.events.length > MAX_EVENTS_PER_ROUND) {
+        throw new Error(`1局のイベント数は${MAX_EVENTS_PER_ROUND}件以内で指定してください。`);
+      }
+      validateResult(round.result);
+    });
+    return true;
+  }
+
+  function deserializeImported(text) {
+    const source = String(text || "");
+    if (source.length > MAX_IMPORT_CHARS) {
+      throw new Error(`牌譜JSONは${MAX_IMPORT_CHARS}文字以内で指定してください。`);
+    }
+    const parsed = JSON.parse(source);
+    validateImportedRecord(parsed);
+    return normalize(parsed);
   }
 
   function playerSnapshot(player) {
@@ -43,7 +126,9 @@
       matchId: String(options.matchId || ""),
       phase: 14.1,
       createdAt,
-      seed: String(options.seed || ""),
+      seed: Sanma.SeedPolicy
+        ? Sanma.SeedPolicy.requireValidSeed(options.seed)
+        : String(options.seed || ""),
       ruleConfig: clone(options.ruleConfig || {}),
       players: (options.players || []).map(playerSnapshot),
       rounds: [createRound(options)],
@@ -180,6 +265,10 @@
 
   Sanma.GameRecord = {
     MAX_EVENTS_PER_ROUND,
+    MAX_IMPORT_CHARS,
+    MAX_ROUNDS,
+    MAX_STRING_LENGTH,
+    REQUIRED_PLAYER_COUNT,
     create,
     addRound,
     addEvent,
@@ -189,5 +278,7 @@
     normalize,
     serialize,
     deserialize,
+    deserializeImported,
+    validateImportedRecord,
   };
 })(window);

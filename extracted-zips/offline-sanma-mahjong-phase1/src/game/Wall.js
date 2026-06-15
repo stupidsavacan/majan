@@ -1,11 +1,43 @@
 (function attachWall(global) {
   const Sanma = global.Sanma = global.Sanma || {};
   const TileUtil = Sanma.TileUtil;
+  const MAX_SEED_LENGTH = 128;
+
+  function validateSeed(seedText) {
+    const seed = String(seedText || "");
+    return seed.length <= MAX_SEED_LENGTH
+      ? { ok: true, seed, reason: "" }
+      : { ok: false, seed: null, reason: `seedは${MAX_SEED_LENGTH}文字以内で指定してください。` };
+  }
+
+  function requireValidSeed(seedText) {
+    const result = validateSeed(seedText);
+    if (!result.ok) throw new Error(result.reason);
+    return result.seed;
+  }
+
+  function compactHash(text) {
+    let hash = 2166136261;
+    const source = String(text || "");
+    for (let index = 0; index < source.length; index += 1) {
+      hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function deriveSeed(seedText, suffix) {
+    const base = requireValidSeed(seedText);
+    if (!base) return "";
+    const combined = `${base}:${String(suffix || "")}`;
+    if (combined.length <= MAX_SEED_LENGTH) return combined;
+    return `${base.slice(0, 96)}:${compactHash(combined)}`;
+  }
 
   function hashSeed(seedText) {
-    let hash = 1779033703 ^ String(seedText || "").length;
-    for (let i = 0; i < String(seedText || "").length; i += 1) {
-      hash = Math.imul(hash ^ String(seedText)[i].charCodeAt(0), 3432918353);
+    const source = requireValidSeed(seedText);
+    let hash = 1779033703 ^ source.length;
+    for (let i = 0; i < source.length; i += 1) {
+      hash = Math.imul(hash ^ source[i].charCodeAt(0), 3432918353);
       hash = (hash << 13) | (hash >>> 19);
     }
     return function nextHash() {
@@ -31,8 +63,8 @@
   class Wall {
     constructor(ruleConfig, options) {
       this.ruleConfig = ruleConfig;
-      this.random = createRandom(options && options.seed);
-      this.seed = options && options.seed ? String(options.seed) : "";
+      this.seed = requireValidSeed(options && options.seed);
+      this.random = createRandom(this.seed);
       this.tiles = this.createSanmaTiles(ruleConfig);
       this.shuffle();
       this.deadWall = [];
@@ -135,4 +167,11 @@
 
   Sanma.Wall = Wall;
   Sanma.createRandom = createRandom;
+  Sanma.SeedPolicy = {
+    MAX_SEED_LENGTH,
+    validateSeed,
+    requireValidSeed,
+    deriveSeed,
+    hashSeed,
+  };
 })(window);

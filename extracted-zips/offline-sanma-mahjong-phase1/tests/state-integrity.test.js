@@ -57,8 +57,15 @@ recoveryEngine.callWindow = {
   actions: [{ id: "skip", label: "スキップ" }],
 };
 const recovery = Sanma.RecoveryManager.closeStuckActionWindow(recoveryEngine);
-assert(recovery.ok && !recoveryEngine.callWindow, "停止した呼び出し窓を閉じられません");
-assert(recoveryEngine.phase === "cpu-running", "呼び出し窓の復旧後に手番を進められません");
+assert(recovery.ok, "停止した呼び出し窓から復旧できません");
+assert(
+  (recoveryEngine.phase === "human-discard" && recoveryEngine.turnIndex === recoveryEngine.humanPlayer.id)
+    || (recoveryEngine.phase === "human-call" && recoveryEngine.callWindow && recoveryEngine.callWindow.isOpen)
+    || recoveryEngine.phase === "win-ended"
+    || recoveryEngine.phase === "round-ended",
+  "呼び出し窓の復旧後に合法な操作状態へ進められません"
+);
+assert(recoveryEngine.phase !== "human-draw" && recoveryEngine.phase !== "cpu-running", "復旧後に到達不能な状態で停止しました");
 
 const corruptKey = "offlineSanma.phase1.settings";
 storageData[corruptKey] = "{broken-json";

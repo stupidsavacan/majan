@@ -123,9 +123,12 @@
   }
 
   function applySwap(state, player, phase, swap) {
+    const replacedLastDraw = player.lastDraw
+      && swap.outgoing
+      && player.lastDraw.instanceId === swap.outgoing.instanceId;
     player.hand[swap.handIndex] = swap.incoming;
     state.wall.tiles[swap.wallIndex] = swap.outgoing;
-    if (phase === "draw") player.lastDraw = swap.incoming;
+    if (phase === "draw" || replacedLastDraw) player.lastDraw = swap.incoming;
     if (typeof player.sortHand === "function") player.sortHand();
   }
 

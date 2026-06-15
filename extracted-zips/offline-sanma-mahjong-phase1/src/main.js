@@ -18,6 +18,7 @@
   let latestState = null;
   let lastAppError = null;
   let committedRecordIds = new Set();
+  let failedRecordCommitIds = new Set();
 
   function requiredElement(id) {
     const node = document.getElementById(id);
@@ -60,7 +61,7 @@
       "RoundManager", "HonbaManager", "RankingManager", "EndConditionManager", "MatchManager",
       "RiichiManager", "KanManager", "KitaManager", "FuritenManager", "RiichiRules", "KanRules",
       "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "AssistManager",
-      "GameRecord", "CallWindow", "Wall", "Player", "GameEngine", "SettingsStorage",
+      "GameRecord", "CallWindow", "Wall", "SeedPolicy", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
       "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
       "RecordIndex", "AdvancedStats", "ReplayViewer", "RecordListPanel",
@@ -68,7 +69,7 @@
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: "14.1",
+      app_phase: "14.2",
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -95,10 +96,18 @@
 
   function commitCompletedRecord(state) {
     const record = state.gameRecord;
-    if (!record || !record.completedAt || committedRecordIds.has(record.id)) return;
+    if (!record || !record.completedAt || committedRecordIds.has(record.id) || failedRecordCommitIds.has(record.id)) {
+      return { saved: false, skipped: true };
+    }
     const result = Sanma.GameRecordStorage.commitRecord(record);
-    if (!result.saved) throw new Error("終了牌譜を保存できませんでした。");
+    if (!result.saved) {
+      failedRecordCommitIds.add(record.id);
+      lastAppError = "終了牌譜を保存できませんでした。画面表示は継続します。";
+      console.warn(lastAppError);
+      return { saved: false, skipped: false };
+    }
     committedRecordIds.add(record.id);
+    return result;
   }
 
   function render(state) {
@@ -128,15 +137,22 @@
   function startNewRound(options) {
     try {
       if (options && Object.prototype.hasOwnProperty.call(options, "seed")) {
-        currentSeed = options.seed;
+        const validation = Sanma.SeedPolicy.validateSeed(options.seed);
+        if (!validation.ok) {
+          if (messagePanel) messagePanel.textContent = validation.reason;
+          return false;
+        }
+        currentSeed = validation.seed;
       }
       engine = new Sanma.GameEngine({
         ruleConfig: currentConfig,
         seed: currentSeed,
         onChange: render,
       });
+      return true;
     } catch (error) {
       showError(error, "新しい対局");
+      return false;
     }
   }
 
@@ -183,6 +199,7 @@
       onResetRecords: safeAction("牌譜リセット", () => {
         if (!Sanma.GameRecordStorage.resetRecords()) throw new Error("牌譜をリセットできませんでした。");
         committedRecordIds.clear();
+        failedRecordCommitIds.clear();
         if (latestState && latestState.gameRecord) committedRecordIds.add(latestState.gameRecord.id);
         renderRecords();
       }),
@@ -236,12 +253,12 @@
       debugDialog.showModal();
     }));
     requiredElement("applySeedButton").addEventListener("click", safeAction("固定seed", () => {
-      currentSeed = seedInput.value.trim();
-      startNewRound({ seed: currentSeed });
+      startNewRound({ seed: seedInput.value.trim() });
     }));
     requiredElement("resetStorageButton").addEventListener("click", safeAction("全保存データリセット", () => {
       if (!Sanma.SettingsStorage.resetAllStorage()) throw new Error("全保存データをリセットできませんでした。");
       committedRecordIds.clear();
+      failedRecordCommitIds.clear();
       currentConfig = Sanma.RuleConfig.createRuleConfig({});
       startNewRound({ seed: "" });
       messagePanel.textContent = "設定・牌譜・成績をリセットしました。";
@@ -264,6 +281,25 @@
     bindUi();
     startNewRound({ seed: "" });
   }
+
+  function setBindingsForTest(bindings) {
+    const input = bindings || {};
+    if (Object.prototype.hasOwnProperty.call(input, "tableRoot")) tableRoot = input.tableRoot;
+    if (Object.prototype.hasOwnProperty.call(input, "messagePanel")) messagePanel = input.messagePanel;
+    if (Object.prototype.hasOwnProperty.call(input, "debugRoot")) debugRoot = input.debugRoot;
+    if (Object.prototype.hasOwnProperty.call(input, "currentConfig")) currentConfig = input.currentConfig;
+    if (Object.prototype.hasOwnProperty.call(input, "engine")) engine = input.engine;
+  }
+
+  Sanma.AppRuntime = {
+    commitCompletedRecord,
+    render,
+    startNewRound,
+    setBindingsForTest,
+    getCurrentSeed: () => currentSeed,
+    getEngine: () => engine,
+    getLastError: () => lastAppError,
+  };
 
   try {
     initialize();
