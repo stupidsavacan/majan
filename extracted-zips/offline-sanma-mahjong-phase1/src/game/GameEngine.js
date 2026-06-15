@@ -48,6 +48,7 @@
       this.pendingWinContext = null;
       this.pendingKanChoice = null;
       this.pendingKanAttempt = null;
+      this.initialDealerDiscardPending = false;
       this.gameRecord = null;
       this.debugEventLog = DebugEventLog.create();
       this.stateMachine = GameStateMachine.create("idle", this.debugEventLog);
@@ -76,6 +77,7 @@
       this.pendingWinContext = null;
       this.pendingKanChoice = null;
       this.pendingKanAttempt = null;
+      this.initialDealerDiscardPending = false;
       this.cpuTaskActive = false;
       GameStateMachine.cancelAll(this.stateMachine, "新しい局を開始");
       GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, "配牌開始");
@@ -110,10 +112,15 @@
         player: this.humanPlayer,
         random: this.assistRandom,
       }));
-      this.phase = "human-discard";
+      const dealer = this.players[this.round.dealerIndex];
+      this.initialDealerDiscardPending = !dealer.isHuman;
+      this.phase = dealer.isHuman ? "human-discard" : "cpu-running";
       GameStateMachine.syncLegacy(this.stateMachine, this.phase, this.matchManager.state, "配牌完了");
-      this.addLog(`配牌しました。${this.players[this.round.dealerIndex].name}が親です。切る牌をクリック/タップしてください。`);
+      this.addLog(dealer.isHuman
+        ? `配牌しました。${dealer.name}が親です。切る牌をクリック/タップしてください。`
+        : `配牌しました。${dealer.name}が親です。CPU親が最初の打牌を行います。`);
       this.emitChange();
+      if (!dealer.isHuman) this.runCpuUntilHumanTurn();
     }
 
     startNextRound() {
@@ -137,7 +144,11 @@
           player.receiveTile(this.wall.draw());
         }
       }
-      this.players[this.round.dealerIndex].receiveTile(this.wall.draw());
+      const dealer = this.players[this.round.dealerIndex];
+      dealer.receiveTile(this.wall.draw());
+      this.players.forEach((player) => {
+        if (player.id !== dealer.id) player.lastDraw = null;
+      });
     }
 
     get humanPlayer() {
@@ -269,28 +280,36 @@
 
     runCpuUntilHumanTurnUnlocked() {
       let cpuSteps = 0;
-      while (this.turnIndex !== 0 && this.wall.remainingCount() > 0) {
+      while (this.turnIndex !== this.humanPlayer.id && this.wall.remainingCount() > 0) {
         cpuSteps += 1;
         if (cpuSteps > 12) {
           this.endRoundForInvalidDraw("CPU処理の安全上限を超えました。");
           return false;
         }
         const player = this.getCurrentPlayer();
-        const drawn = this.wall.draw();
-        if (!drawn) {
-          this.endRoundForInvalidDraw(`${player.name}のツモ牌を取得できませんでした。`);
-          return;
+        if (!player.lastDraw) {
+          const drawn = this.wall.draw();
+          if (!drawn) {
+            this.endRoundForInvalidDraw(`${player.name}のツモ牌を取得できませんでした。`);
+            return;
+          }
+          player.receiveTile(drawn);
+          this.lastDrawContext = { playerIndex: player.id, isRinshan: false };
+          this.addLog(`${player.name} がツモりました。`);
+          this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
+          this.recordAssist(AssistManager.evaluateDraw({
+            state: this,
+            ruleConfig: this.ruleConfig,
+            player,
+            random: this.assistRandom,
+          }));
+        } else {
+          this.lastDrawContext = {
+            playerIndex: player.id,
+            isRinshan: false,
+            isInitialDealerDraw: this.initialDealerDiscardPending && player.id === this.round.dealerIndex,
+          };
         }
-        player.receiveTile(drawn);
-        this.lastDrawContext = { playerIndex: player.id, isRinshan: false };
-        this.addLog(`${player.name} がツモりました。`);
-        this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
-        this.recordAssist(AssistManager.evaluateDraw({
-          state: this,
-          ruleConfig: this.ruleConfig,
-          player,
-          random: this.assistRandom,
-        }));
         if (this.tryCpuTsumo(player)) return;
         if (this.tryCpuKita(player)) return;
         if (this.tryCpuTsumo(player)) return;
@@ -301,6 +320,9 @@
         if (!discarded) {
           this.endRoundForInvalidDraw(`${player.name}の打牌を取得できませんでした。`);
           return;
+        }
+        if (this.initialDealerDiscardPending && player.id === this.round.dealerIndex) {
+          this.initialDealerDiscardPending = false;
         }
         const riichiResult = RiichiRules.handleDiscard(this, player.id, discarded);
         if (riichiResult.finalized) {
@@ -334,7 +356,14 @@
         return;
       }
 
-      if (this.turnIndex === 0) {
+      if (this.turnIndex === this.humanPlayer.id) {
+        if (this.humanPlayer.lastDraw) {
+          this.lastDiscard = null;
+          this.phase = "human-discard";
+          this.addLog("切る牌を選んでください。");
+          this.emitChange();
+          return true;
+        }
         const drawn = this.wall.draw();
         if (!drawn) {
           this.endRoundForInvalidDraw("あなたのツモ牌を取得できませんでした。");
@@ -463,12 +492,17 @@
           this.emitChange();
           return true;
         }
-        this.recordAssist(AssistManager.evaluateDraw({
-          state: this,
-          ruleConfig: this.ruleConfig,
-          player,
-          random: this.assistRandom,
-        }));
+        const isInitialDealerTurn = this.initialDealerDiscardPending
+          && player.id === this.round.dealerIndex
+          && player.discards.length === 0;
+        if (!isInitialDealerTurn) {
+          this.recordAssist(AssistManager.evaluateDraw({
+            state: this,
+            ruleConfig: this.ruleConfig,
+            player,
+            random: this.assistRandom,
+          }));
+        }
         this.recordGameEvent("draw", this.playerTileEvent(player, result.replacement));
         if (this.tryCpuTsumo(player)) return true;
       }

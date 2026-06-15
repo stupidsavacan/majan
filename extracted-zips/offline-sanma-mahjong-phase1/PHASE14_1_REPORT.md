@@ -15,6 +15,7 @@
 | fixed meld/open scoring | 副露牌を匿名合成 | 副露牌3枚をconcealed牌へ追加 | open・kan・固定面子情報が和了分解から失われた | 固定面子を構造付きで和了形へ統合し、役・符計算まで保持 | `phase14-1-fixed-meld-scoring.test.js` | `HandAnalysis.js`, `ActionResolver.js`, `ScoreCalculator.js` |
 | AssistManager actual behavior | 設定判定と監査イベント | 条件成立時も`applied: false` | 設定が実ゲームへ作用しなかった | シャンテン推定が改善する交換だけを実行し、回数上限・TileLedger・牌譜を維持 | `phase14-1-assist-replay.test.js` | `AssistManager.js`, `GameEngine.js` |
 | replay exactness for new records | 短縮牌名による簡易再生 | 同種牌を文字列の末尾一致で削除 | 個体、加槓、補助交換を正確に戻せなかった | 新規牌譜にinstance ID付き牌トークンを保存し、個体単位で前後再生 | `phase14-1-assist-replay.test.js` | `GameRecord.js`, `GameEngine.js`, `ReplayViewer.js` |
+| CPU dealer start-round progression | 実親ローテーションあり | 配牌後を常に`human-discard`にし、CPU手番も必ず通常ツモ | CPU親局が手番不一致で停止し、初打牌前に15枚目をツモした | 親種別で開始フェーズを分け、CPU親は初期14枚から初打牌して人間の合法操作状態まで自動進行 | `cpu-dealer-start-round.test.js` | `GameEngine.js`, central test runners |
 | README/report truthfulness | 未接続機能を未実装欄へ記載 | 実装事実とREADMEが不一致 | 利用可能範囲を誤解させた | 実装済み・未実装・既知の問題を現行コードに合わせて更新 | `phase14-1-runtime.test.js` | root/canonical `README.md`, 本レポート |
 
 ## 実装証拠
@@ -53,6 +54,14 @@
 - 再生は同種牌の個体、鳴き元牌、暗槓・明槓・加槓、補助交換を区別します。
 - 旧文字列形式の牌譜も従来どおり読み込みます。
 
+### CPU親の局開始進行
+
+- `MatchManager`の実際の親ローテーションを維持し、人間を親へ固定していません。
+- 人間親は従来どおり初期14枚で`human-discard`から開始します。
+- CPU親は`cpu-running`から開始し、初期14枚を使って通常ツモ・drawイベント・draw assistなしで最初の打牌を行います。
+- 配牌完了時は親だけに`lastDraw`を残し、全非親の13枚配牌は`lastDraw === null`にします。
+- CPU非親の通常手番は`lastDraw === null`を検出して1枚だけツモし、drawイベントを記録してから行動します。
+
 ## Test results
 
 実行コマンド:
@@ -63,7 +72,7 @@ node tests/run-all-tests.js
 
 結果:
 
-- 中央ランナーの全21スイートが成功
+- 中央ランナーの全22スイートが成功
 - `source-format.test.js` 成功
 - `node --check` による変更JavaScriptの構文確認成功
 - 中央ランナーは失敗時に非0終了
@@ -75,6 +84,7 @@ node tests/run-all-tests.js
 - root `index.html`の直接オフライン起動をブラウザで確認しました。
 - CDN、Google Fonts、`fetch()`、外部script、外部フォント要求の追加がないことを検索確認しました。
 - 人間打牌、新局、デバッグ画面が表示され、初期局面が操作可能であることをブラウザで確認しました。
+- CPU親局が初期14枚から自動で初打牌し、人間の合法操作状態へ到達することを決定的回帰テストで確認しました。
 - 全中央テストを実行し、すべて成功しました。
 
 ## Out of scope

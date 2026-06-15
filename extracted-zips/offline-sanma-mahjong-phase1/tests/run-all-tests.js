@@ -21,6 +21,7 @@ const testFiles = [
   "phase14-1-chankan.test.js",
   "phase14-1-fixed-meld-scoring.test.js",
   "phase14-1-assist-replay.test.js",
+  "cpu-dealer-start-round.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",

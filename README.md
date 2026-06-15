@@ -188,6 +188,9 @@ canonical runtime の唯一の実行入口は、リポジトリ直下の `index.
 - 固定面子のopen・kan情報を保持した副露手の役・符・得点計算
 - 条件成立時に実際の牌交換を行い、TileLedgerと回数上限を守る`AssistManager`
 - 新規牌譜のinstance ID付きイベントと、同種牌・加槓・補助交換を区別する再生
+- 実際の親ローテーションを維持し、CPU親の局は初期14枚から余分な通常ツモなしで初打牌して自動進行
+- 初期配牌後は親だけに`lastDraw`を残し、非親の13枚配牌から誤ったツモ状態を除去
+- `tests/cpu-dealer-start-round.test.js`による人間親・CPU 1親・CPU 2親・通常CPUツモの決定的回帰検証
 - `RecordIndex` による最新順の軽量メタデータと保存サイズ診断
 - `tests/replay-stats.test.js` と `PHASE13_REPORT.md`
 
