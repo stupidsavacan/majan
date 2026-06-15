@@ -38,6 +38,7 @@ const gameModules = [
   "src/ui/ReplayViewer.js",
   "src/ui/RecordListPanel.js",
   "src/game/CallWindow.js",
+  "src/game/SeedPolicy.js",
   "src/game/Wall.js",
   "src/game/Player.js",
   "src/game/TileLedger.js",

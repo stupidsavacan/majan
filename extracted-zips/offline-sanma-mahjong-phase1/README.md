@@ -1,6 +1,6 @@
-# Offline Sanma Mahjong - Phase 14.2
+# Offline Sanma Mahjong - Phase 14.2 follow-up
 
-完全オフライン動作の三人麻雀ブラウザゲームです。Phase 14.2では入力・保存・復旧・CPU和了・役満計算の重大不具合を修正し、決定的テストで検証しています。
+完全オフライン動作の三人麻雀ブラウザゲームです。Phase 14.2 follow-upではロン・槍槓の人間選択優先、実ゲーム文脈の天和・地和、設定と牌譜の保存データ検証を強化し、決定的テストで検証しています。
 
 ## 起動方法
 
@@ -268,6 +268,7 @@ canonical runtime の唯一の実行入口は、リポジトリ直下の `index.
 - `src/game/AssistManager.js`
 - `src/game/GameRecord.js`
 - `src/game/CallWindow.js`
+- `src/game/SeedPolicy.js`
 - `src/game/Wall.js`
 - `src/game/Player.js`
 - `src/game/TileLedger.js`
@@ -325,12 +326,23 @@ canonical runtime の唯一の実行入口は、リポジトリ直下の `index.
 - 天和・地和・国士無双十三面待ち・複合役満倍率を得点計算へ接続しました。
 - CPU通常ロンを捨牌反応へ接続し、フリテン判定とロン優先を適用します。
 
+## Phase 14.2 follow-up strict blockers
+
+- `SeedPolicy`を独立モジュールにし、`Wall.js`・`GameEngine.js`・`main.js`より先に明示ロードします。seed依存を`Wall.js`の副作用に依存させません。
+- 通常ロン候補を解決前に収集し、人間とCPUが同時にロン可能な場合は人間ロン窓を先に開きます。人間が見逃した場合だけ、次順位の合法CPUロンを決定的に解決します。
+- 槍槓候補も解決前に収集し、人間の槍槓選択をCPU自動槍槓が横取りしません。国士無双だけの暗槓槍槓例外も維持します。
+- 天和・地和を実際の`GameEngine`開始手牌・初回ツモ文脈から`EndTurnYakuResolver`と得点計算へ接続します。割り込み後や後続ツモには付与しません。
+- 設定JSONインポートと`SettingsStorage`のlocalStorage読込は、同じ公開UI設定スキーマで入力全体を検証します。内部設定を保存値から適用しません。
+- 牌譜インポートと保存済みlocalStorage牌譜は、複製前にサイズ・人数・局数・イベント数・文字列長・結果型を検証し、不正牌譜を一覧へ含めません。
+- 人間とCPUの北抜き補充ツモは同じ`AssistManager.evaluateDraw()`経路を使い、適用時はassistイベントと有効な`lastDraw`を維持します。
+- 完了牌譜の保存失敗は描画を止めず、診断と警告へ記録します。牌譜削除または保存領域リセット後に明示的に再試行できます。
+- CPU通常ロンは実装済みです。CPUポン・チー・明槓は未実装です。
+
 Phase 14.2で残る範囲:
 
 - CPUポン・チー・明槓は未実装です。
 - CPU戦略は単純で、押し引き・安全牌判断・打点期待値AIは未実装です。
-- ダブロン、南入・西入は未実装です。
+- ダブロン、ノーテン罰符、四槓流れ、南入・西入は未実装または未完成です。
 - ZIP workflow hardening pending。
-- 全状態を網羅するphase-aware invariant coverage pending。
 
 実装・回帰テストの詳細は`PHASE14_2_REPORT.md`を参照してください。

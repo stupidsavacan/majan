@@ -169,7 +169,10 @@ try {
     event.type === "discard" && event.data.playerIndex === 1
   );
   assert(kitaIndex >= 0 && kitaIndex < kitaDealerDiscardIndex, "CPU親の初打牌前の合法な北抜きが維持されていません");
-  assert(!drawAssistCalls.includes(1), "CPU親の初打牌前の北抜き補充牌でdraw assistが評価されました");
+  assert(
+    drawAssistCalls.filter((playerIndex) => playerIndex === 1).length === 1,
+    "CPU親の北抜き補充牌でdraw assistが1回だけ評価されませんでした"
+  );
   assert(Sanma.TileLedger.inspect(cpuDealerKita, cpuDealerKita.ruleConfig).ok, "CPU親北抜き後のTileLedgerが不正です");
 
   const humanCleanup = createEngine("cpu-dealer-last-draw-human");

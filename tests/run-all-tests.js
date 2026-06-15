@@ -30,6 +30,14 @@ const testFiles = [
   "recovery-manager.test.js",
   "yakuman-multiplicity.test.js",
   "cpu-ron-reaction.test.js",
+  "seed-policy-module.test.js",
+  "ron-priority-human-window.test.js",
+  "chankan-priority-human-window.test.js",
+  "tenho-chiho-context.test.js",
+  "settings-storage-hardening.test.js",
+  "saved-records-hardening.test.js",
+  "kita-assist-consistency.test.js",
+  "record-save-retry.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -47,4 +55,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log("\nAll Phase 14.2 tests passed.");
+console.log("\nAll Phase 14.2 follow-up tests passed.");

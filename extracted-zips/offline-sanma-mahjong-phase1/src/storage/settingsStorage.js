@@ -13,27 +13,38 @@
 
   function loadSettings() {
     try {
-      const result = SaveMigration.readAndMigrate({
-        storage: localStorage,
-        key: STORAGE_KEY,
-        kind: "settings",
-        fallback: RuleConfig.defaultRuleConfig,
-      });
-      if (result.recovered) status.corruptedRecovered = true;
-      if (result.error) status.lastError = result.error;
-      return RuleConfig.createRuleConfig(result.value.settings);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return RuleConfig.createRuleConfig({});
+      const parsed = JSON.parse(raw);
+      const candidate = parsed && parsed.settings ? parsed.settings : parsed;
+      const validation = RuleConfig.validatePublicSettings(candidate);
+      if (!validation.ok) {
+        throw new Error(validation.reason);
+      }
+      return RuleConfig.createRuleConfig(validation.settings);
     } catch (error) {
-      rememberError(error, "read");
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) SaveMigration.backupRaw(localStorage, STORAGE_KEY, raw, `不正な設定を拒否しました: ${error.message}`);
+      status.corruptedRecovered = true;
+      status.lastError = error.message;
+      const defaults = RuleConfig.publicSettings(RuleConfig.defaultRuleConfig);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: SaveMigration.versions.settings,
+        settings: defaults,
+      }));
       console.warn("Failed to load settings", error);
-      return RuleConfig.createRuleConfig({});
+      return RuleConfig.createRuleConfig(defaults);
     }
   }
 
   function saveSettings(settings) {
     try {
+      const publicSettings = RuleConfig.publicSettings(settings);
+      const validation = RuleConfig.validatePublicSettings(publicSettings);
+      if (!validation.ok) throw new Error(validation.reason);
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         version: SaveMigration.versions.settings,
-        settings: RuleConfig.createRuleConfig(settings),
+        settings: validation.settings,
       }));
       status.writable = true;
       return true;

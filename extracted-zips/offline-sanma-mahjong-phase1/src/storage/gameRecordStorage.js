@@ -6,6 +6,7 @@
   const INDEX_KEY = "offlineSanma.phase13.recordIndex";
   const MAX_RECORDS = 20;
   const STORAGE_WARNING_BYTES = 4 * 1024 * 1024;
+  const MAX_STORED_RECORDS_CHARS = Sanma.GameRecord.MAX_IMPORT_CHARS * MAX_RECORDS;
   const status = {
     readable: true,
     writable: true,
@@ -118,10 +119,20 @@
   }
 
   function loadRecords() {
-    const loaded = readJson(RECORDS_KEY, []);
-    if (!Array.isArray(loaded)) {
+    let loaded;
+    try {
+      const raw = localStorage.getItem(RECORDS_KEY);
+      if (!raw) return [];
+      if (raw.length > MAX_STORED_RECORDS_CHARS) throw new Error("保存牌譜全体のサイズが上限を超えています。");
+      const parsed = JSON.parse(raw);
+      loaded = Array.isArray(parsed) ? parsed : parsed && parsed.records;
+      if (!Array.isArray(loaded)) throw new Error("保存牌譜の形式が不正です。");
+    } catch (error) {
       status.corruptedRecovered = true;
+      status.lastError = error.message;
+      backupCurrent(RECORDS_KEY, "不正な保存牌譜を除外しました");
       writeJson(RECORDS_KEY, []);
+      rebuildIndex([]);
       return [];
     }
     const records = [];
@@ -129,6 +140,7 @@
     let invalidRecovered = false;
     loaded.slice(-MAX_RECORDS).forEach((record) => {
       try {
+        Sanma.GameRecord.validateImportedRecord(record);
         records.push(Sanma.GameRecord.normalize(record));
       } catch (error) {
         recovered = true;
@@ -302,6 +314,7 @@
     STATS_KEY,
     INDEX_KEY,
     MAX_RECORDS,
+    MAX_STORED_RECORDS_CHARS,
     STORAGE_WARNING_BYTES,
     defaultStats,
     loadRecords,
