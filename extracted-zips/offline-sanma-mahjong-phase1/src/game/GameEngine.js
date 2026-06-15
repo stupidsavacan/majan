@@ -119,17 +119,18 @@
         })),
       });
       const dealer = this.players[this.round.dealerIndex];
-      this.recordAssist(AssistManager.evaluateOpening({
+      const openingAssist = AssistManager.evaluateOpening({
         state: this,
         ruleConfig: this.ruleConfig,
         player: dealer,
         random: this.assistRandom,
-      }));
+      });
+      this.recordAssist(openingAssist);
       this.lastDrawContext = {
         playerIndex: dealer.id,
         isRinshan: false,
         isInitialDealerDraw: true,
-        isTenho: true,
+        isTenho: !openingAssist.applied,
         isChiho: false,
       };
       this.initialDealerDiscardPending = !dealer.isHuman;
@@ -678,6 +679,11 @@
       this.assistEvents.unshift(event);
       this.assistEvents = this.assistEvents.slice(0, 20);
       if (event.applied) {
+        this.markOpeningInterrupted("アシスト適用");
+        if (this.lastDrawContext && this.lastDrawContext.playerIndex === event.playerIndex) {
+          this.lastDrawContext.isTenho = false;
+          this.lastDrawContext.isChiho = false;
+        }
         this.recordGameEvent("assist", {
           phase: event.phase,
           playerIndex: event.playerIndex,

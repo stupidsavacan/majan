@@ -5,6 +5,35 @@
     return (ruleConfig && ruleConfig.advancedRules && ruleConfig.advancedRules.furiten) || {};
   }
 
+  function createAnalysisTile(type, copyIndex) {
+    return {
+      suit: type.suit,
+      rank: type.rank,
+      baseId: type.tileType,
+      instanceId: `furiten-analysis-${type.tileType}-${copyIndex}`,
+      isRed: false,
+    };
+  }
+
+  function currentWaitSet(player, ruleConfig) {
+    if (!player || !Sanma.HandAnalysis) return [];
+    const concealed = Array.isArray(player.hand) ? player.hand : [];
+    const melds = Array.isArray(player.melds) ? player.melds : [];
+    const ownedTiles = concealed.concat(melds.flatMap((meld) => (
+      meld && Array.isArray(meld.tiles) ? meld.tiles : []
+    )));
+    return Sanma.HandAnalysis.getLegalTileTypes(ruleConfig || {}).filter((type) => {
+      const ownedCount = ownedTiles.filter((tile) => tile && tile.baseId === type.tileType).length;
+      if (ownedCount >= 4) return false;
+      const candidate = createAnalysisTile(type, ownedCount);
+      return Sanma.HandAnalysis.analyzeAgariWithMelds(
+        concealed.concat(candidate),
+        melds,
+        ruleConfig || {}
+      ).isAgari;
+    }).map((type) => type.tileType);
+  }
+
   function checkRonEligibility(input) {
     const options = input || {};
     const state = options.state || {};
@@ -16,8 +45,9 @@
     if (!player || !winningTile) {
       return { canRon: false, furiten: false, reasons: ["ロン判定に必要な情報がありません。"], canTsumo: true };
     }
-    if (rules.genbutsu !== false
-      && (player.discards || []).some((tile) => tile && tile.baseId === winningTile.baseId)) {
+    const waits = currentWaitSet(player, options.ruleConfig || state.ruleConfig);
+    const discardedTypes = new Set((player.discards || []).filter(Boolean).map((tile) => tile.baseId));
+    if (rules.genbutsu !== false && waits.some((tileType) => discardedTypes.has(tileType))) {
       reasons.push("現物フリテン");
     }
     if (rules.sameTurn !== false && player.sameTurnFuriten) {
@@ -32,6 +62,7 @@
       furiten: reasons.length > 0,
       reasons,
       canTsumo: rules.tsumoAllowedWhileFuriten !== false,
+      waits,
     };
   }
 
@@ -52,6 +83,7 @@
   }
 
   Sanma.FuritenManager = {
+    currentWaitSet,
     checkRonEligibility,
     markMissedRon,
     clearSameTurn,

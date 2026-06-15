@@ -43,7 +43,7 @@
           throw new Error(`局結果のscore.${key}は真偽値で指定してください。`);
         }
       });
-      ["han", "fu"].forEach((key) => {
+      ["han", "fu", "yakumanCount", "basePoints"].forEach((key) => {
         if (result.score[key] !== undefined
           && result.score[key] !== null
           && !Number.isFinite(result.score[key])) {
@@ -60,12 +60,36 @@
   }
 
   function validateImportedRecord(record) {
-    if (!isObject(record) || !record.id || !Array.isArray(record.rounds) || record.rounds.length === 0) {
+    if (!isObject(record)
+      || typeof record.id !== "string"
+      || record.id.trim().length === 0
+      || !Array.isArray(record.rounds)
+      || record.rounds.length === 0) {
       throw new Error("牌譜データの形式が不正です。");
+    }
+    if (record.matchId !== undefined && typeof record.matchId !== "string") {
+      throw new Error("牌譜のmatchIdは文字列で指定してください。");
+    }
+    if (record.createdAt !== undefined && typeof record.createdAt !== "string") {
+      throw new Error("牌譜のcreatedAtは文字列で指定してください。");
     }
     if (!Array.isArray(record.players) || record.players.length !== REQUIRED_PLAYER_COUNT) {
       throw new Error(`牌譜のプレイヤー数は${REQUIRED_PLAYER_COUNT}人である必要があります。`);
     }
+    const playerIds = record.players.map((player) => player && player.id);
+    if (!playerIds.every(Number.isInteger)
+      || playerIds.slice().sort((left, right) => left - right).some((id, index) => id !== index)) {
+      throw new Error("牌譜のプレイヤーIDは0、1、2を重複なく指定してください。");
+    }
+    record.players.forEach((player) => {
+      if (!isObject(player)) throw new Error("牌譜のプレイヤー形式が不正です。");
+      if (player.name !== undefined && typeof player.name !== "string") {
+        throw new Error("牌譜のプレイヤー名は文字列で指定してください。");
+      }
+      if (player.seatWind !== undefined && typeof player.seatWind !== "string") {
+        throw new Error("牌譜の自風は文字列で指定してください。");
+      }
+    });
     if (record.rounds.length > MAX_ROUNDS) throw new Error(`牌譜の局数は${MAX_ROUNDS}局以内で指定してください。`);
     if (typeof record.seed === "string" && record.seed.length > 128) {
       throw new Error("牌譜のseedは128文字以内で指定してください。");
@@ -73,6 +97,9 @@
     validateStringLengths(record);
     record.rounds.forEach((round) => {
       if (!isObject(round) || !Array.isArray(round.events)) throw new Error("局データの形式が不正です。");
+      if (round.roundLabel !== undefined && typeof round.roundLabel !== "string") {
+        throw new Error("局ラベルは文字列で指定してください。");
+      }
       if (round.events.length > MAX_EVENTS_PER_ROUND) {
         throw new Error(`1局のイベント数は${MAX_EVENTS_PER_ROUND}件以内で指定してください。`);
       }
@@ -183,6 +210,8 @@
         isYakuman: Boolean(score.isYakuman),
         han: Number(score.han) || 0,
         fu: score.fu === null || score.fu === undefined ? null : Number(score.fu),
+        yakumanCount: Number(score.yakumanCount) || 0,
+        basePoints: Number(score.basePoints) || 0,
         limitName: score.limitName || "",
       },
       changes: (settlement.changes || []).map((change) => ({
@@ -272,6 +301,7 @@
     create,
     addRound,
     addEvent,
+    compactResult,
     completeRound,
     finishMatch,
     finishRound,

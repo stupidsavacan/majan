@@ -182,10 +182,6 @@
         return { enabled: false, reason: furiten.reasons.join("・"), analysis: null, furiten };
       }
     }
-    const player = state.players[playerIndex];
-    if ((player.discards || []).some((tile) => tile && tile.baseId === lastDiscard.tile.baseId)) {
-      return { enabled: false, reason: "フリテンのためロンできません。", analysis: null };
-    }
     const analysis = analyzeWin(state, playerIndex, "ron", lastDiscard.tile, lastDiscard.playerIndex);
     return analysis.scoreResult.isValidWin
       ? { enabled: true, reason: "和了形かつ役ありです。", analysis }

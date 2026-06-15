@@ -224,7 +224,8 @@
 
   function scoreRank(result) {
     const score = result && result.score ? result.score : {};
-    if (score.isYakuman) return 1000000 + (score.han || 0);
+    if (score.isYakuman) return 1000000 * Math.max(1, Number(score.yakumanCount) || 1)
+      + (Number(score.basePoints) || 0);
     return (Number(score.han) || 0) * 1000 + (Number(score.fu) || 0);
   }
 

@@ -23,15 +23,32 @@
       }
       return RuleConfig.createRuleConfig(validation.settings);
     } catch (error) {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) SaveMigration.backupRaw(localStorage, STORAGE_KEY, raw, `不正な設定を拒否しました: ${error.message}`);
       status.corruptedRecovered = true;
       status.lastError = error.message;
       const defaults = RuleConfig.publicSettings(RuleConfig.defaultRuleConfig);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: SaveMigration.versions.settings,
-        settings: defaults,
-      }));
+      let raw = null;
+      try {
+        raw = localStorage.getItem(STORAGE_KEY);
+      } catch (readError) {
+        rememberError(readError, "read");
+      }
+      if (raw) {
+        try {
+          SaveMigration.backupRaw(localStorage, STORAGE_KEY, raw, `不正な設定を拒否しました: ${error.message}`);
+        } catch (backupError) {
+          status.lastError = `${error.message} / 退避失敗: ${backupError.message}`;
+          status.writable = false;
+        }
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          version: SaveMigration.versions.settings,
+          settings: defaults,
+        }));
+      } catch (writeError) {
+        status.lastError = `${status.lastError} / 初期値保存失敗: ${writeError.message}`;
+        status.writable = false;
+      }
       console.warn("Failed to load settings", error);
       return RuleConfig.createRuleConfig(defaults);
     }
