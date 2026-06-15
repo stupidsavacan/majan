@@ -6,17 +6,29 @@
     return (config.advancedRules && config.advancedRules.kan) || {};
   }
 
-  function analysisTiles(player) {
-    const tiles = (player.hand || []).slice();
-    (player.melds || []).forEach((meld) => {
-      tiles.push(...(Array.isArray(meld.tiles) ? meld.tiles.slice(0, 3) : []));
-    });
-    return tiles;
+  function createAnalysisTile(type, copyIndex) {
+    return {
+      suit: type.suit,
+      rank: type.rank,
+      baseId: type.tileType,
+      instanceId: `riichi-kan-analysis-${type.tileType}-${copyIndex}`,
+      isRed: false,
+    };
   }
 
-  function waitTypes(tiles, ruleConfig) {
-    const result = Sanma.HandAnalysis.analyzeTenpai(tiles, ruleConfig || {});
-    return (result.waits || []).map((wait) => wait.tileType).sort();
+  function waitTypes(concealedTiles, melds, ruleConfig) {
+    const ownedTiles = concealedTiles.concat((melds || []).flatMap((meld) => (
+      meld && Array.isArray(meld.tiles) ? meld.tiles : []
+    )));
+    return Sanma.HandAnalysis.getLegalTileTypes(ruleConfig || {}).filter((type) => {
+      const ownedCount = ownedTiles.filter((tile) => tile && tile.baseId === type.tileType).length;
+      if (ownedCount >= 4) return false;
+      return Sanma.HandAnalysis.analyzeAgariWithMelds(
+        concealedTiles.concat(createAnalysisTile(type, ownedCount)),
+        melds || [],
+        ruleConfig || {}
+      ).isAgari;
+    }).map((type) => type.tileType).sort();
   }
 
   function sameWaits(left, right) {
@@ -26,15 +38,22 @@
 
   function riichiAnkanKeepsWait(state, playerIndex, option) {
     const player = state.players[playerIndex];
-    if (!player || !player.lastDraw || option.type !== "ankan") return false;
-    const before = analysisTiles(player).filter((tile) => tile.instanceId !== player.lastDraw.instanceId);
+    if (!player || !player.lastDraw || option.type !== "ankan"
+      || !(option.consumeInstanceIds || []).includes(player.lastDraw.instanceId)) return false;
     const consumed = new Set(option.consumeInstanceIds || []);
+    const consumedTiles = (player.hand || []).filter((tile) => consumed.has(tile.instanceId));
+    const before = (player.hand || []).filter((tile) => tile.instanceId !== player.lastDraw.instanceId);
     const after = (player.hand || []).filter((tile) => !consumed.has(tile.instanceId));
-    (player.melds || []).forEach((meld) => {
-      after.push(...(Array.isArray(meld.tiles) ? meld.tiles.slice(0, 3) : []));
+    const afterMelds = (player.melds || []).concat({
+      type: "kan",
+      kanType: "ankan",
+      open: false,
+      tiles: consumedTiles,
     });
-    after.push(...(player.hand || []).filter((tile) => consumed.has(tile.instanceId)).slice(0, 3));
-    return sameWaits(waitTypes(before, state.ruleConfig), waitTypes(after, state.ruleConfig));
+    return sameWaits(
+      waitTypes(before, player.melds || [], state.ruleConfig),
+      waitTypes(after, afterMelds, state.ruleConfig)
+    );
   }
 
   function getAvailableKanActions(input) {
@@ -44,9 +63,6 @@
     if (!player) return [];
     const candidates = Sanma.KanManager.getOptions(state, options.playerIndex);
     if (!player.hasRiichi) return candidates;
-    if (rulesFor(state, options.ruleConfig).allowAnkanAfterRiichiOnlyIfWaitUnchanged === false) {
-      return candidates.filter((candidate) => candidate.type === "ankan");
-    }
     return candidates.filter((candidate) => candidate.type === "ankan"
       && riichiAnkanKeepsWait(state, options.playerIndex, candidate));
   }

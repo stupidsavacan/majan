@@ -38,6 +38,14 @@ const testFiles = [
   "saved-records-hardening.test.js",
   "kita-assist-consistency.test.js",
   "record-save-retry.test.js",
+  "multi-wait-furiten.test.js",
+  "opening-yaku-assist-guard.test.js",
+  "riichi-ankan-current-draw.test.js",
+  "no-double-ron-policy.test.js",
+  "record-id-validation.test.js",
+  "yakuman-record-index.test.js",
+  "settings-recovery-backup-failure.test.js",
+  "github-actions-test-workflow.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -55,4 +63,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log("\nAll Phase 14.2 follow-up tests passed.");
+console.log("\nAll Phase 14.2C tests passed.");

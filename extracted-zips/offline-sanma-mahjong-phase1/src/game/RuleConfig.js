@@ -21,7 +21,7 @@
       dealerTenpaiDraw: true,
       dealerNotenDraw: false,
     }),
-    doubleRonPolicy: Object.freeze({ allowed: true, honbaIncrement: 1 }),
+    doubleRonPolicy: Object.freeze({ allowed: false, honbaIncrement: 1 }),
 
     northMode: "kita-dora",
     allowChi: true,
@@ -190,6 +190,7 @@
     merged.honbaPoints = Object.assign({}, defaultRuleConfig.honbaPoints, input.honbaPoints || {});
     merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
     merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
+    merged.doubleRonPolicy.allowed = false;
     const advancedInput = input.advancedRules || {};
     merged.advancedRules = {};
     Object.keys(defaultRuleConfig.advancedRules).forEach((key) => {
