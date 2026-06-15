@@ -1,8 +1,21 @@
-# Phase 14.2 Critical Bug Sweep Report
+# Phase 14.2 Follow-up Strict Blockers Report
 
 ## 結果
 
-Phase 14.2の必須項目を実装し、中央テストランナーへ回帰テストを登録しました。Phase 14.1のテストとCPU親開始修正も維持しています。
+Phase 14.2 follow-upの必須ブロッカーを実装し、中央テストランナーへ決定論的回帰テストを登録しました。Phase 14.1、Phase 14.2、CPU親開始修正のテストも維持しています。
+
+## Follow-up修正内容
+
+| 項目 | 実装 | 決定論的テスト |
+| --- | --- | --- |
+| SeedPolicy依存 | `SeedPolicy.js`を独立モジュール化し、Wall・GameEngine・mainより前にロード | `tests/seed-policy-module.test.js` |
+| 通常ロン優先 | 全ロン候補を収集し、人間ロン窓をCPU自動ロンより先に開く。人間見逃し後は最寄りの合法CPUロンを解決 | `tests/ron-priority-human-window.test.js` |
+| 槍槓優先 | 全槍槓候補を収集し、人間槍槓窓をCPU自動槍槓より先に開く。国士無双の暗槓槍槓例外を維持 | `tests/chankan-priority-human-window.test.js`, `tests/phase14-1-chankan.test.js` |
+| 天和・地和 | 開始手牌と初回無割り込みツモの実GameEngine文脈から和了解析・得点計算へ接続 | `tests/tenho-chiho-context.test.js` |
+| 設定保存検証 | JSONインポートとlocalStorage読込を共通の公開UI設定スキーマで全体検証 | `tests/settings-storage-hardening.test.js`, `tests/settings-import-hardening.test.js` |
+| 保存牌譜検証 | 保存済みlocalStorage牌譜もインポート同等の上限・型検証後に読込 | `tests/saved-records-hardening.test.js`, `tests/record-import-hardening.test.js` |
+| 北抜きアシスト | 人間とCPUの北抜き補充ツモを同じAssistManager経路で評価し、assistイベントとlastDrawを維持 | `tests/kita-assist-consistency.test.js` |
+| 完了牌譜再試行 | 保存失敗を描画から隔離し、牌譜削除・保存領域リセット後の明示再試行経路を追加 | `tests/record-save-retry.test.js`, `tests/storage-render-failure.test.js` |
 
 ## 修正内容
 
@@ -68,6 +81,14 @@ node tests/run-all-tests.js
 - `tests/cpu-ron-reaction.test.js`
 - `tests/smoke.test.js`
 - `tests/state-integrity.test.js`
+- `tests/seed-policy-module.test.js`
+- `tests/ron-priority-human-window.test.js`
+- `tests/chankan-priority-human-window.test.js`
+- `tests/tenho-chiho-context.test.js`
+- `tests/settings-storage-hardening.test.js`
+- `tests/saved-records-hardening.test.js`
+- `tests/kita-assist-consistency.test.js`
+- `tests/record-save-retry.test.js`
 
 ## 軽量バグチェック
 
@@ -84,6 +105,5 @@ node tests/run-all-tests.js
 - CPU戦略は単純です。
 - 押し引き・安全牌判断・打点期待値AIは未実装です。
 - ダブロンは未実装です。
-- 南入・西入は未実装です。
+- ノーテン罰符・四槓流れ・南入・西入は未実装または未完成です。
 - ZIP workflow hardening pending。
-- 全状態を網羅するphase-aware invariant coverage pending。

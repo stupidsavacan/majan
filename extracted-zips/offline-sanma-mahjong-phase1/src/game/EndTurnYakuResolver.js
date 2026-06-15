@@ -37,6 +37,8 @@
       isIppatsu: isRiichi && Boolean(player && player.ippatsuActive),
       isRinshan,
       isChankan,
+      isTenho: winType === "tsumo" && lastDraw.isTenho === true,
+      isChiho: winType === "tsumo" && lastDraw.isChiho === true,
       isHaitei: rules.haitei !== false && winType === "tsumo" && wallEmpty && !isRinshan,
       isHoutei: rules.houtei !== false && winType === "ron" && wallEmpty && !isChankan,
       uraDoraIndicators,

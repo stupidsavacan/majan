@@ -129,6 +129,49 @@
     { key: "atozuke", label: "後付け", type: "checkbox" },
   ];
 
+  const publicSettingsSchema = Object.freeze({
+    matchLength: Object.freeze({ type: "enum", values: Object.freeze(["single", "tonpuu", "hanchan"]) }),
+    northMode: Object.freeze({ type: "enum", values: Object.freeze(["kita-dora", "normal-tile", "disabled"]) }),
+    allowChi: Object.freeze({ type: "boolean" }),
+    tsumoLoss: Object.freeze({ type: "boolean" }),
+    highScoreMode: Object.freeze({ type: "boolean" }),
+    uraDora: Object.freeze({ type: "boolean" }),
+    kanDora: Object.freeze({ type: "boolean" }),
+    kanUraDora: Object.freeze({ type: "boolean" }),
+    redDoraMode: Object.freeze({ type: "enum", values: Object.freeze(["standard", "none", "custom"]) }),
+    kuitan: Object.freeze({ type: "boolean" }),
+    atozuke: Object.freeze({ type: "boolean" }),
+  });
+
+  function publicSettings(settings) {
+    const source = settings || {};
+    return Object.keys(publicSettingsSchema).reduce((result, key) => {
+      if (Object.prototype.hasOwnProperty.call(source, key)) result[key] = source[key];
+      return result;
+    }, {});
+  }
+
+  function validatePublicSettings(settings) {
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+      return { ok: false, settings: null, reason: "設定JSONはオブジェクトで指定してください。" };
+    }
+    const keys = Object.keys(settings);
+    if (keys.length === 0) return { ok: false, settings: null, reason: "公開設定項目がありません。" };
+    const unknown = keys.find((key) => !Object.prototype.hasOwnProperty.call(publicSettingsSchema, key));
+    if (unknown) return { ok: false, settings: null, reason: `インポートできない設定項目です: ${unknown}` };
+    for (const key of keys) {
+      const value = settings[key];
+      const rule = publicSettingsSchema[key];
+      if (rule.type === "boolean" && typeof value !== "boolean") {
+        return { ok: false, settings: null, reason: `${key} は真偽値で指定してください。` };
+      }
+      if (rule.type === "enum" && !rule.values.includes(value)) {
+        return { ok: false, settings: null, reason: `${key} の値が不正です。` };
+      }
+    }
+    return { ok: true, settings: publicSettings(settings), reason: "" };
+  }
+
   function createRuleConfig(overrides) {
     const input = overrides || {};
     const merged = Object.assign({}, defaultRuleConfig, input);
@@ -196,6 +239,9 @@
   Sanma.RuleConfig = {
     defaultRuleConfig,
     normalSettings,
+    publicSettingsSchema,
+    publicSettings,
+    validatePublicSettings,
     createRuleConfig,
     describeRuleConfig,
   };

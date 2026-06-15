@@ -31,6 +31,7 @@ for (const file of [
   "src/game/AssistManager.js",
   "src/game/GameRecord.js",
   "src/game/CallWindow.js",
+  "src/game/SeedPolicy.js",
   "src/game/Wall.js",
   "src/game/Player.js",
   "src/game/TileLedger.js",
@@ -119,6 +120,9 @@ assert(settlement.applied && players[1].points === 38200 && players[2].points ==
 
 const engine = new global.Sanma.GameEngine({ ruleConfig: { tsumoLoss: false }, seed: "phase4-settlement", onChange: function noop() {} });
 engine.humanPlayer.hand = chiitoitsu.map(tile);
+engine.humanPlayer.lastDraw = engine.humanPlayer.hand[engine.humanPlayer.hand.length - 1];
+engine.markOpeningInterrupted("通常ツモ得点テスト");
+engine.lastDrawContext = engine.createNormalDrawContext(engine.humanPlayer);
 engine.phase = "human-discard";
 engine.turnIndex = 0;
 engine.claimHumanTsumo();
