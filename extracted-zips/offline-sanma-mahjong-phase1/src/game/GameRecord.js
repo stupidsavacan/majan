@@ -198,8 +198,8 @@
       eventSchemaVersion: 2,
       id: `record-${Date.now().toString(36)}-${recordSequence.toString(36)}`,
       matchId: String(options.matchId || ""),
-      phase: 15,
-      phaseLabel: "15",
+      phase: 16,
+      phaseLabel: "16",
       createdAt,
       seed: Sanma.SeedPolicy
         ? Sanma.SeedPolicy.requireValidSeed(options.seed)

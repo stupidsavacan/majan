@@ -1,22 +1,34 @@
-# Offline Sanma Mahjong - Phase 15
+# Offline Sanma Mahjong - Phase 16
 
-完全オフラインで動く三人麻雀ブラウザゲームです。現在の正本入口は root `index.html` です。ビルド、サーバー、CDN、外部フォント取得、ネットワーク通信は不要です。
+完全オフラインで動作する三人麻雀ブラウザゲームです。現在のユーザー向け入口は root `index.html` です。ビルド、サーバー、CDN、外部フォント取得、ネットワーク通信は不要です。
 
-## Phase 15 current status
+## Phase 16 Current Status
 
-- CPU 1 / CPU 2 を含む実親ローテーションを維持しています。
-- CPU親は開局時に自動進行し、初打牌では余分な通常ツモを行いません。
-- CPU通常ロン、槍槓、頭ハネ優先、フリテン判定、ロン優先は実フローへ接続済みです。
-- 開局Assist後の天和/地和ガード、CPU親の開局Assist天和ガードを維持しています。
+Phase 16は挙動保存リファクタです。新しい役、点数仕様、CPU戦略、UI操作は追加していません。
+
+`GameEngine.js` に集中していた局開始、ターン進行、ロン、鳴き、槓、牌譜、復旧、ツモ文脈の処理を、次のFlowモジュールへ分割しました。
+
+- `DrawContext.js`: 通常ツモ、配牌親ツモ、嶺上、河底、天和/地和ガードの文脈生成
+- `RecordFlow.js`: 牌譜イベント、牌スナップショット、score_settlementデバッグ連携
+- `RoundLifecycle.js`: 局開始、次局、配牌、流局時テンパイ判定、牌譜終了
+- `TurnFlow.js`: 人間打牌、CPU自動進行、打牌後進行、山0枚遷移
+- `WinFlow.js`: ツモ、ロン候補、頭ハネ、ロン解決
+- `CallFlow.js`: 鳴き窓、鳴き選択、スキップ
+- `KanFlow.js`: 人間/CPU槓、槍槓、嶺上ハンドオフ
+- `RecoveryFlow.js`: RecoveryManagerから通常Flowへ戻す橋渡し
+
+`GameEngine` のpublic APIは維持しています。UIから呼ばれる `startRound`, `startNextRound`, `discardHumanTile`, `claimHumanTsumo`, `declareHumanRiichi`, `extractHumanKita`, `requestHumanKan`, `selectHumanKan`, `cancelHumanKanChoice`, `claimHumanCall`, `skipHumanCall`, `drawForHumanManually`, `getState` は同じ名前で利用できます。
+
+## Preserved Behavior
+
+- 実親ローテーションを維持し、CPU 1 / CPU 2 も親になります。
+- CPU親は局開始時に自動進行し、初打牌で余分な通常ツモを行いません。
+- CPU通常ロン、CPU槍槓、頭ハネ優先、フリテン判定、ロン優先は既存フローを維持しています。
 - 山0枚ではロン以外のポン/チー/明槓窓を開かず、ロンなしなら流局します。
-- 河底は最後の通常ツモ後の最後の打牌だけに付与します。鳴き後打牌や槍槓には付与しません。
-- 山0枚で明槓から嶺上牌を引く経路を禁止しています。
+- 河底は最後の通常ツモ後の打牌だけに付与され、嶺上後や鳴き後打牌には付与されません。
 - 牌譜イベント剪定は `deal` / `win` / `score_settlement` を保持します。
-- 保存失敗牌譜は本体を保持し、明示的な再試行で保存できます。牌譜リセット後のゾンビ復活は防止しています。
-- RecoveryManager は pending CPUロン/槍槓、保留カン確定、局リセット牌譜整合性を処理します。
-- 流局時の親聴牌判定は副露面子を固定したまま評価します。
-- ZIP展開workflowは main へ直接pushせず、PRゲートで検証します。
-- `honbaPoints` 設定はロン/ツモ支払いへ反映されます。
+- 保存失敗した終了牌譜は本体を保持し、明示的な再試行で保存できます。
+- RecoveryManagerは pending CPUロン/槍槓、保留槓確定、局リセット牌譜整合性を維持します。
 
 ## Entry Points
 
@@ -25,7 +37,7 @@
 - Canonical source: `extracted-zips/offline-sanma-mahjong-phase1/src`
 - Central test runner: `node tests/run-all-tests.js`
 
-The canonical runtime is loaded by root `index.html`; root `src/main.js` is not the runtime loader.
+Root `index.html` がcanonical runtimeを読み込みます。root `src/main.js` は実行入口ではありません。
 
 ## Current Limitations
 
@@ -36,13 +48,13 @@ The canonical runtime is loaded by root `index.html`; root `src/main.js` is not 
 
 ## Documentation
 
-- `docs/INDEX.md`: 現在の正本案内
-- `docs/BUGS.md`: 現在確認されている未解決バグ
+- `docs/INDEX.md`: 現行ドキュメント索引
+- `docs/ARCHITECTURE.md`: Phase 16後の構成
+- `docs/PHASE16_GAME_ENGINE_SPLIT.md`: GameEngine責務分割レポート
+- `docs/PHASE16_1_BUG_INTAKE.md`: Phase 16.1バグ受付形式
+- `docs/TESTING.md`: ローカル/CI検証手順
+- `docs/BUGS.md`: 現在確認済みの未解決事項
 - `docs/ROADMAP.md`: 今後の作業
-- `docs/TESTING.md`: ローカルテスト、PR、CI、ZIP展開PRゲート
-- `docs/ARCHITECTURE.md`: 主要構成
-- `CHANGELOG.md`: Phase 15までの履歴
+- `CHANGELOG.md`: 変更履歴
 
-過去の `PHASE*.md` は履歴資料です。現在仕様は README と `docs/` を優先してください。
-
-Compatibility search tokens: 繝繝悶Ο繝ｳ 譛ｪ螳溯｣・
+過去の `PHASE*.md` は `docs/archive/` 配下の履歴資料です。現在仕様はこのREADMEと `docs/` を優先してください。

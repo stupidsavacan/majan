@@ -1,6 +1,6 @@
 # Testing
 
-## Local
+## Local Required Commands
 
 Run all deterministic tests from the repository root:
 
@@ -8,7 +8,7 @@ Run all deterministic tests from the repository root:
 node tests/run-all-tests.js
 ```
 
-Changed JavaScript files must also pass:
+Every changed JavaScript file must also pass:
 
 ```bash
 node --check <changed-js-file>
@@ -16,9 +16,23 @@ node --check <changed-js-file>
 
 Changed workflow YAML files must be parsed before PR merge.
 
+## Phase 16 Refactor Verification
+
+Phase 16 adds these behavior-preserving refactor tests:
+
+- `tests/game-engine-public-api.test.js`
+- `tests/game-engine-module-load-order.test.js`
+- `tests/game-engine-behavior-preservation.test.js`
+- `tests/flow-module-boundaries.test.js`
+- `tests/draw-context-flow-preservation.test.js`
+- `tests/record-flow-preservation.test.js`
+- `tests/recovery-flow-preservation.test.js`
+
+These tests verify public API compatibility, script order, Flow module boundaries, representative gameplay preservation, record flow, draw context, and recovery bridges.
+
 ## Pull Request And CI
 
-Phase 15 changes must go through a pull request. Direct push to `main` is forbidden for this phase.
+Phase 16 changes must go through a pull request. Direct push to `main` is forbidden for this phase.
 
 GitHub Actions must pass before merge. The PR body records local commands, deterministic tests, and the Actions result.
 
@@ -27,5 +41,3 @@ GitHub Actions must pass before merge. The PR body records local commands, deter
 `.github/workflows/unpack-uploaded-zip.yml` unpacks uploaded ZIP sources into a branch and opens or updates a pull request. It must not push directly to `main`.
 
 ZIP展開PRゲート: mainへ展開結果を直接pushしません。
-
-Compatibility search tokens: ZIP螻暮幕PR繧ｲ繝ｼ繝・ main縺ｸ螻暮幕邨先棡繧堤峩謗･push縺励∪縺帙ｓ

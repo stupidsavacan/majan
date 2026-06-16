@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 16
+
+- Split `GameEngine.js` responsibilities into focused Flow modules without intended gameplay behavior changes.
+- Added `DrawContext`, `RecordFlow`, `RoundLifecycle`, `TurnFlow`, `WinFlow`, `CallFlow`, `KanFlow`, and `RecoveryFlow`.
+- Preserved GameEngine public API method names used by the UI.
+- Added Phase 16 refactor verification tests for API compatibility, module load order, behavior preservation, module boundaries, draw context, record flow, and recovery flow.
+- Updated architecture and testing documentation for the new module structure.
+
 ## Phase 15
 
 - Fixed CPU dealer opening Assist 天和 guard.
