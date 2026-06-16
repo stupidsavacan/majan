@@ -188,9 +188,31 @@
     return saved;
   }
 
-  function importRecord(text) {
+  function createImportedRecordId(existingIds) {
+    let index = 1;
+    let id = "";
+    do {
+      id = `imported-${Date.now().toString(36)}-${index.toString(36)}`;
+      index += 1;
+    } while (existingIds.has(id));
+    return id;
+  }
+
+  function avoidImportIdCollision(record, options) {
+    const input = options || {};
+    const activeRecordId = typeof input.activeRecordId === "string" ? input.activeRecordId : "";
+    const existingIds = new Set(loadRecords().map((item) => item && item.id).filter(Boolean));
+    if (!existingIds.has(record.id) && record.id !== activeRecordId) return record;
+    const sourceRecordId = record.id;
+    record.sourceRecordId = typeof record.sourceRecordId === "string" ? record.sourceRecordId : sourceRecordId;
+    record.id = createImportedRecordId(existingIds);
+    return record;
+  }
+
+  function importRecord(text, options) {
     try {
       const record = Sanma.GameRecord.deserializeImported(String(text || ""));
+      avoidImportIdCollision(record, options);
       if (!saveRecord(record)) throw new Error("牌譜を保存できませんでした");
       return { ok: true, record, reason: "牌譜をインポートしました。" };
     } catch (error) {
@@ -325,6 +347,7 @@
     loadRecord,
     saveRecord,
     deleteRecord,
+    avoidImportIdCollision,
     importRecord,
     loadStats,
     updateStats,

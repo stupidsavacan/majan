@@ -375,6 +375,63 @@
     };
   }
 
+  function analyzeTenpaiWithMelds(concealedTiles, fixedMelds, ruleConfig) {
+    const melds = Array.isArray(fixedMelds) ? fixedMelds : [];
+    if (melds.length === 0) return analyzeTenpai(concealedTiles, ruleConfig);
+    const fixedGroups = melds.map((meld) => describeFixedMeld(meld, ruleConfig));
+    if (fixedGroups.some((group) => !group) || fixedGroups.length > 4) {
+      return {
+        isTenpai: false,
+        waits: [],
+        discardOptions: [],
+        tileCount: Array.isArray(concealedTiles) ? concealedTiles.length : 0,
+        reason: "固定面子の形が不正です。",
+      };
+    }
+    const converted = toCountArray(concealedTiles, ruleConfig);
+    if (!converted.isValid) {
+      return { isTenpai: false, waits: [], discardOptions: [], tileCount: converted.tileCount, reason: converted.reason };
+    }
+    const expectedConcealedCount = 13 - fixedGroups.length * 3;
+    if (converted.tileCount !== expectedConcealedCount) {
+      return {
+        isTenpai: false,
+        waits: [],
+        discardOptions: [],
+        tileCount: converted.tileCount,
+        reason: "副露手の聴牌判定に必要な concealed tile count と一致しません。",
+      };
+    }
+    const ownedTiles = (concealedTiles || []).concat(melds.flatMap((meld) => (
+      meld && Array.isArray(meld.tiles) ? meld.tiles : []
+    )));
+    const waits = [];
+    getLegalTileTypes(ruleConfig).forEach((type) => {
+      const ownedCount = ownedTiles.filter((tile) => tile && getTypeIndex(tile) === type.index).length;
+      if (ownedCount >= 4) return;
+      const agari = analyzeAgariWithMelds(
+        (concealedTiles || []).concat(createAnalysisTile(type, ownedCount)),
+        melds,
+        ruleConfig
+      );
+      if (agari.isAgari) {
+        waits.push({
+          index: type.index,
+          tileType: type.tileType,
+          label: type.label,
+          patterns: agari.patterns.map((pattern) => pattern.typeLabel),
+        });
+      }
+    });
+    return {
+      isTenpai: waits.length > 0,
+      waits,
+      discardOptions: [],
+      tileCount: converted.tileCount,
+      reason: waits.length > 0 ? `副露手の待ち牌: ${waits.map((wait) => wait.label).join("、")}` : "副露手の待ち牌はありません。",
+    };
+  }
+
   Sanma.HandAnalysis = {
     tileTypes,
     getTypeIndex,
@@ -388,5 +445,6 @@
     analyzeAgariWithMelds,
     analyzeAgari,
     analyzeTenpai,
+    analyzeTenpaiWithMelds,
   };
 })(window);

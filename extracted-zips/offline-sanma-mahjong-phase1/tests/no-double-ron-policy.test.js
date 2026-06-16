@@ -1,4 +1,4 @@
-const fs = require("fs");
+﻿const fs = require("fs");
 const path = require("path");
 const { arrangeEngine, assert, createEngine, loadModules } = require("./phase14-2-test-utils");
 const { projectRoot } = require("./test-helpers");
@@ -7,8 +7,8 @@ const Sanma = loadModules();
 const waitOne = ["3p", "4p", "2s", "3s", "4s", "6p", "7p", "8p", "6s", "7s", "8s", "2p", "2p"];
 const waitTwo = ["3p", "4p", "2s", "3s", "4s", "6s", "7s", "8s", "6p", "7p", "8p", "4s", "4s"];
 
-assert(Sanma.RuleConfig.defaultRuleConfig.doubleRonPolicy.allowed === false, "既定doubleRonPolicy.allowedがfalseではありません");
-assert(Sanma.RuleConfig.createRuleConfig({ doubleRonPolicy: { allowed: true } }).doubleRonPolicy.allowed === false, "未実装のダブロンを設定で有効化できました");
+assert(Sanma.RuleConfig.defaultRuleConfig.doubleRonPolicy.allowed === false, "譌｢螳單oubleRonPolicy.allowed縺掲alse縺ｧ縺ｯ縺ゅｊ縺ｾ縺帙ｓ");
+assert(Sanma.RuleConfig.createRuleConfig({ doubleRonPolicy: { allowed: true } }).doubleRonPolicy.allowed === false, "譛ｪ螳溯｣・・繝繝悶Ο繝ｳ繧定ｨｭ螳壹〒譛牙柑蛹悶〒縺阪∪縺励◆");
 
 function arrangeCandidates(seed, discarderIndex, humanCandidate) {
   const engine = createEngine(Sanma, seed, { dramaticLuckAssist: false });
@@ -29,14 +29,14 @@ function arrangeCandidates(seed, discarderIndex, humanCandidate) {
 }
 
 const cpuOnly = arrangeCandidates("no-double-cpu", 0, false);
-assert(cpuOnly.resolveRonCandidatesAfterDiscard(0), "複数CPUロン候補を解決できません");
-assert(cpuOnly.phase === "win-ended" && cpuOnly.winResult.winnerIndex === 1, "捨てたプレイヤーから最寄りのCPU一人を選択しません");
+assert(cpuOnly.resolveRonCandidatesAfterDiscard(0), "隍・焚CPU繝ｭ繝ｳ蛟呵｣懊ｒ隗｣豎ｺ縺ｧ縺阪∪縺帙ｓ");
+assert(cpuOnly.phase === "win-ended" && cpuOnly.winResult.winnerIndex === 1, "謐ｨ縺ｦ縺溘・繝ｬ繧､繝､繝ｼ縺九ｉ譛蟇・ｊ縺ｮCPU荳莠ｺ繧帝∈謚槭＠縺ｾ縺帙ｓ");
 
 const humanFirst = arrangeCandidates("no-double-human", 2, true);
-assert(humanFirst.resolveRonCandidatesAfterDiscard(2), "人間とCPUのロン候補を解決できません");
-assert(humanFirst.phase === "human-call" && humanFirst.callWindow.pendingCpuRonCandidate.playerIndex === 1, "人間ロン窓をCPUロンより先に開きません");
-assert(humanFirst.skipHumanCall(), "人間ロン見逃しを処理できません");
-assert(humanFirst.phase === "win-ended" && humanFirst.winResult.winnerIndex === 1, "人間見逃し後に最寄りCPUロンを解決しません");
+assert(humanFirst.resolveRonCandidatesAfterDiscard(2), "莠ｺ髢薙→CPU縺ｮ繝ｭ繝ｳ蛟呵｣懊ｒ隗｣豎ｺ縺ｧ縺阪∪縺帙ｓ");
+assert(humanFirst.phase === "human-call" && humanFirst.callWindow.pendingCpuRonCandidate.playerIndex === 1, "莠ｺ髢薙Ο繝ｳ遯薙ｒCPU繝ｭ繝ｳ繧医ｊ蜈医↓髢九″縺ｾ縺帙ｓ");
+assert(humanFirst.skipHumanCall(), "莠ｺ髢薙Ο繝ｳ隕矩・＠繧貞・逅・〒縺阪∪縺帙ｓ");
+assert(humanFirst.phase === "win-ended" && humanFirst.winResult.winnerIndex === 1, "莠ｺ髢楢ｦ矩・＠蠕後↓譛蟇・ｊCPU繝ｭ繝ｳ繧定ｧ｣豎ｺ縺励∪縺帙ｓ");
 
 const chankanCpu = createEngine(Sanma, "no-double-chankan-cpu", { dramaticLuckAssist: false });
 arrangeEngine(Sanma, chankanCpu, {
@@ -52,13 +52,13 @@ const cpuInterrupts = chankanCpu.findChankanInterrupts({
   kanType: "kakan",
   declaredTile: chankanCpu.players[0].hand[0],
 });
-assert(cpuInterrupts.length === 2, "複数CPU槍槓候補を収集できません");
+assert(cpuInterrupts.length === 2, "隍・焚CPU讒肴ｧ灘呵｣懊ｒ蜿朱寔縺ｧ縺阪∪縺帙ｓ");
 assert(chankanCpu.openOrResolveChankan(cpuInterrupts, {
   playerIndex: 0,
   kanType: "kakan",
   declaredTile: chankanCpu.players[0].hand[0],
-}), "複数CPU槍槓候補を解決できません");
-assert(chankanCpu.winResult.winnerIndex === 1, "複数CPU槍槓で最寄りCPU一人を選びません");
+}), "隍・焚CPU讒肴ｧ灘呵｣懊ｒ隗｣豎ｺ縺ｧ縺阪∪縺帙ｓ");
+assert(chankanCpu.winResult.winnerIndex === 1, "隍・焚CPU讒肴ｧ薙〒譛蟇・ｊCPU荳莠ｺ繧帝∈縺ｳ縺ｾ縺帙ｓ");
 
 const chankanHuman = createEngine(Sanma, "no-double-chankan-human", { dramaticLuckAssist: false });
 arrangeEngine(Sanma, chankanHuman, {
@@ -78,10 +78,10 @@ assert(chankanHuman.openOrResolveChankan(mixedInterrupts, {
   playerIndex: 2,
   kanType: "kakan",
   declaredTile: chankanHuman.players[2].hand[0],
-}), "人間とCPUの槍槓候補を解決できません");
-assert(chankanHuman.phase === "human-call" && chankanHuman.callWindow.pendingCpuRonCandidate.playerIndex === 1, "人間槍槓窓をCPU槍槓より先に開きません");
+}), "莠ｺ髢薙→CPU縺ｮ讒肴ｧ灘呵｣懊ｒ隗｣豎ｺ縺ｧ縺阪∪縺帙ｓ");
+assert(chankanHuman.phase === "human-call" && chankanHuman.callWindow.pendingCpuRonCandidate.playerIndex === 1, "莠ｺ髢捺ｧ肴ｧ鍋ｪ薙ｒCPU讒肴ｧ薙ｈ繧雁・縺ｫ髢九″縺ｾ縺帙ｓ");
 
 const readme = fs.readFileSync(path.resolve(projectRoot, "README.md"), "utf8");
-assert(readme.includes("ダブロン") && readme.includes("未実装"), "READMEがダブロン未実装を明記していません");
+assert(readme.includes("ダブロンは未実装"), "READMEがダブロン未実装を明記していません");
 
 console.log("Phase 14.2C no-double-ron policy tests passed.");

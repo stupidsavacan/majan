@@ -243,11 +243,15 @@
     }
 
     handleDiscard(discarderIndex, discarded) {
-      this.lastDiscard = { playerIndex: discarderIndex, tile: discarded };
+      this.lastDiscard = this.createLastDiscard(discarderIndex, discarded);
       this.lastDrawContext = null;
       this.noteOpeningDiscard(discarderIndex);
       if (this.resolveRonCandidatesAfterDiscard(discarderIndex)) return true;
       if (discarderIndex !== this.humanPlayer.id) {
+        if (this.wall.remainingCount() <= 0) {
+          this.continueAfterDiscard(discarderIndex);
+          return true;
+        }
         const windowState = CallWindow.create(this, this.humanPlayer.id);
         if (windowState) {
           this.markOpeningInterrupted("鳴き選択窓");
@@ -326,7 +330,13 @@
             player,
             random: this.assistRandom,
           }));
-        } else {
+        } else if (!(
+          this.initialDealerDiscardPending
+          && player.id === this.round.dealerIndex
+          && this.lastDrawContext
+          && this.lastDrawContext.playerIndex === player.id
+          && this.lastDrawContext.isInitialDealerDraw
+        )) {
           this.lastDrawContext = {
             playerIndex: player.id,
             isRinshan: false,
@@ -361,9 +371,13 @@
         }
         this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
         this.recordGameEvent("discard", this.playerTileEvent(player, discarded));
-        this.lastDiscard = { playerIndex: player.id, tile: discarded };
+        this.lastDiscard = this.createLastDiscard(player.id, discarded);
         this.noteOpeningDiscard(player.id);
         if (this.resolveRonCandidatesAfterDiscard(player.id)) return;
+        if (this.wall.remainingCount() <= 0) {
+          this.continueAfterDiscard(player.id);
+          return;
+        }
         const windowState = CallWindow.create(this, this.humanPlayer.id);
         if (windowState) {
           this.markOpeningInterrupted("鳴き選択窓");
@@ -608,12 +622,25 @@
         );
         if (analysis.scoreResult.isValidWin) candidates.push({ playerIndex, analysis, priorityOffset: offset });
       }
-      return candidates;
+      return candidates.sort((left, right) => left.priorityOffset - right.priorityOffset);
+    }
+
+    selectHeadBumpCandidates(candidates) {
+      const ordered = (candidates || [])
+        .slice()
+        .sort((left, right) => left.priorityOffset - right.priorityOffset);
+      const primary = ordered[0] || null;
+      const fallbackCpu = primary && this.players[primary.playerIndex].isHuman
+        ? ordered.slice(1).find((candidate) => !this.players[candidate.playerIndex].isHuman) || null
+        : null;
+      return { primary, fallbackCpu };
     }
 
     findCpuRonAfterDiscard(discarderIndex) {
-      return (this.collectRonCandidatesAfterDiscard(discarderIndex) || [])
-        .find((candidate) => !this.players[candidate.playerIndex].isHuman) || null;
+      const priority = this.selectHeadBumpCandidates(this.collectRonCandidatesAfterDiscard(discarderIndex) || []);
+      return priority.primary && !this.players[priority.primary.playerIndex].isHuman
+        ? priority.primary
+        : null;
     }
 
     tryCpuRonAfterDiscard(discarderIndex) {
@@ -625,14 +652,15 @@
 
     resolveRonCandidatesAfterDiscard(discarderIndex) {
       const candidates = this.collectRonCandidatesAfterDiscard(discarderIndex) || [];
-      const human = candidates.find((candidate) => this.players[candidate.playerIndex].isHuman);
-      const cpu = candidates.find((candidate) => !this.players[candidate.playerIndex].isHuman);
-      if (human) {
+      const priority = this.selectHeadBumpCandidates(candidates);
+      const primary = priority.primary;
+      if (!primary) return false;
+      if (this.players[primary.playerIndex].isHuman) {
         const windowState = CallWindow.create(this, this.humanPlayer.id);
         if (!windowState) return false;
-        if (cpu) {
+        if (priority.fallbackCpu) {
           windowState.actions = windowState.actions.filter((action) => action.id === "ron");
-          windowState.pendingCpuRonCandidate = cpu;
+          windowState.pendingCpuRonCandidate = priority.fallbackCpu;
         }
         windowState.kind = "discard-ron";
         this.markOpeningInterrupted("ロン選択窓");
@@ -642,9 +670,8 @@
         this.emitChange();
         return true;
       }
-      if (!cpu) return false;
-      this.addCpuActionLog(this.players[cpu.playerIndex], "ロン", "他家の打牌に対する和了を選択しました。");
-      return this.resolveRonWin(cpu.playerIndex, cpu.analysis, { isCpuRon: true });
+      this.addCpuActionLog(this.players[primary.playerIndex], "ロン", "頭ハネ順で最優先の和了を選択しました。");
+      return this.resolveRonWin(primary.playerIndex, primary.analysis, { isCpuRon: true });
     }
 
     tryCpuRiichi(player) {
@@ -672,6 +699,24 @@
         action,
         reason,
       });
+    }
+
+    createLastDiscard(discarderIndex, discarded) {
+      const context = this.lastDrawContext || {};
+      const fromFinalNormalDraw = Boolean(
+        this.wall
+          && typeof this.wall.remainingCount === "function"
+          && this.wall.remainingCount() <= 0
+          && context.playerIndex === discarderIndex
+          && context.isRinshan !== true
+          && context.isKitaReplacement !== true
+          && this.phase !== "caller-discard"
+      );
+      return {
+        playerIndex: discarderIndex,
+        tile: discarded,
+        isFinalDrawDiscard: fromFinalNormalDraw,
+      };
     }
 
     recordAssist(event) {
@@ -887,6 +932,12 @@
         const pending = this.callWindow.pendingCpuRonCandidate;
         this.callWindow = null;
         return this.resolveRonWin(pending.playerIndex, pending.analysis, { isCpuRon: true });
+      }
+      if (actionId !== "ron" && this.wall.remainingCount() <= 0) {
+        const fromPlayerIndex = this.callWindow.fromPlayerIndex;
+        this.callWindow = null;
+        this.continueAfterDiscard(fromPlayerIndex);
+        return false;
       }
       const option = action && action.options ? action.options[Number(optionIndex) || 0] : null;
       if (!action || !option) {
@@ -1217,7 +1268,7 @@
         }
       }
       this.pendingWinContext = previousContext;
-      return candidates;
+      return candidates.sort((left, right) => left.priorityOffset - right.priorityOffset);
     }
 
     findChankanInterrupt(attempt) {
@@ -1225,9 +1276,12 @@
     }
 
     openOrResolveChankan(interrupts, attempt) {
-      const human = interrupts.find((candidate) => this.players[candidate.playerIndex].isHuman);
-      const cpu = interrupts.find((candidate) => !this.players[candidate.playerIndex].isHuman);
-      interrupts.forEach((interrupt) => {
+      const priority = this.selectHeadBumpCandidates(interrupts);
+      const primary = priority.primary;
+      const offered = primary && this.players[primary.playerIndex].isHuman && priority.fallbackCpu
+        ? [primary, priority.fallbackCpu]
+        : primary ? [primary] : [];
+      offered.forEach((interrupt) => {
         const winner = this.players[interrupt.playerIndex];
         this.recordGameEvent("chankan_offer", {
           playerIndex: interrupt.playerIndex,
@@ -1237,37 +1291,37 @@
           isAnkanKokushiException: interrupt.isAnkanKokushiException,
         });
       });
-      if (!human && cpu) {
-        return this.resolveRonWin(cpu.playerIndex, cpu.analysis, {
+      if (!primary) return false;
+      if (!this.players[primary.playerIndex].isHuman) {
+        return this.resolveRonWin(primary.playerIndex, primary.analysis, {
           isChankan: true,
           kanType: attempt.kanType,
-          isAnkanKokushiException: cpu.isAnkanKokushiException,
+          isAnkanKokushiException: primary.isAnkanKokushiException,
         });
       }
-      if (!human) return false;
       this.markOpeningInterrupted("槍槓選択窓");
       this.pendingWinContext = {
         isChankan: true,
         sourcePlayerIndex: attempt.playerIndex,
         winningTile: attempt.declaredTile,
         kanType: attempt.kanType,
-        isAnkanKokushiException: human.isAnkanKokushiException,
+        isAnkanKokushiException: primary.isAnkanKokushiException,
       };
       this.callWindow = {
         isOpen: true,
         kind: "chankan",
-        playerIndex: human.playerIndex,
+        playerIndex: primary.playerIndex,
         fromPlayerIndex: attempt.playerIndex,
         tile: attempt.declaredTile,
         kanType: attempt.kanType,
-        isAnkanKokushiException: human.isAnkanKokushiException,
-        pendingCpuRonCandidate: cpu || null,
+        isAnkanKokushiException: primary.isAnkanKokushiException,
+        pendingCpuRonCandidate: priority.fallbackCpu,
         actions: [{
           id: "ron",
           label: "槍槓ロン",
           enabled: true,
           reason: "カン宣言牌でロン和了できます。",
-          analysis: human.analysis,
+          analysis: primary.analysis,
         }],
       };
       this.phase = "human-call";
@@ -1372,8 +1426,9 @@
       const safeResult = Object.assign({}, result || {});
       if (safeResult.type !== "exhaustive_draw" || safeResult.dealerTenpai !== undefined) return safeResult;
       const dealer = this.players[this.round.dealerIndex];
-      const tiles = ActionResolver.getAnalysisTiles(dealer);
-      safeResult.dealerTenpai = HandAnalysis.analyzeTenpai(tiles, this.ruleConfig).isTenpai;
+      safeResult.dealerTenpai = HandAnalysis.analyzeTenpaiWithMelds
+        ? HandAnalysis.analyzeTenpaiWithMelds(dealer.hand, dealer.melds || [], this.ruleConfig).isTenpai
+        : HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(dealer), this.ruleConfig).isTenpai;
       return safeResult;
     }
 

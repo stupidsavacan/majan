@@ -76,6 +76,20 @@
     if (!state || !state.callWindow) {
       return { ok: false, reason: "復旧対象の呼び出し窓がありません" };
     }
+    if ((state.callWindow.kind === "chankan" || state.callWindow.pendingCpuRonCandidate)
+      && typeof state.skipHumanCall === "function") {
+      const kind = state.callWindow.kind || "discard-ron";
+      const pendingPlayer = state.callWindow.pendingCpuRonCandidate
+        ? state.callWindow.pendingCpuRonCandidate.playerIndex
+        : null;
+      record(state, "pending ron recovery", { kind, pendingPlayer });
+      const result = state.skipHumanCall();
+      return {
+        ok: result !== false,
+        reason: "保留中のロン/槍槓処理を通常スキップ経路で復旧しました。",
+        phase: state.phase,
+      };
+    }
     const fromPlayerIndex = state.callWindow.fromPlayerIndex;
     if (Sanma.CallWindow) Sanma.CallWindow.close(state.callWindow, "状態復旧");
     state.callWindow = null;
@@ -90,6 +104,13 @@
       return { ok: false, reason: "この局をリセットできません" };
     }
     cancelPendingCpuTask(engine);
+    if (Sanma.GameRecord && engine.gameRecord) {
+      Sanma.GameRecord.addEvent(engine.gameRecord, "recovery", {
+        action: "resetCurrentRound",
+        reason: "RecoveryManager resetCurrentRound",
+      });
+      Sanma.GameRecord.closeOpenRound(engine.gameRecord, "RecoveryManager resetCurrentRound");
+    }
     engine.startRound();
     if (typeof engine.addLog === "function") engine.addLog("不正な状態を検出したため、この局をリセットして復旧しました。");
     record(engine, "この局をリセット");
