@@ -187,7 +187,16 @@
         : defaultRuleConfig.startingPoints;
     merged.startingPoints = requestedPoints;
     merged.initialPoints = requestedPoints;
-    merged.honbaPoints = Object.assign({}, defaultRuleConfig.honbaPoints, input.honbaPoints || {});
+    const requestedHonbaPoints = input.honbaPoints && typeof input.honbaPoints === "object"
+      ? input.honbaPoints
+      : {};
+    merged.honbaPoints = {
+      ron: normalizeHonbaPoint(requestedHonbaPoints.ron, defaultRuleConfig.honbaPoints.ron),
+      tsumoTotal: normalizeHonbaPoint(
+        requestedHonbaPoints.tsumoTotal,
+        defaultRuleConfig.honbaPoints.tsumoTotal
+      ),
+    };
     merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
     merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
     merged.doubleRonPolicy.allowed = false;
@@ -219,6 +228,12 @@
       merged.redDoraMode = "custom";
     }
     return merged;
+  }
+
+  function normalizeHonbaPoint(value, fallback) {
+    return Number.isFinite(value) && value >= 0 && Number.isInteger(value) && value % 100 === 0
+      ? value
+      : fallback;
   }
 
   function describeRuleConfig(config) {

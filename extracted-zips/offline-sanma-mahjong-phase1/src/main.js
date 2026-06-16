@@ -18,7 +18,7 @@
   let latestState = null;
   let lastAppError = null;
   let committedRecordIds = new Set();
-  let failedRecordCommitIds = new Set();
+  let failedRecordCommits = new Map();
 
   function requiredElement(id) {
     const node = document.getElementById(id);
@@ -69,7 +69,7 @@
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: "14.2",
+      app_phase: "15",
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {
@@ -82,8 +82,8 @@
         size_limit_policy: recordDiagnostics.records.sizeLimitPolicy,
         size_bytes: recordDiagnostics.records.sizeBytes,
         near_storage_limit: recordDiagnostics.records.nearStorageLimit,
-        failed_save_count: failedRecordCommitIds.size,
-        retry_available: failedRecordCommitIds.size > 0,
+        failed_save_count: failedRecordCommits.size,
+        retry_available: failedRecordCommits.size > 0,
       },
       state_machine: latestState ? latestState.gameState : null,
       invariants_ok: latestState && latestState.invariantReport
@@ -98,27 +98,48 @@
 
   function commitCompletedRecord(state) {
     const record = state.gameRecord;
-    if (!record || !record.completedAt || committedRecordIds.has(record.id) || failedRecordCommitIds.has(record.id)) {
+    if (!record || !record.completedAt || committedRecordIds.has(record.id) || failedRecordCommits.has(record.id)) {
       return { saved: false, skipped: true };
     }
     const result = Sanma.GameRecordStorage.commitRecord(record);
     if (!result.saved) {
-      failedRecordCommitIds.add(record.id);
+      failedRecordCommits.set(record.id, Sanma.GameRecord.normalize(record));
       lastAppError = "終了牌譜を保存できませんでした。画面表示は継続します。牌譜削除または保存データリセット後に再試行できます。";
       console.warn(lastAppError);
       return { saved: false, skipped: false };
     }
-    failedRecordCommitIds.delete(record.id);
+    failedRecordCommits.delete(record.id);
     committedRecordIds.add(record.id);
     return result;
   }
 
   function retryFailedRecordCommits(trigger) {
+    const pending = Array.from(failedRecordCommits.values());
+    if (pending.length === 0) return { saved: false, skipped: true, trigger };
+    let savedCount = 0;
+    pending.forEach((record) => {
+      failedRecordCommits.delete(record.id);
+      committedRecordIds.delete(record.id);
+      const state = { gameRecord: record };
+      const result = commitCompletedRecord(state);
+      if (result.saved) savedCount += 1;
+    });
+    if (savedCount > 0 && failedRecordCommits.size === 0) {
+      lastAppError = null;
+      if (messagePanel) messagePanel.textContent = "保存失敗牌譜の再保存に成功しました。";
+    }
+    return {
+      saved: savedCount > 0,
+      savedCount,
+      remaining: failedRecordCommits.size,
+      skipped: false,
+      trigger,
+    };
     const record = latestState && latestState.gameRecord;
-    if (!record || !record.completedAt || !failedRecordCommitIds.has(record.id)) {
+    if (!record || !record.completedAt || !failedRecordCommits.has(record.id)) {
       return { saved: false, skipped: true, trigger };
     }
-    failedRecordCommitIds.delete(record.id);
+    failedRecordCommits.delete(record.id);
     committedRecordIds.delete(record.id);
     const result = commitCompletedRecord(latestState);
     if (result.saved) {
@@ -126,6 +147,11 @@
       if (messagePanel) messagePanel.textContent = "保存領域の変更後、終了牌譜の保存を再試行して成功しました。";
     }
     return Object.assign({ trigger }, result);
+  }
+
+  function discardFailedRecordCommits() {
+    failedRecordCommits.clear();
+    return { discarded: true, failedSaveCount: 0 };
   }
 
   function render(state) {
@@ -217,7 +243,7 @@
       onResetRecords: safeAction("牌譜リセット", () => {
         if (!Sanma.GameRecordStorage.resetRecords()) throw new Error("牌譜をリセットできませんでした。");
         committedRecordIds.clear();
-        retryFailedRecordCommits("records-reset");
+        discardFailedRecordCommits();
         renderRecords();
       }),
       onResetStats: safeAction("成績リセット", () => {
@@ -226,11 +252,12 @@
       }),
       onDelete: safeAction("牌譜削除", (recordId) => {
         if (!Sanma.GameRecordStorage.deleteRecord(recordId)) throw new Error("選択した牌譜を削除できませんでした。");
-        retryFailedRecordCommits("record-delete");
+        failedRecordCommits.delete(recordId);
         renderRecords();
       }),
       onImport: safeAction("牌譜インポート", (text, status) => {
-        const result = Sanma.GameRecordStorage.importRecord(text);
+        const activeRecordId = engine && engine.gameRecord ? engine.gameRecord.id : null;
+        const result = Sanma.GameRecordStorage.importRecord(text, { activeRecordId });
         if (!result.ok) {
           status.textContent = result.reason;
           return;
@@ -276,8 +303,7 @@
     requiredElement("resetStorageButton").addEventListener("click", safeAction("全保存データリセット", () => {
       if (!Sanma.SettingsStorage.resetAllStorage()) throw new Error("全保存データをリセットできませんでした。");
       committedRecordIds.clear();
-      retryFailedRecordCommits("storage-reset");
-      failedRecordCommitIds.clear();
+      discardFailedRecordCommits();
       currentConfig = Sanma.RuleConfig.createRuleConfig({});
       startNewRound({ seed: "" });
       messagePanel.textContent = "設定・牌譜・成績をリセットしました。";
@@ -313,13 +339,15 @@
   Sanma.AppRuntime = {
     commitCompletedRecord,
     retryFailedRecordCommits,
+    discardFailedRecordCommits,
     render,
     startNewRound,
     setBindingsForTest,
     getCurrentSeed: () => currentSeed,
     getEngine: () => engine,
     getLastError: () => lastAppError,
-    getFailedRecordCommitIds: () => Array.from(failedRecordCommitIds),
+    getFailedRecordCommitIds: () => Array.from(failedRecordCommits.keys()),
+    getFailedRecordCommits: () => Array.from(failedRecordCommits.values()),
   };
 
   try {

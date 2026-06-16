@@ -2,6 +2,8 @@ name: Unpack uploaded ZIP
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "uploads/**/*.zip"
       - "uploads/*.zip"
@@ -10,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: unpack-uploaded-zip
@@ -19,9 +22,15 @@ jobs:
   unpack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Unpack zip files
         shell: bash
@@ -49,24 +58,47 @@ jobs:
             rm -rf "$temporary_directory"
           done < <(find uploads -type f -iname "*.zip" -print0)
 
-      - name: Commit extracted files
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git add extracted-zips
-          if git diff --cached --quiet; then
-            echo "No extracted-file changes to commit."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Unpack uploaded ZIP files"
-          git push
-
       - name: Upload extracted files
         uses: actions/upload-artifact@v4
         with:
           name: extracted-zips
           path: extracted-zips
+
+      - name: Run full test suite
+        run: node tests/run-all-tests.js
+
+      - name: Commit and push extraction branch
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="automation/unpack-uploaded-zip"
+          git switch -C "$branch"
+          git add extracted-zips
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update unpacked ZIP contents"
+          git push --force-with-lease origin "$branch"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update extraction pull request
+        if: steps.publish.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="automation/unpack-uploaded-zip"
+          title="Update unpacked ZIP contents"
+          body="Automated ZIP extraction passed node tests/run-all-tests.js. Review the extracted changes before merging."
+          existing="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi

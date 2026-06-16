@@ -46,6 +46,25 @@ const testFiles = [
   "yakuman-record-index.test.js",
   "settings-recovery-backup-failure.test.js",
   "github-actions-test-workflow.test.js",
+  "head-bump-priority.test.js",
+  "chankan-head-bump-priority.test.js",
+  "unpack-workflow-pr-gate.test.js",
+  "actions-workflow-hardening.test.js",
+  "honba-points-config.test.js",
+  "docs-current-truth.test.js",
+  "cpu-dealer-opening-assist-tenho-guard.test.js",
+  "game-record-event-pruning.test.js",
+  "failed-record-retry-retains-record.test.js",
+  "exhaustive-draw-meld-tenpai.test.js",
+  "recovery-pending-cpu-ron.test.js",
+  "phase15-labels.test.js",
+  "no-call-window-on-empty-wall.test.js",
+  "houtei-context-after-empty-wall.test.js",
+  "no-minkan-rinshan-on-empty-wall.test.js",
+  "recovery-chankan-window-finalization.test.js",
+  "no-zombie-record-after-reset.test.js",
+  "recovery-reset-round-record-integrity.test.js",
+  "import-record-id-collision-active-game.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -63,4 +82,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log("\nAll Phase 14.2C tests passed.");
+console.log("\nAll Phase 15 tests passed.");

@@ -142,6 +142,53 @@
     };
   }
 
+  function isProtectedEvent(event) {
+    return Boolean(event && ["deal", "round_start", "win", "score_settlement"].includes(event.type));
+  }
+
+  function pruneEvents(events) {
+    if (!Array.isArray(events) || events.length <= MAX_EVENTS_PER_ROUND) return Array.isArray(events) ? events : [];
+    const pruned = events.slice();
+    while (pruned.length > MAX_EVENTS_PER_ROUND) {
+      const removableIndex = pruned.findIndex((event, index) => index > 0 && !isProtectedEvent(event));
+      if (removableIndex >= 0) pruned.splice(removableIndex, 1);
+      else pruned.splice(0, pruned.length - MAX_EVENTS_PER_ROUND);
+    }
+    return pruned;
+  }
+
+  function closeOpenRound(record, reason) {
+    const round = currentRound(record);
+    if (!round || round.result) return round;
+    round.result = {
+      type: "recovered_reset",
+      winnerIndex: null,
+      winType: null,
+      dealerTenpai: false,
+      yaku: [],
+      yakuman: [],
+      score: {
+        isValidWin: false,
+        isYakuman: false,
+        han: 0,
+        fu: null,
+        yakumanCount: 0,
+        basePoints: 0,
+        limitName: "",
+      },
+      changes: [],
+      reason: reason || "Recovery reset closed this unfinished round.",
+      recovery: true,
+      aborted: true,
+    };
+    round.recovery = {
+      type: "reset_current_round",
+      reason: round.result.reason,
+      at: new Date().toISOString(),
+    };
+    return round;
+  }
+
   function create(input) {
     const options = input || {};
     const createdAt = new Date().toISOString();
@@ -151,7 +198,8 @@
       eventSchemaVersion: 2,
       id: `record-${Date.now().toString(36)}-${recordSequence.toString(36)}`,
       matchId: String(options.matchId || ""),
-      phase: 14.1,
+      phase: 15,
+      phaseLabel: "15",
       createdAt,
       seed: Sanma.SeedPolicy
         ? Sanma.SeedPolicy.requireValidSeed(options.seed)
@@ -168,6 +216,7 @@
 
   function addRound(record, input) {
     if (!record || !Array.isArray(record.rounds) || record.completedAt) return null;
+    closeOpenRound(record, "A new round was started after recovery before the previous round completed.");
     const round = createRound(input);
     record.rounds.push(round);
     return round;
@@ -188,7 +237,7 @@
     };
     round.events.push(event);
     if (round.events.length > MAX_EVENTS_PER_ROUND) {
-      round.events.splice(0, round.events.length - MAX_EVENTS_PER_ROUND);
+      round.events = pruneEvents(round.events);
     }
     return event;
   }
@@ -265,6 +314,7 @@
     normalized.eventSchemaVersion = Number(normalized.eventSchemaVersion) || 1;
     normalized.matchId = typeof normalized.matchId === "string" ? normalized.matchId : "";
     normalized.phase = Number(normalized.phase) || 8;
+    normalized.phaseLabel = typeof normalized.phaseLabel === "string" ? normalized.phaseLabel : String(normalized.phase || "");
     normalized.rounds.forEach((round) => {
       if (!round || typeof round !== "object") throw new Error("局データの形式が不正です。");
       round.roundLabel = round.roundLabel || "東1局";
@@ -274,7 +324,7 @@
       round.startingPoints = Array.isArray(round.startingPoints) ? round.startingPoints : [];
       round.pointMovement = Array.isArray(round.pointMovement) ? round.pointMovement : [];
       round.events = Array.isArray(round.events)
-        ? round.events.slice(-MAX_EVENTS_PER_ROUND)
+        ? pruneEvents(round.events)
         : [];
     });
     normalized.players = Array.isArray(normalized.players) ? normalized.players : [];
@@ -301,6 +351,8 @@
     create,
     addRound,
     addEvent,
+    pruneEvents,
+    closeOpenRound,
     compactResult,
     completeRound,
     finishMatch,

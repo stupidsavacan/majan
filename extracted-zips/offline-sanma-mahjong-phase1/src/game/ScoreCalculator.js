@@ -154,25 +154,33 @@
     const isDealer = context.winnerIndex === context.dealerIndex;
     const honba = Number(context.honba) || 0;
     const riichiSticks = Number(context.riichiSticks) || 0;
-    const ronAmount = roundUp100(basePoints * (isDealer ? 6 : 4)) + honba * 300;
+    const configuredHonba = ruleConfig && ruleConfig.honbaPoints ? ruleConfig.honbaPoints : {};
+    const ronPerHonba = validHonbaPoint(configuredHonba.ron, 300);
+    const tsumoTotalPerHonba = validHonbaPoint(configuredHonba.tsumoTotal, 300);
+    const ronHonba = honba * ronPerHonba;
+    const ronAmount = roundUp100(basePoints * (isDealer ? 6 : 4)) + ronHonba;
     const ron = {
       amount: ronAmount,
       loserIndex: context.loserIndex,
       winnerGain: ronAmount + riichiSticks * 1000,
-      honba: honba * 300,
+      honba: ronHonba,
       riichiSticks: riichiSticks * 1000,
     };
 
-    const payers = [0, 1, 2].filter((playerIndex) => playerIndex !== context.winnerIndex).map((playerIndex) => {
+    const payerIndexes = [0, 1, 2].filter((playerIndex) => playerIndex !== context.winnerIndex);
+    const honbaBonuses = distributeHonbaTotal(honba * tsumoTotalPerHonba, payerIndexes.length);
+    const payers = payerIndexes.map((playerIndex, payerOffset) => {
       const payerIsDealer = playerIndex === context.dealerIndex;
       let multiplier;
       if (isDealer) multiplier = ruleConfig.tsumoLoss ? 2 : 3;
       else if (payerIsDealer) multiplier = 2;
       else multiplier = ruleConfig.tsumoLoss ? 1 : 2;
+      const honbaBonus = honbaBonuses[payerOffset] || 0;
       return {
         playerIndex,
         role: payerIsDealer ? "dealer" : "non-dealer",
-        amount: roundUp100(basePoints * multiplier) + honba * 100,
+        amount: roundUp100(basePoints * multiplier) + honbaBonus,
+        honba: honbaBonus,
       };
     });
     const total = payers.reduce((sum, payer) => sum + payer.amount, 0);
@@ -182,11 +190,29 @@
         payers,
         total,
         winnerGain: total + riichiSticks * 1000,
-        honbaPerPayer: honba * 100,
+        honbaTotal: honba * tsumoTotalPerHonba,
+        honbaPerPayer: honbaBonuses.length ? Math.min(...honbaBonuses) : 0,
         riichiSticks: riichiSticks * 1000,
         policy: ruleConfig.tsumoLoss ? "ツモ損あり" : "ツモ損なし",
       },
     };
+  }
+
+  function validHonbaPoint(value, fallback) {
+    return Number.isFinite(value) && value >= 0 && Number.isInteger(value) && value % 100 === 0
+      ? value
+      : fallback;
+  }
+
+  function distributeHonbaTotal(total, payerCount) {
+    if (!payerCount) return [];
+    const units = Math.floor(total / 100);
+    const baseUnits = Math.floor(units / payerCount);
+    const remainder = units % payerCount;
+    return Array.from(
+      { length: payerCount },
+      (_, index) => (baseUnits + (index < remainder ? 1 : 0)) * 100
+    );
   }
 
   function invalidResult(reason) {

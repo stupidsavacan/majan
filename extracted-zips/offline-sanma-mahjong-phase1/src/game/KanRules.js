@@ -6,6 +6,12 @@
     return (config.advancedRules && config.advancedRules.kan) || {};
   }
 
+  function hasLiveWall(state) {
+    return Boolean(state && state.wall
+      && typeof state.wall.remainingCount === "function"
+      && state.wall.remainingCount() > 0);
+  }
+
   function createAnalysisTile(type, copyIndex) {
     return {
       suit: type.suit,
@@ -61,7 +67,10 @@
     const state = options.state || {};
     const player = state.players && state.players[options.playerIndex];
     if (!player) return [];
-    const candidates = Sanma.KanManager.getOptions(state, options.playerIndex);
+    let candidates = Sanma.KanManager.getOptions(state, options.playerIndex);
+    if (!hasLiveWall(state)) {
+      candidates = candidates.filter((candidate) => candidate.type !== "minkan");
+    }
     if (!player.hasRiichi) return candidates;
     return candidates.filter((candidate) => candidate.type === "ankan"
       && riichiAnkanKeepsWait(state, options.playerIndex, candidate));

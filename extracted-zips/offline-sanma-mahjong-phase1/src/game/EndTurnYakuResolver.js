@@ -13,6 +13,10 @@
     const wallEmpty = Boolean(state.wall
       && typeof state.wall.remainingCount === "function"
       && state.wall.remainingCount() <= 0);
+    const houteiEligible = Boolean(
+      state.lastDiscard
+        && state.lastDiscard.isFinalDrawDiscard === true
+    );
     const isRinshan = rules.rinshanKaihou !== false
       && winType === "tsumo"
       && lastDraw.playerIndex === options.playerIndex
@@ -40,7 +44,7 @@
       isTenho: winType === "tsumo" && lastDraw.isTenho === true,
       isChiho: winType === "tsumo" && lastDraw.isChiho === true,
       isHaitei: rules.haitei !== false && winType === "tsumo" && wallEmpty && !isRinshan,
-      isHoutei: rules.houtei !== false && winType === "ron" && wallEmpty && !isChankan,
+      isHoutei: rules.houtei !== false && winType === "ron" && wallEmpty && houteiEligible && !isChankan,
       uraDoraIndicators,
     };
   }
