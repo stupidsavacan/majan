@@ -44,6 +44,14 @@ const gameModules = [
   "src/game/TileLedger.js",
   "src/game/InvariantChecker.js",
   "src/game/RecoveryManager.js",
+  "src/game/DrawContext.js",
+  "src/game/RecordFlow.js",
+  "src/game/RoundLifecycle.js",
+  "src/game/TurnFlow.js",
+  "src/game/WinFlow.js",
+  "src/game/CallFlow.js",
+  "src/game/KanFlow.js",
+  "src/game/RecoveryFlow.js",
   "src/game/GameEngine.js",
 ];
 

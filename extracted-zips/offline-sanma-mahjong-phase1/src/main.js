@@ -65,11 +65,12 @@
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
       "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
       "RecordIndex", "AdvancedStats", "ReplayViewer", "RecordListPanel",
+      "DrawContext", "RecordFlow", "RoundLifecycle", "TurnFlow", "WinFlow", "CallFlow", "KanFlow", "RecoveryFlow",
     ];
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
     return {
-      app_phase: "15",
+      app_phase: "16",
       modules_loaded: requiredModules.every((name) => Boolean(Sanma[name])),
       loaded_modules: requiredModules.filter((name) => Boolean(Sanma[name])),
       local_storage: {

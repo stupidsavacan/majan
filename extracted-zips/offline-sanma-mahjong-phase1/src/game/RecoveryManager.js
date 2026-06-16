@@ -83,7 +83,9 @@
         ? state.callWindow.pendingCpuRonCandidate.playerIndex
         : null;
       record(state, "pending ron recovery", { kind, pendingPlayer });
-      const result = state.skipHumanCall();
+      const result = Sanma.RecoveryFlow
+        ? Sanma.RecoveryFlow.skipHumanCall(state)
+        : state.skipHumanCall();
       return {
         ok: result !== false,
         reason: "保留中のロン/槍槓処理を通常スキップ経路で復旧しました。",
@@ -111,7 +113,8 @@
       });
       Sanma.GameRecord.closeOpenRound(engine.gameRecord, "RecoveryManager resetCurrentRound");
     }
-    engine.startRound();
+    if (Sanma.RecoveryFlow) Sanma.RecoveryFlow.startRound(engine);
+    else engine.startRound();
     if (typeof engine.addLog === "function") engine.addLog("不正な状態を検出したため、この局をリセットして復旧しました。");
     record(engine, "この局をリセット");
     return { ok: true, reason: "この局をリセットして復旧しました。" };

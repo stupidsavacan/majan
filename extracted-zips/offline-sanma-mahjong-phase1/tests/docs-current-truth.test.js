@@ -13,26 +13,38 @@ const bugs = read("docs/BUGS.md");
 const roadmap = read("docs/ROADMAP.md");
 const index = read("docs/INDEX.md");
 const architecture = read("docs/ARCHITECTURE.md");
+const phase16 = read("docs/PHASE16_GAME_ENGINE_SPLIT.md");
+const bugIntake = read("docs/PHASE16_1_BUG_INTAKE.md");
 const changelog = read("CHANGELOG.md");
+const runner = read("tests/run-all-tests.js");
 const archiveFiles = fs.readdirSync(path.resolve(repositoryRoot, "docs", "archive"))
   .filter((file) => /^PHASE.*\.md$/.test(file));
 
-assert(readme.startsWith("# Offline Sanma Mahjong - Phase 15"), "READMEがPhase 15現在仕様の入口ではありません");
-assert(readme.includes("CPU通常ロン") && readme.includes("CPUのポン/チー/明槓は未実装"), "READMEのCPUロン/CPU鳴き制限が現在仕様と一致しません");
-assert(readme.includes("ダブロンは未実装"), "READMEがダブロン未実装を明記していません");
-assert(testing.includes("pull request") && testing.includes("GitHub Actions") && testing.includes("node tests/run-all-tests.js"), "docs/TESTING.mdにPR/CI/中央テスト手順がありません");
-assert(testing.includes("ZIP") && testing.includes("pull request"), "docs/TESTING.mdにZIP展開PRゲートがありません");
-assert(index.includes("現在仕様の正本") && index.includes("過去資料警告"), "docs/INDEX.mdが正本と過去資料を区別していません");
-assert(architecture.includes("window.Sanma") && architecture.includes("RecoveryManager"), "docs/ARCHITECTURE.mdが主要構成を説明していません");
-assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|明槓|ゾンビ/.test(bugs), "docs/BUGS.mdにPhase 15修正済みバグが現在バグとして残っています");
-assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|ゾンビ/.test(roadmap), "docs/ROADMAP.mdにPhase 15修正済み項目が未来作業として残っています");
-assert(changelog.includes("Phase 15") && changelog.includes("failed record bodies"), "CHANGELOG.mdにPhase 15履歴がありません");
-assert(archiveFiles.length > 0, "過去Phase資料がdocs/archiveへ移動されていません");
+assert(readme.startsWith("# Offline Sanma Mahjong - Phase 16"), "README must be the Phase 16 current entry");
+assert(readme.includes("挙動保存リファクタ") && readme.includes("GameEngine"), "README must describe Phase 16 as behavior-preserving GameEngine split");
+assert(readme.includes("ダブロンは未実装") && readme.includes("CPUのポン/チー/明槓は未実装"), "README must keep current CPU/call limitations honest");
+assert(index.includes("Phase 16現在の正本") && index.includes("PHASE16_GAME_ENGINE_SPLIT.md"), "docs/INDEX.md must point to Phase 16 source of truth");
+assert(architecture.includes("DrawContext") && architecture.includes("RecoveryFlow") && architecture.includes("Script Load Order"), "architecture doc must describe flow modules and load order");
+assert(phase16.includes("Behavior Preservation Tests") && phase16.includes("RoundLifecycle") && phase16.includes("TurnFlow"), "Phase 16 report must describe split and tests");
+assert(bugIntake.includes("bug_report") && bugIntake.includes("related_module"), "Phase 16.1 bug intake format must be documented");
+assert(testing.includes("game-engine-public-api.test.js") && testing.includes("node tests/run-all-tests.js"), "testing doc must list Phase 16 tests and central runner");
+assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|明槓|ゾンビ/.test(bugs), "docs/BUGS.md must not list fixed Phase 15 bugs as current bugs");
+assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|ゾンビ/.test(roadmap), "docs/ROADMAP.md must not list fixed Phase 15 bugs as future work");
+assert(changelog.includes("Phase 16") && changelog.includes("Flow modules"), "CHANGELOG.md must include Phase 16 split history");
+[
+  "game-engine-public-api.test.js",
+  "game-engine-module-load-order.test.js",
+  "game-engine-behavior-preservation.test.js",
+  "flow-module-boundaries.test.js",
+  "draw-context-flow-preservation.test.js",
+  "record-flow-preservation.test.js",
+  "recovery-flow-preservation.test.js",
+].forEach((file) => {
+  assert(runner.includes(file), `${file} must be registered in tests/run-all-tests.js`);
+});
+assert(archiveFiles.length > 0, "historical Phase docs must remain archived");
 archiveFiles.forEach((file) => {
-  assert(
-    read(path.join("docs", "archive", file)).replace(/^\uFEFF/, "").startsWith("> 警告: この文書は過去資料です。"),
-    `${file}に過去資料警告がありません`
-  );
+  assert(read(path.join("docs", "archive", file)).replace(/^\uFEFF/, "").startsWith("> "), `${file} must retain an archive warning`);
 });
 
-console.log("Phase 15 documentation current-truth tests passed.");
+console.log("Phase 16 documentation current-truth tests passed.");

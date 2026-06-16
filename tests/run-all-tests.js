@@ -65,6 +65,13 @@ const testFiles = [
   "no-zombie-record-after-reset.test.js",
   "recovery-reset-round-record-integrity.test.js",
   "import-record-id-collision-active-game.test.js",
+  "game-engine-public-api.test.js",
+  "game-engine-module-load-order.test.js",
+  "game-engine-behavior-preservation.test.js",
+  "flow-module-boundaries.test.js",
+  "draw-context-flow-preservation.test.js",
+  "record-flow-preservation.test.js",
+  "recovery-flow-preservation.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",
@@ -78,8 +85,8 @@ testFiles.forEach((file) => {
 });
 
 if (failed) {
-  console.error("\nPhase 14.2 test run failed.");
+  console.error("\nPhase 16 test run failed.");
   process.exit(1);
 }
 
-console.log("\nAll Phase 15 tests passed.");
+console.log("\nAll Phase 16 tests passed.");
