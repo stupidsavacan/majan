@@ -14,6 +14,7 @@ const testFiles = [
   "table-layout.test.js",
   "match-flow.test.js",
   "cpu-strategy.test.js",
+  "meld-hand-state.test.js",
   "storage-records.test.js",
   "replay-stats.test.js",
   "phase14-1-runtime.test.js",

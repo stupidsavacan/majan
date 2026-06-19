@@ -204,6 +204,14 @@
       return Sanma.CallFlow.claimHumanCall.call(this, actionId, optionIndex);
     }
 
+    applyOpenCall(playerIndex, actionId, option, metadata) {
+      return Sanma.CallFlow.applyOpenCall.call(this, playerIndex, actionId, option, metadata);
+    }
+
+    applyCpuCall(candidate, metadata) {
+      return Sanma.CallFlow.applyCpuCall.call(this, candidate, metadata);
+    }
+
     skipHumanCall() {
       return Sanma.CallFlow.skipHumanCall.call(this);
     }
