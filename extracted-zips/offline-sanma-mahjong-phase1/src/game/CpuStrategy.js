@@ -198,5 +198,129 @@
     };
   }
 
-  Sanma.CpuStrategy = { chooseDiscard, estimateShanten };
+  function windRank(wind) {
+    return { east: 1, south: 2, west: 3, north: 4 }[wind] || 0;
+  }
+
+  function isRiichiLocked(player) {
+    return Boolean(player && (
+      player.hasRiichi
+      || (player.riichi && (player.riichi.pending || player.riichi.declared))
+    ));
+  }
+
+  function actionIdForCall(candidate) {
+    const option = candidate && candidate.option ? candidate.option : null;
+    return String((candidate && (candidate.actionId || candidate.action || candidate.id))
+      || (option && option.type)
+      || "").toLowerCase();
+  }
+
+  function optionForCall(candidate) {
+    return candidate && candidate.option ? candidate.option : candidate;
+  }
+
+  function consumeIdsForCall(candidate) {
+    const option = optionForCall(candidate) || {};
+    const ids = option.consumeInstanceIds
+      || option.consumedTileInstanceIds
+      || (candidate && candidate.consumeInstanceIds)
+      || (candidate && candidate.consumedTileInstanceIds)
+      || [];
+    return Array.isArray(ids) ? ids : [];
+  }
+
+  function calledTileForCall(candidate, state) {
+    const option = optionForCall(candidate) || {};
+    return option.tile
+      || (candidate && candidate.tile)
+      || (state && state.lastDiscard && state.lastDiscard.tile)
+      || null;
+  }
+
+  function isYakuhaiCall(candidate, player, state) {
+    const tile = calledTileForCall(candidate, state);
+    if (!tile || tile.suit !== "z") return false;
+    if (tile.rank >= 5) return true;
+    const round = state && state.round ? state.round : {};
+    return tile.rank === windRank(player && player.seatWind)
+      || tile.rank === windRank(round.roundWind || "east");
+  }
+
+  function shantenAfterOpenCall(candidate, player, state) {
+    const hand = Array.isArray(player && player.hand) ? player.hand : [];
+    const consumed = new Set(consumeIdsForCall(candidate));
+    if (consumed.size === 0) return 99;
+    const remaining = hand.filter((tile) => !consumed.has(tile.instanceId));
+    if (remaining.length !== hand.length - consumed.size) return 99;
+    const ruleConfig = (state && state.ruleConfig) || {};
+    const openMeldCount = (Array.isArray(player.melds) ? player.melds.length : 0) + 1;
+    return estimateShanten({ tiles: remaining, ruleConfig, openMeldCount });
+  }
+
+  function scoreCallCandidate(candidate, player, state, beforeShanten, random) {
+    const actionId = actionIdForCall(candidate);
+    const option = optionForCall(candidate) || {};
+    const kanType = option.type || candidate.type;
+    const tieBreaker = typeof random === "function" ? random() : 0;
+
+    if (actionId === "kan" || kanType === "minkan") {
+      return kanType === "minkan"
+        ? { accepted: false, score: -500 + tieBreaker, reason: "明槓はV1では見送り" }
+        : { accepted: false, score: -900 + tieBreaker, reason: "非対応のカン候補" };
+    }
+
+    if (actionId !== "pon" && actionId !== "chi") {
+      return { accepted: false, score: -1000 + tieBreaker, reason: "非対応の鳴き候補" };
+    }
+
+    const afterShanten = shantenAfterOpenCall(candidate, player, state);
+    if (afterShanten > beforeShanten) {
+      return {
+        accepted: false,
+        score: -100 + (beforeShanten - afterShanten) + tieBreaker,
+        reason: "推定シャンテンが悪化",
+        afterShanten,
+      };
+    }
+
+    let score = (beforeShanten - afterShanten) * 30 + tieBreaker;
+    const reasons = [`推定シャンテン ${beforeShanten}→${afterShanten}`];
+    if (actionId === "pon" && isYakuhaiCall(candidate, player, state)) {
+      score += 60;
+      reasons.push("役牌ポン");
+    }
+    if (actionId === "pon") score += 8;
+    if (actionId === "chi") score += 4;
+
+    return { accepted: true, score, reason: reasons.join("、"), afterShanten };
+  }
+
+  function chooseCall(input) {
+    const options = input || {};
+    const state = options.state || {};
+    const player = options.player || {};
+    const legalCalls = Array.isArray(options.legalCalls) ? options.legalCalls.filter(Boolean) : [];
+    const random = typeof options.random === "function" ? options.random : function zeroRandom() { return 0; };
+    if (legalCalls.length === 0 || isRiichiLocked(player)) return null;
+
+    const beforeShanten = estimateShanten({
+      tiles: Array.isArray(player.hand) ? player.hand : [],
+      ruleConfig: state.ruleConfig || {},
+      openMeldCount: Array.isArray(player.melds) ? player.melds.length : 0,
+    });
+    const ranked = legalCalls.map((candidate, index) => Object.assign(
+      { candidate, index },
+      scoreCallCandidate(candidate, player, state, beforeShanten, random)
+    )).filter((candidate) => candidate.accepted);
+
+    ranked.sort((left, right) => (
+      right.score - left.score
+      || Number(left.candidate.priority || 0) - Number(right.candidate.priority || 0)
+      || left.index - right.index
+    ));
+    return ranked.length > 0 ? ranked[0].candidate : null;
+  }
+
+  Sanma.CpuStrategy = { chooseDiscard, estimateShanten, chooseCall };
 })(window);
