@@ -16,6 +16,7 @@
       discards: emptyZones(playerCount),
       melds: emptyZones(playerCount),
       kita: emptyZones(playerCount),
+      diagnostics: [],
       points: Array.isArray(round.startingPoints) && round.startingPoints.length
         ? round.startingPoints.slice()
         : (record.players || []).map((player) => Number(player.initialPoints) || 0),
@@ -43,7 +44,22 @@
         break;
       }
     }
-    if (index >= 0) hand.splice(index, 1);
+    if (index >= 0) {
+      hand.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  function warn(view, message) {
+    if (!Array.isArray(view.diagnostics)) view.diagnostics = [];
+    view.diagnostics.push(message);
+  }
+
+  function removeOrWarn(view, hand, tile, label) {
+    if (removeTile(hand, tile)) return true;
+    warn(view, `${label || "remove"} failed: ${tileLabel(tile)}`);
+    return false;
   }
 
   function playerZone(view, name, playerIndex) {
@@ -71,7 +87,7 @@
       && playerZone(view, "discards", playerIndex)
       && data.tile
     ) {
-      removeTile(playerZone(view, "hands", playerIndex), data.tile);
+      removeOrWarn(view, playerZone(view, "hands", playerIndex), data.tile, "discard");
       playerZone(view, "discards", playerIndex).push(data.tile);
     } else if (
       event.type === "call"
@@ -80,11 +96,11 @@
       && playerZone(view, "melds", playerIndex)
     ) {
       const tiles = Array.isArray(data.tiles) ? data.tiles.slice() : [];
-      tiles.forEach((tile) => removeTile(playerZone(view, "hands", playerIndex), tile));
+      tiles.forEach((tile) => removeOrWarn(view, playerZone(view, "hands", playerIndex), tile, "call"));
       playerZone(view, "melds", playerIndex).push({ type: data.action || "call", tiles });
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
       if (sourceDiscards && sourceDiscards.length) {
-        if (data.calledTile) removeTile(sourceDiscards, data.calledTile);
+        if (data.calledTile) removeOrWarn(view, sourceDiscards, data.calledTile, "called discard");
         else sourceDiscards.pop();
       }
     } else if (
@@ -93,7 +109,7 @@
       && playerZone(view, "kita", playerIndex)
       && data.tile
     ) {
-      removeTile(playerZone(view, "hands", playerIndex), data.tile);
+      removeOrWarn(view, playerZone(view, "hands", playerIndex), data.tile, "kita");
       playerZone(view, "kita", playerIndex).push(data.tile);
     } else if (
       event.type === "kan"
@@ -102,11 +118,12 @@
     ) {
       const tiles = Array.isArray(data.tiles) ? data.tiles.slice() : [];
       const melds = playerZone(view, "melds", playerIndex);
-      (data.consumedTileInstanceIds || []).forEach((instanceId) => {
-        removeTile(playerZone(view, "hands", playerIndex), { instanceId });
-      });
-      if (!Array.isArray(data.consumedTileInstanceIds)) {
-        tiles.forEach((tile) => removeTile(playerZone(view, "hands", playerIndex), tile));
+      if (Array.isArray(data.consumedTileInstanceIds) && data.consumedTileInstanceIds.length > 0) {
+        data.consumedTileInstanceIds.forEach((instanceId) => {
+          removeOrWarn(view, playerZone(view, "hands", playerIndex), { instanceId }, "kan");
+        });
+      } else {
+        tiles.forEach((tile) => removeOrWarn(view, playerZone(view, "hands", playerIndex), tile, "kan"));
       }
       if (data.kanType === "kakan" && Number.isInteger(data.meldIndex) && melds[data.meldIndex]) {
         melds[data.meldIndex] = { type: "kakan", tiles };
@@ -114,14 +131,14 @@
         melds.push({ type: data.kanType || "kan", tiles });
       }
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
-      if (data.kanType === "minkan" && sourceDiscards) removeTile(sourceDiscards, data.calledTile);
+      if (data.kanType === "minkan" && sourceDiscards) removeOrWarn(view, sourceDiscards, data.calledTile, "minkan discard");
     } else if (
       event.type === "assist"
       && playerZone(view, "hands", playerIndex)
       && data.outgoing
       && data.incoming
     ) {
-      removeTile(playerZone(view, "hands", playerIndex), data.outgoing);
+      removeOrWarn(view, playerZone(view, "hands", playerIndex), data.outgoing, "assist");
       playerZone(view, "hands", playerIndex).push(data.incoming);
     } else if (event.type === "score_settlement" && Array.isArray(data.changes)) {
       data.changes.forEach((change) => {
@@ -144,7 +161,10 @@
     const view = initialView(state.record, round);
     round.events.slice(0, state.eventIndex).forEach((event) => applyEvent(view, event));
     state.view = view;
-    state.partial = !round.events.some((event) => event && event.type === "deal");
+    state.diagnostics = view.diagnostics.slice();
+    state.partial = !round.events.some((event) => event && event.type === "deal")
+      || round.events.some((event) => event && event.pruned === true)
+      || state.diagnostics.length > 0;
     return state;
   }
 
@@ -159,6 +179,7 @@
       isPlaying: false,
       speedMs: 700,
       view: {},
+      diagnostics: [],
       partial: false,
     });
   }

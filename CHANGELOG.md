@@ -1,5 +1,16 @@
 # Changelog
 
+## Phase 16.1 Issue Bug Sweep
+
+- Fixed pending kan retry/recovery state preservation after failed kan finalization.
+- Hardened `GameEngine.getState()` with defensive snapshots for mutable state.
+- Fixed recovery edge cases for stale `lastDiscard`, TileLedger corruption, missing pending chankan attempts, and pending CPU ron candidates.
+- Restricted human ron windows to ron actions only.
+- Marked imported records as stats-ineligible and added semantic record import validation for unsafe points, complete ranking mismatches, and complete settlement deltas.
+- Added replay diagnostics for pruned/missing-tile records and kan replay fallback when consumed instance IDs are absent.
+- Preserved kita replacement event ordering and blocked haitei on kita replacement draws.
+- Added `issue-runtime-flow-regressions.test.js` and `issue-storage-replay-regressions.test.js`.
+
 ## Phase 16
 
 - Split `GameEngine.js` responsibilities into focused Flow modules without intended gameplay behavior changes.

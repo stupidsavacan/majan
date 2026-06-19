@@ -19,6 +19,28 @@ Phase 16は挙動保存リファクタです。新しい役、点数仕様、CPU
 
 `GameEngine` のpublic APIは維持しています。UIから呼ばれる `startRound`, `startNextRound`, `discardHumanTile`, `claimHumanTsumo`, `declareHumanRiichi`, `extractHumanKita`, `requestHumanKan`, `selectHumanKan`, `cancelHumanKanChoice`, `claimHumanCall`, `skipHumanCall`, `drawForHumanManually`, `getState` は同じ名前で利用できます。
 
+## Phase 16.1 Issue Bug Sweep
+
+Issue reports after the Phase 16 split were reproduced with deterministic tests and fixed in the Flow modules:
+
+- Pending kan finalization failures keep the pending kan attempt, so recovery and retry do not lose the declared kan state.
+- `GameEngine.getState()` now returns defensive snapshots for mutable state objects.
+- Manual recovery draw clears stale `lastDiscard`.
+- Recovery prioritizes TileLedger corruption reset before closing stale call windows.
+- Chankan recovery no longer leaves a dead human-call state when the pending kan attempt is missing.
+- Human ron windows expose only ron actions, including empty-wall cases.
+- `RecoveryFlow.resolvePendingCpuRon()` uses the stored pending CPU ron candidate.
+- Imported records are marked stats-ineligible, while saved local records remain counted.
+- Record import validation now rejects unsafe final points, full final-rank inconsistencies, and impossible full settlement changes without deleting older partial local summaries.
+- Replay marks pruned or missing-tile records as partial and records diagnostics.
+- Kan replay can rebuild consumed tiles from event tile data when consumed instance IDs are absent.
+- Kita replacement draws are recorded before assist intervention events, and haitei is not awarded on a kita replacement draw.
+
+Regression coverage:
+
+- `tests/issue-runtime-flow-regressions.test.js`
+- `tests/issue-storage-replay-regressions.test.js`
+
 ## Preserved Behavior
 
 - 実親ローテーションを維持し、CPU 1 / CPU 2 も親になります。

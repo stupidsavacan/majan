@@ -62,13 +62,13 @@
               tile: this.tileSnapshot(result.extracted),
             });
             if (result.replacement) {
+              this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
               this.recordAssist(AssistManager.evaluateDraw({
                 state: this,
                 ruleConfig: this.ruleConfig,
                 player: this.humanPlayer,
                 random: this.assistRandom,
               }));
-              this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, result.replacement));
             }
           }
           if (result.applied && !result.replacement) {
@@ -287,8 +287,6 @@
         finalizePendingKan() {
           const attempt = this.pendingKanAttempt;
           if (!attempt) return { applied: false, reason: "確定待ちのカンがありません。" };
-          this.pendingKanAttempt = null;
-          this.pendingWinContext = null;
           const result = KanRules.finalizeKan({
             state: this,
             attempt,
@@ -299,6 +297,8 @@
             this.emitChange();
             return result;
           }
+          this.pendingKanAttempt = null;
+          this.pendingWinContext = null;
           const player = this.players[attempt.playerIndex];
           this.turnIndex = attempt.playerIndex;
           this.phase = result.replacement

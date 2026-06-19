@@ -137,8 +137,8 @@
     if (engine.stateMachine && Sanma.GameStateMachine) {
       Sanma.GameStateMachine.transition(engine.stateMachine, "recovering", "不正状態の復旧");
     }
-    if (engine.callWindow) return closeStuckActionWindow(engine);
     if (report && report.tileLedger && !report.tileLedger.ok) return resetCurrentRound(engine);
+    if (engine.callWindow) return closeStuckActionWindow(engine);
     if (engine.phase === "cpu-running") {
       return resumeTurn(engine, engine.turnIndex, "停止したCPU手番を再開しました");
     }

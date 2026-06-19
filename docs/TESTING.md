@@ -30,6 +30,13 @@ Phase 16 adds these behavior-preserving refactor tests:
 
 These tests verify public API compatibility, script order, Flow module boundaries, representative gameplay preservation, record flow, draw context, and recovery bridges.
 
+## Phase 16.1 Issue Regression Tests
+
+- `tests/issue-runtime-flow-regressions.test.js`
+- `tests/issue-storage-replay-regressions.test.js`
+
+These tests cover the issue sweep fixes for pending kan recovery, defensive state snapshots, recovery softlocks, ron-window action filtering, pending CPU ron recovery, imported-record stats eligibility, record import semantic guards, replay diagnostics, kan replay fallback, kita replacement event order, and haitei suppression on kita replacement draws.
+
 ## Pull Request And CI
 
 Phase 16 changes must go through a pull request. Direct push to `main` is forbidden for this phase.
