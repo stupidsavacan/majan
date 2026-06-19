@@ -44,6 +44,7 @@
       this.debugEventLog = DebugEventLog.create();
       this.stateMachine = GameStateMachine.create("idle", this.debugEventLog);
       this.cpuTaskActive = false;
+      this.pendingCpuCallDiscardIndex = null;
       this.lastInvariantReport = null;
       this.startRound();
     }
@@ -81,6 +82,7 @@
     }
 
     startRound() {
+      this.pendingCpuCallDiscardIndex = null;
       return Sanma.RoundLifecycle.startRound.call(this);
     }
 
@@ -110,6 +112,14 @@
 
     handleDiscard(discarderIndex, discarded) {
       return Sanma.TurnFlow.handleDiscard.call(this, discarderIndex, discarded);
+    }
+
+    resolveNonWinningCallsAfterDiscard(discarderIndex) {
+      return Sanma.TurnFlow.resolveNonWinningCallsAfterDiscard.call(this, discarderIndex);
+    }
+
+    applySelectedCpuCallCandidate(candidate, metadata) {
+      return Sanma.TurnFlow.applySelectedCpuCallCandidate.call(this, candidate, metadata);
     }
 
     continueAfterDiscard(discarderIndex) {
@@ -214,6 +224,16 @@
 
     skipHumanCall() {
       return Sanma.CallFlow.skipHumanCall.call(this);
+    }
+
+    applyOpenCall(playerIndex, actionId, option, metadata) {
+      if (!Sanma.CallFlow.applyOpenCall) return false;
+      return Sanma.CallFlow.applyOpenCall.call(this, playerIndex, actionId, option, metadata);
+    }
+
+    applyCpuCall(candidate, metadata) {
+      if (!Sanma.CallFlow.applyCpuCall) return false;
+      return Sanma.CallFlow.applyCpuCall.call(this, candidate, metadata);
     }
 
     tryCpuKan(player) {
