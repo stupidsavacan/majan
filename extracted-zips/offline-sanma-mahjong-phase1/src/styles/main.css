@@ -220,6 +220,38 @@ h1 {
   overflow:hidden
 }
 
+.meld-area {
+  display:flex;
+  flex-wrap:wrap;
+  gap:.45rem;
+  margin-top:.45rem
+}
+
+.meld-item {
+  display:grid;
+  gap:.3rem;
+  align-content:start;
+  padding:.45rem;
+  border:1px solid var(--line);
+  border-radius:.75rem;
+  background:rgba(0,0,0,.14)
+}
+
+.meld-open {
+  border-color:rgba(120,214,162,.36);
+  background:rgba(120,214,162,.08)
+}
+
+.meld-closed {
+  background:rgba(0,0,0,.18)
+}
+
+.meld-detail {
+  color:var(--muted);
+  font-size:.75rem;
+  line-height:1.35
+}
+
 .human-area {
   display:grid;
   gap:.75rem
@@ -288,6 +320,16 @@ h1 {
 
 .action-button {
   min-width:5.5rem
+}
+
+.call-window-pending-cpu {
+  padding:.45rem .6rem;
+  border:1px solid rgba(120,214,162,.28);
+  border-radius:.8rem;
+  background:rgba(120,214,162,.08);
+  color:var(--muted);
+  font-size:.85rem;
+  line-height:1.45
 }
 
 .message-panel {
@@ -451,5 +493,4 @@ h1 {
     width:1.65rem;
     height:2.3rem
   }
-
 }
