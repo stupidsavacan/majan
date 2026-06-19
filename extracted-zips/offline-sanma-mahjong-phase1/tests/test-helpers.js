@@ -30,6 +30,7 @@ const gameModules = [
   "src/game/EndTurnYakuResolver.js",
   "src/game/SanmaRuleDetails.js",
   "src/game/ActionResolver.js",
+  "src/game/CallResolver.js",
   "src/game/CpuStrategy.js",
   "src/game/AssistManager.js",
   "src/game/GameRecord.js",
