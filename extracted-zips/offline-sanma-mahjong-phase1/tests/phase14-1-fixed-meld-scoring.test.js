@@ -7,24 +7,28 @@ function hand(codes) {
   return codes.map((code) => tile(code));
 }
 
-function stateWithMeld(meld, concealedCodes, winningCode) {
-  const ruleConfig = Sanma.RuleConfig.createRuleConfig({});
-  const players = [
+function createPlayers() {
+  return [
     new Sanma.Player({ id: 0, name: "あなた", seatWind: "east", isHuman: true, points: 35000 }),
     new Sanma.Player({ id: 1, name: "CPU 1", seatWind: "south", isHuman: false, points: 35000 }),
     new Sanma.Player({ id: 2, name: "CPU 2", seatWind: "west", isHuman: false, points: 35000 }),
   ];
-  players[0].hand = hand(concealedCodes);
-  players[0].melds = [meld];
+}
+
+function stateWithPlayerMeld(playerIndex, meld, concealedCodes, winningCode, loserIndex) {
+  const ruleConfig = Sanma.RuleConfig.createRuleConfig({});
+  const players = createPlayers();
+  players[playerIndex].hand = hand(concealedCodes);
+  players[playerIndex].melds = [meld];
   const winningTile = tile(winningCode);
   return {
     state: {
       ruleConfig,
       players,
       round: { roundWind: "east", dealerIndex: 0, honba: 0, riichiSticks: 0 },
-      turnIndex: 0,
-      phase: "human-call",
-      lastDiscard: { playerIndex: 2, tile: winningTile },
+      turnIndex: playerIndex,
+      phase: "human-discard",
+      lastDiscard: { playerIndex: loserIndex, tile: winningTile },
       wall: { doraIndicators: [], remainingCount: () => 30 },
       pendingWinContext: null,
     },
@@ -32,9 +36,23 @@ function stateWithMeld(meld, concealedCodes, winningCode) {
   };
 }
 
+function stateWithMeld(meld, concealedCodes, winningCode) {
+  const input = stateWithPlayerMeld(0, meld, concealedCodes, winningCode, 2);
+  input.state.phase = "human-call";
+  return input;
+}
+
 function analyze(meld, concealedCodes, winningCode) {
   const input = stateWithMeld(meld, concealedCodes, winningCode);
   return Sanma.ActionResolver.analyzeWin(input.state, 0, "ron", input.winningTile, 2);
+}
+
+function analyzePlayer(playerIndex, meld, concealedCodes, winningCode, loserIndex) {
+  const input = stateWithPlayerMeld(playerIndex, meld, concealedCodes, winningCode, loserIndex);
+  return {
+    input,
+    analysis: Sanma.ActionResolver.analyzeWin(input.state, playerIndex, "ron", input.winningTile, loserIndex),
+  };
 }
 
 function hasYaku(analysis, id) {
@@ -95,5 +113,35 @@ const openToitoi = analyze(
   "5p"
 );
 assert(hasYaku(openToitoi, "toitoi"), "固定刻子を含む対々和を検出できませんでした");
+
+const cpuOpenChi = { type: "chi", open: true, fromPlayerIndex: 0, tiles: hand(["2p", "3p", "4p"]) };
+const cpuOpenTanyao = analyzePlayer(
+  1,
+  cpuOpenChi,
+  ["3p", "4p", "2s", "3s", "4s", "6p", "7p", "8p", "5s", "5s"],
+  "5p",
+  0
+);
+assert(!cpuOpenTanyao.analysis.context.isMenzen, "CPU副露手を門前として扱いました");
+assert(!Sanma.RiichiRules.isMenzen(cpuOpenTanyao.input.state.players[1]), "CPU open meldでisMenzenがfalseになりませんでした");
+assert(cpuOpenTanyao.analysis.context.melds === cpuOpenTanyao.input.state.players[1].melds, "CPU meldsが和了コンテキストに渡っていません");
+assert(cpuOpenTanyao.analysis.agariResult.bestPattern.melds.some((meld) => meld.fixed && meld.open), "CPU open meldのopen情報が和了形から失われました");
+assert(hasYaku(cpuOpenTanyao.analysis, "tanyao") && cpuOpenTanyao.analysis.scoreResult.isValidWin, "CPU副露断么九を得点計算できませんでした");
+["riichi", "menzen-tsumo", "pinfu", "iipeikou", "chiitoitsu"].forEach((id) => {
+  assert(!hasYaku(cpuOpenTanyao.analysis, id), `CPU副露手に門前限定役${id}が付きました`);
+});
+const cpuRiichiAction = Sanma.ActionResolver.findAction(cpuOpenTanyao.input.state, 1, "riichi");
+assert(cpuRiichiAction && !cpuRiichiAction.enabled, "CPU副露手でリーチ可能になりました");
+assert(cpuRiichiAction.reason.includes("門前"), `CPU副露手のリーチ不可理由が不正です: ${cpuRiichiAction.reason}`);
+
+const cpuOpenYakuhai = analyzePlayer(
+  2,
+  { type: "pon", open: true, fromPlayerIndex: 0, tiles: hand(["white", "white", "white"]) },
+  ["2p", "3p", "4p", "5p", "6p", "7p", "2s", "3s", "4s", "5s"],
+  "5s",
+  0
+);
+assert(hasYaku(cpuOpenYakuhai.analysis, "yakuhai-dragon-5"), "CPU副露役牌を検出できませんでした");
+assert(cpuOpenYakuhai.analysis.scoreResult.isValidWin, "CPU副露役牌を有効な和了として扱えませんでした");
 
 console.log("Phase 14.1 fixed meld scoring tests passed.");
