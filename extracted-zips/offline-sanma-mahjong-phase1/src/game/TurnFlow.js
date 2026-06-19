@@ -82,26 +82,83 @@
           this.lastDrawContext = null;
           this.noteOpeningDiscard(discarderIndex);
           if (this.resolveRonCandidatesAfterDiscard(discarderIndex)) return true;
-          if (discarderIndex !== this.humanPlayer.id) {
-            if (this.wall.remainingCount() <= 0) {
-              this.continueAfterDiscard(discarderIndex);
-              return true;
-            }
-            const windowState = CallWindow.create(this, this.humanPlayer.id);
-            if (windowState) {
-              this.markOpeningInterrupted("鳴き選択窓");
-              this.callWindow = windowState;
-              this.phase = "human-call";
-              this.addLog(`${this.players[discarderIndex].name}の捨て牌に対する操作を選んでください。`);
+          const reaction = this.resolveNonWinningCallsAfterDiscard(discarderIndex);
+          if (reaction && reaction.handled) return true;
+          this.continueAfterDiscard(discarderIndex);
+          return true;
+        },
+
+        resolveNonWinningCallsAfterDiscard(discarderIndex) {
+          if (this.wall.remainingCount() <= 0) return { handled: false };
+
+          const resolver = Sanma.CallResolver;
+          let selectedCpu = null;
+          if (resolver
+            && typeof resolver.collectCpuCallCandidates === "function"
+            && typeof resolver.selectCpuCallCandidate === "function") {
+            const candidates = resolver.collectCpuCallCandidates(this, discarderIndex) || [];
+            selectedCpu = resolver.selectCpuCallCandidate(this, candidates) || null;
+          }
+
+          const windowState = discarderIndex !== this.humanPlayer.id
+            ? CallWindow.create(this, this.humanPlayer.id)
+            : null;
+          if (windowState) {
+            if (selectedCpu) windowState.pendingCpuCallCandidate = selectedCpu;
+            this.markOpeningInterrupted("鳴き選択窓");
+            this.callWindow = windowState;
+            this.phase = "human-call";
+            this.addLog(`${this.players[discarderIndex].name}の捨て牌に対する操作を選んでください。`);
+            this.emitChange();
+            return { handled: true, openedHumanWindow: true };
+          }
+
+          if (selectedCpu) {
+            const applied = this.applySelectedCpuCallCandidate(selectedCpu, { source: "post-discard" });
+            if (applied && this.phase === "cpu-running" && !this.cpuTaskActive) {
               this.emitChange();
-              return;
+              this.runCpuUntilHumanTurn();
+            }
+            return { handled: applied, appliedCpuCall: applied };
+          }
+
+          return { handled: false };
+        },
+
+        applySelectedCpuCallCandidate(candidate, metadata) {
+          if (!candidate || typeof this.applyCpuCall !== "function") return false;
+          const applied = this.applyCpuCall(candidate, metadata || {});
+          if (!applied) return false;
+          if ((candidate.actionId === "pon" || candidate.actionId === "chi")
+            && this.players[candidate.playerIndex]
+            && !this.players[candidate.playerIndex].isHuman) {
+            this.pendingCpuCallDiscardIndex = candidate.playerIndex;
+            this.turnIndex = candidate.playerIndex;
+            if (this.phase !== "human-call" && this.phase !== "win-ended" && this.phase !== "round-ended") {
+              this.phase = "cpu-running";
             }
           }
-          this.continueAfterDiscard(discarderIndex);
+          return true;
         },
 
         continueAfterDiscard(discarderIndex) {
+          const pendingCpuCallCandidate = this.callWindow
+            && this.callWindow.fromPlayerIndex === discarderIndex
+            ? this.callWindow.pendingCpuCallCandidate || null
+            : null;
           this.callWindow = null;
+          if (pendingCpuCallCandidate && this.wall.remainingCount() > 0) {
+            const applied = this.applySelectedCpuCallCandidate(pendingCpuCallCandidate, { source: "human-skip" });
+            if (applied) {
+              if (this.phase === "cpu-running" && !this.cpuTaskActive) {
+                this.emitChange();
+                this.runCpuUntilHumanTurn();
+              } else {
+                this.emitChange();
+              }
+              return true;
+            }
+          }
           if (this.wall.remainingCount() <= 0) {
             this.phase = "round-ended";
             this.addLog("山がなくなりました。簡易流局として終了します。");
@@ -149,42 +206,48 @@
               return false;
             }
             const player = this.getCurrentPlayer();
-            if (!player.lastDraw) {
-              const drawn = this.wall.draw();
-              if (!drawn) {
-                this.endRoundForInvalidDraw(`${player.name}のツモ牌を取得できませんでした。`);
-                return;
+            const discardAfterCall = this.pendingCpuCallDiscardIndex === player.id;
+            if (discardAfterCall) {
+              this.pendingCpuCallDiscardIndex = null;
+              this.lastDrawContext = null;
+            } else {
+              if (!player.lastDraw) {
+                const drawn = this.wall.draw();
+                if (!drawn) {
+                  this.endRoundForInvalidDraw(`${player.name}のツモ牌を取得できませんでした。`);
+                  return;
+                }
+                player.receiveTile(drawn);
+                this.lastDrawContext = this.createNormalDrawContext(player);
+                this.addLog(`${player.name} がツモりました。`);
+                this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
+                this.recordAssist(AssistManager.evaluateDraw({
+                  state: this,
+                  ruleConfig: this.ruleConfig,
+                  player,
+                  random: this.assistRandom,
+                }));
+              } else if (!(
+                this.initialDealerDiscardPending
+                && player.id === this.round.dealerIndex
+                && this.lastDrawContext
+                && this.lastDrawContext.playerIndex === player.id
+                && this.lastDrawContext.isInitialDealerDraw
+              )) {
+                this.lastDrawContext = {
+                  playerIndex: player.id,
+                  isRinshan: false,
+                  isInitialDealerDraw: this.initialDealerDiscardPending && player.id === this.round.dealerIndex,
+                  isTenho: this.initialDealerDiscardPending && player.id === this.round.dealerIndex,
+                  isChiho: false,
+                };
               }
-              player.receiveTile(drawn);
-              this.lastDrawContext = this.createNormalDrawContext(player);
-              this.addLog(`${player.name} がツモりました。`);
-              this.recordGameEvent("draw", this.playerTileEvent(player, drawn));
-              this.recordAssist(AssistManager.evaluateDraw({
-                state: this,
-                ruleConfig: this.ruleConfig,
-                player,
-                random: this.assistRandom,
-              }));
-            } else if (!(
-              this.initialDealerDiscardPending
-              && player.id === this.round.dealerIndex
-              && this.lastDrawContext
-              && this.lastDrawContext.playerIndex === player.id
-              && this.lastDrawContext.isInitialDealerDraw
-            )) {
-              this.lastDrawContext = {
-                playerIndex: player.id,
-                isRinshan: false,
-                isInitialDealerDraw: this.initialDealerDiscardPending && player.id === this.round.dealerIndex,
-                isTenho: this.initialDealerDiscardPending && player.id === this.round.dealerIndex,
-                isChiho: false,
-              };
+              if (this.tryCpuTsumo(player)) return;
+              if (this.tryCpuKita(player)) return;
+              if (this.tryCpuTsumo(player)) return;
+              if (this.tryCpuKan(player)) return;
+              this.tryCpuRiichi(player);
             }
-            if (this.tryCpuTsumo(player)) return;
-            if (this.tryCpuKita(player)) return;
-            if (this.tryCpuTsumo(player)) return;
-            if (this.tryCpuKan(player)) return;
-            this.tryCpuRiichi(player);
             const discardIndex = this.chooseCpuDiscardIndex(player);
             const discarded = player.discardTileAt(discardIndex);
             if (!discarded) {
@@ -209,17 +272,15 @@
             this.lastDiscard = this.createLastDiscard(player.id, discarded);
             this.noteOpeningDiscard(player.id);
             if (this.resolveRonCandidatesAfterDiscard(player.id)) return;
-            if (this.wall.remainingCount() <= 0) {
-              this.continueAfterDiscard(player.id);
+            const reaction = this.resolveNonWinningCallsAfterDiscard(player.id);
+            if (reaction && reaction.openedHumanWindow) return;
+            if (reaction && reaction.appliedCpuCall) {
+              if (this.phase === "cpu-running") continue;
               return;
             }
-            const windowState = CallWindow.create(this, this.humanPlayer.id);
-            if (windowState) {
-              this.markOpeningInterrupted("鳴き選択窓");
-              this.callWindow = windowState;
-              this.phase = "human-call";
-              this.addLog(`${player.name}の捨て牌に対する操作を選んでください。`);
-              this.emitChange();
+            if (reaction && reaction.handled) return;
+            if (this.wall.remainingCount() <= 0) {
+              this.continueAfterDiscard(player.id);
               return;
             }
             this.turnIndex = (this.turnIndex + 1) % this.players.length;
