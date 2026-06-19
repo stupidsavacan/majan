@@ -31,7 +31,7 @@
 
     const opponents = el("section", "opponents-grid");
     state.players.filter((player) => !player.isHuman).forEach((player) => {
-      opponents.appendChild(renderOpponent(player, state.turnIndex === player.id, state.round.dealerIndex));
+      opponents.appendChild(renderOpponent(player, state.turnIndex === player.id, state.round.dealerIndex, state.players));
     });
 
     const center = el("section", "center-board");
@@ -39,7 +39,7 @@
     if (state.pendingKanChoice && state.pendingKanChoice.isOpen) {
       center.appendChild(renderKanChoice(state.pendingKanChoice, handlers));
     }
-    if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers));
+    if (state.callWindow && state.callWindow.isOpen) center.appendChild(renderCallWindow(state.callWindow, handlers, state.players));
     if (state.winResult) center.appendChild(renderWinResult(state.winResult));
     if (state.matchState && state.matchState.roundEnded) {
       center.appendChild(renderMatchFlow(state.matchState, handlers));
@@ -56,7 +56,7 @@
     return badge;
   }
 
-  function renderOpponent(player, isTurn, dealerIndex) {
+  function renderOpponent(player, isTurn, dealerIndex, players) {
     const card = el("article", `player-card opponent-card ${isTurn ? "active-player" : ""}`);
     const head = el("div", "player-head");
     head.append(
@@ -72,7 +72,7 @@
     const discardTitle = el("div", "mini-title", "河");
     const discards = el("div", "tile-row discard-row compact");
     RenderTiles.renderTileRow(discards, player.discards, { small: true });
-    const melds = renderMelds(player);
+    const melds = renderMelds(player, players);
 
     card.append(head, handBacks, discardTitle, discards, melds);
     return card;
@@ -92,22 +92,75 @@
     return area;
   }
 
-  function renderMelds(player) {
+  function getPlayerName(players, playerIndex) {
+    const player = (players || []).find((candidate) => candidate && candidate.id === playerIndex);
+    if (player) return player.name;
+    return Number.isInteger(playerIndex) ? `プレイヤー${playerIndex}` : "不明";
+  }
+
+  function getMeldTypeLabel(meld) {
+    if (!meld) return "副露";
+    if (meld.type === "pon") return "ポン";
+    if (meld.type === "chi") return "チー";
+    if (meld.type === "kan") {
+      if (meld.kanType === "minkan") return "明槓";
+      if (meld.kanType === "ankan") return "暗槓";
+      if (meld.kanType === "kakan") return "加槓";
+      return "カン";
+    }
+    return String(meld.type || "副露");
+  }
+
+  function getCallActionLabel(actionId, option) {
+    if (actionId === "pon") return "ポン";
+    if (actionId === "chi") return "チー";
+    if (actionId === "kan") return option && option.type === "minkan" ? "明槓" : "カン";
+    return String(actionId || "鳴き");
+  }
+
+  function tileLabel(tile) {
+    if (!tile) return "";
+    if (tile.label) return tile.label;
+    if (tile.shortLabel) return tile.shortLabel;
+    return TileUtil.getTileShortLabel(tile);
+  }
+
+  function getMeldDetail(meld, players) {
+    if (!meld) return "";
+    const details = [];
+    if (meld.open) {
+      details.push("副露");
+      if (Number.isInteger(meld.fromPlayerIndex)) {
+        details.push(`${getPlayerName(players, meld.fromPlayerIndex)}から`);
+      }
+    } else {
+      details.push("門前扱い");
+    }
+    if (meld.kanType) details.push(`kanType: ${meld.kanType}`);
+    const calledTile = meld.calledTile || meld.claimedTile || null;
+    if (calledTile) details.push(`鳴き牌: ${tileLabel(calledTile)}`);
+    return details.join(" / ");
+  }
+
+  function renderMelds(player, players) {
     const wrap = el("div", "meld-area");
     (player.melds || []).forEach((meld) => {
-      const item = el("div", "meld-item");
-      item.appendChild(el("span", "mini-title", `${meld.type === "pon" ? "ポン" : meld.type === "chi" ? "チー" : "カン"}${meld.open ? "（副露）" : "（暗）"}`));
+      const item = el("div", `meld-item meld-${meld.type || "unknown"} ${meld.open ? "meld-open" : "meld-closed"}`);
+      item.appendChild(el("span", "mini-title", `${getMeldTypeLabel(meld)}${meld.open ? "（副露）" : "（暗）"}`));
       const row = el("div", "tile-row");
       RenderTiles.renderTileRow(row, meld.tiles || [], { small: true });
       item.appendChild(row);
+      const detail = getMeldDetail(meld, players);
+      if (detail) item.appendChild(el("span", "meld-detail", detail));
       wrap.appendChild(item);
     });
     if ((player.kitaTiles || []).length > 0) {
-      const item = el("div", "meld-item");
+      const item = el("div", "meld-item meld-kita meld-open");
       item.appendChild(el("span", "mini-title", `抜き北 ${player.kitaTiles.length}`));
       const row = el("div", "tile-row");
       RenderTiles.renderTileRow(row, player.kitaTiles, { small: true });
       item.appendChild(row);
+      item.appendChild(el("span", "meld-detail", "抜きドラ"));
       wrap.appendChild(item);
     }
     return wrap;
@@ -172,7 +225,7 @@
       kitaButton
     );
 
-    section.append(head, hand, renderMelds(player), actions);
+    section.append(head, hand, renderMelds(player, state.players), actions);
     return section;
   }
 
@@ -198,10 +251,20 @@
     return panel;
   }
 
-  function renderCallWindow(callWindow, handlers) {
+  function renderPendingCpuCall(callWindow, players) {
+    const candidate = callWindow && callWindow.pendingCpuCallCandidate;
+    if (!candidate) return null;
+    const playerName = candidate.playerName || getPlayerName(players, candidate.playerIndex);
+    const actionLabel = getCallActionLabel(candidate.actionId, candidate.option);
+    return el("div", "call-window-pending-cpu", `スキップ時: ${playerName} が ${actionLabel} 候補を処理します。`);
+  }
+
+  function renderCallWindow(callWindow, handlers, players) {
     const panel = el("section", "call-window");
     panel.appendChild(el("h2", "section-title", "呼び出し操作"));
     panel.appendChild(el("div", "call-window-message", "他家の捨て牌に対する操作を選んでください。"));
+    const pendingCpuCall = renderPendingCpuCall(callWindow, players);
+    if (pendingCpuCall) panel.appendChild(pendingCpuCall);
     const tileRow = el("div", "tile-row tile-row-center");
     RenderTiles.renderTileRow(tileRow, callWindow.tile ? [callWindow.tile] : [], { small: false });
     panel.appendChild(tileRow);
@@ -300,9 +363,31 @@
     root.append(title, list);
   }
 
+  function isCpuCallLogEntry(entry) {
+    if (!entry) return false;
+    if (["ポン", "チー", "明槓", "副露"].includes(entry.action)) return true;
+    if (["pon", "chi"].includes(entry.actionId)) return true;
+    if (entry.actionId === "kan" && entry.kanType === "minkan") return true;
+    if (entry.option && entry.option.type === "minkan") return true;
+    return false;
+  }
+
+  function formatCpuCallLog(cpuThinkingLog) {
+    const entries = (cpuThinkingLog || []).filter(isCpuCallLogEntry).slice(0, 5);
+    if (entries.length === 0) return "なし";
+    return entries.map((entry) => {
+      const player = entry.player || entry.playerName || getPlayerName([], entry.playerIndex);
+      const action = entry.action || getCallActionLabel(entry.actionId, entry.option);
+      const nextDiscard = entry.nextDiscard ? ` / 次打牌: ${entry.nextDiscard}` : "";
+      const reason = entry.reason ? ` / ${entry.reason}` : "";
+      return `${player}: ${action}${nextDiscard}${reason}`;
+    }).join("\n");
+  }
+
   function renderDebug(root, state) {
     const safeConfig = JSON.stringify(state.ruleConfig, null, 2);
     const cpuLog = JSON.stringify(state.cpuThinkingLog, null, 2);
+    const cpuCallLog = formatCpuCallLog(state.cpuThinkingLog || []);
     const assistLog = JSON.stringify(state.assistEvents || [], null, 2);
     const agari = state.humanAgariAnalysis || {};
     const tenpai = state.humanTenpaiAnalysis || {};
@@ -377,6 +462,9 @@
       "",
       "RuleConfig:",
       safeConfig,
+      "",
+      "CPU鳴きログ:",
+      cpuCallLog,
       "",
       "CPU思考:",
       cpuLog,
