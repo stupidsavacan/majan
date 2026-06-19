@@ -27,8 +27,7 @@
   Sanma.CallFlow = {
         claimHumanCall(actionId, optionIndex) {
           if (actionId === "ron") {
-            this.claimHumanRon();
-            return;
+            return this.claimHumanRon();
           }
           const validation = this.validateAction("鳴き", ["waitingForCall"]);
           if (!validation.ok) {
@@ -174,6 +173,14 @@
             if (result && result.applied && declarerIndex !== this.humanPlayer.id && this.phase === "cpu-running") {
               this.emitChange();
               this.runCpuUntilHumanTurn();
+            }
+            if (!result || !result.applied) {
+              this.pendingWinContext = null;
+              this.turnIndex = declarerIndex;
+              this.phase = declarerIndex === this.humanPlayer.id ? "human-discard" : "cpu-running";
+              this.addLog("槍槓復旧時に保留中のカン情報がなかったため、宣言者の手番へ戻しました。");
+              this.emitChange();
+              if (this.phase === "cpu-running") this.runCpuUntilHumanTurn();
             }
             return true;
           }

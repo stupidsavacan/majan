@@ -9,6 +9,11 @@
   const ActionResolver = Sanma.ActionResolver;
   const RiichiRules = Sanma.RiichiRules;
 
+  function snapshot(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+  }
+
   class GameEngine {
     constructor({ ruleConfig, seed, onChange }) {
       this.ruleConfig = RuleConfig.createRuleConfig(ruleConfig);
@@ -275,12 +280,12 @@
       const humanScoreAnalysis = humanWinAnalysis.score;
       const humanAvailableActions = ActionResolver.getAvailableActions(this, this.humanPlayer.id);
       return {
-        ruleConfig: this.ruleConfig,
+        ruleConfig: snapshot(this.ruleConfig),
         ruleSummary: RuleConfig.describeRuleConfig(this.ruleConfig),
-        round: Object.assign({}, this.round, { label: this.getRoundLabel() }),
-        players: this.players,
+        round: snapshot(Object.assign({}, this.round, { label: this.getRoundLabel() })),
+        players: snapshot(this.players),
         wallRemaining: this.wall.remainingCount(),
-        doraIndicators: this.wall.doraIndicators,
+        doraIndicators: snapshot(this.wall.doraIndicators),
         deadWallCount: this.wall.deadWall.length,
         totalKnownTileCount: this.wall.totalKnownTileCount(this.players),
         phase: this.phase,
@@ -293,20 +298,20 @@
         humanTenpaiAnalysis,
         humanYakuAnalysis,
         humanScoreAnalysis,
-        humanAvailableActions,
+        humanAvailableActions: snapshot(humanAvailableActions),
         pendingRiichiDiscardInstanceIds: RiichiRules
           ? RiichiRules.getDeclarationDiscardOptions(this, this.humanPlayer.id).map((tile) => tile.instanceId)
           : [],
-        lastDiscard: this.lastDiscard,
-        callWindow: this.callWindow,
-        pendingKanChoice: this.pendingKanChoice,
-        pendingKanAttempt: this.pendingKanAttempt,
-        winResult: this.winResult,
+        lastDiscard: snapshot(this.lastDiscard),
+        callWindow: snapshot(this.callWindow),
+        pendingKanChoice: snapshot(this.pendingKanChoice),
+        pendingKanAttempt: snapshot(this.pendingKanAttempt),
+        winResult: snapshot(this.winResult),
         matchState: this.matchManager.getState(),
-        gameRecord: this.gameRecord,
-        invariantReport: this.lastInvariantReport,
-        tileLedger: this.lastInvariantReport.tileLedger,
-        debugEvents: DebugEventLog.list(this.debugEventLog),
+        gameRecord: snapshot(this.gameRecord),
+        invariantReport: snapshot(this.lastInvariantReport),
+        tileLedger: snapshot(this.lastInvariantReport.tileLedger),
+        debugEvents: snapshot(DebugEventLog.list(this.debugEventLog)),
         seed: this.seed,
       };
     }

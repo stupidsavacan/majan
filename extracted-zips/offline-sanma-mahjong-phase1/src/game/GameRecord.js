@@ -5,6 +5,7 @@
   const MAX_ROUNDS = 64;
   const MAX_STRING_LENGTH = 2048;
   const REQUIRED_PLAYER_COUNT = 3;
+  const MAX_REASONABLE_POINTS = 300000;
   let recordSequence = 0;
 
   function clone(value) {
@@ -59,6 +60,86 @@
     }
   }
 
+  function validateRecordSemantics(record) {
+    validateFinalPoints(record);
+    validateFinalRankings(record);
+    (record.rounds || []).forEach((round) => validateResultSemantics(round && round.result));
+  }
+
+  function validateFinalPoints(record) {
+    if (record.finalPoints === undefined) return;
+    if (!Array.isArray(record.finalPoints)) throw new Error("finalPointsは配列で指定してください。");
+    if (record.finalPoints.length === 0) return;
+    if (record.finalPoints.length !== REQUIRED_PLAYER_COUNT) {
+      throw new Error(`finalPointsは${REQUIRED_PLAYER_COUNT}人分指定してください。`);
+    }
+    record.finalPoints.forEach((points) => {
+      if (!Number.isFinite(Number(points)) || Number(points) < 0 || Number(points) > MAX_REASONABLE_POINTS) {
+        throw new Error("finalPointsが妥当な点数範囲を超えています。");
+      }
+    });
+  }
+
+  function validateFinalRankings(record) {
+    if (record.finalRankings === undefined) return;
+    if (!Array.isArray(record.finalRankings)) throw new Error("finalRankingsは配列で指定してください。");
+    if (record.finalRankings.length === 0) return;
+    if (!Array.isArray(record.finalPoints) || record.finalPoints.length !== REQUIRED_PLAYER_COUNT) return;
+    const expected = record.finalPoints
+      .map((points, playerIndex) => ({ points: Number(points), playerIndex }))
+      .sort((left, right) => right.points - left.points || left.playerIndex - right.playerIndex);
+    const expectedRankByPlayer = new Map(expected.map((item, index) => [item.playerIndex, index + 1]));
+    const seen = new Set();
+    record.finalRankings.forEach((ranking) => {
+      if (!isObject(ranking)
+        || !Number.isInteger(ranking.playerIndex)
+        || !Number.isInteger(ranking.rank)
+        || ranking.playerIndex < 0
+        || ranking.playerIndex >= REQUIRED_PLAYER_COUNT
+        || ranking.rank < 1
+        || ranking.rank > REQUIRED_PLAYER_COUNT) {
+        throw new Error("finalRankings内容が不正です。");
+      }
+      if (seen.has(ranking.playerIndex)) throw new Error("finalRankingsに重複したプレイヤーがあります。");
+      seen.add(ranking.playerIndex);
+      if (record.finalRankings.length === REQUIRED_PLAYER_COUNT
+        && ranking.rank !== expectedRankByPlayer.get(ranking.playerIndex)) {
+        throw new Error("finalRankingsがfinalPointsと一致しません。");
+      }
+      if (record.finalRankings.length === REQUIRED_PLAYER_COUNT
+        && ranking.points !== undefined
+        && Number(ranking.points) !== Number(record.finalPoints[ranking.playerIndex])) {
+        throw new Error("finalRankings.pointsがfinalPointsと一致しません。");
+      }
+    });
+  }
+
+  function validateResultSemantics(result) {
+    if (!result || !Array.isArray(result.changes)) return;
+    const seen = new Set();
+    let deltaSum = 0;
+    result.changes.forEach((change) => {
+      if (!isObject(change)
+        || !Number.isInteger(change.playerIndex)
+        || change.playerIndex < 0
+        || change.playerIndex >= REQUIRED_PLAYER_COUNT
+        || !Number.isFinite(Number(change.delta))
+        || !Number.isFinite(Number(change.after))) {
+        throw new Error("局結果のchanges内容が不正です。");
+      }
+      if (seen.has(change.playerIndex)) throw new Error("局結果のchangesに重複したプレイヤーがあります。");
+      seen.add(change.playerIndex);
+      if (Math.abs(Number(change.delta)) > MAX_REASONABLE_POINTS
+        || Number(change.after) < 0
+        || Number(change.after) > MAX_REASONABLE_POINTS) {
+        throw new Error("局結果のchangesが妥当な点数範囲を超えています。");
+      }
+      deltaSum += Number(change.delta);
+    });
+    if (seen.size < REQUIRED_PLAYER_COUNT) return;
+    if (Math.abs(deltaSum) > 1) throw new Error("局結果のchanges合計が0になりません。");
+  }
+
   function validateImportedRecord(record) {
     if (!isObject(record)
       || typeof record.id !== "string"
@@ -94,6 +175,7 @@
     if (typeof record.seed === "string" && record.seed.length > 128) {
       throw new Error("牌譜のseedは128文字以内で指定してください。");
     }
+    validateRecordSemantics(record);
     validateStringLengths(record);
     record.rounds.forEach((round) => {
       if (!isObject(round) || !Array.isArray(round.events)) throw new Error("局データの形式が不正です。");
@@ -149,11 +231,18 @@
   function pruneEvents(events) {
     if (!Array.isArray(events) || events.length <= MAX_EVENTS_PER_ROUND) return Array.isArray(events) ? events : [];
     const pruned = events.slice();
+    let removed = false;
     while (pruned.length > MAX_EVENTS_PER_ROUND) {
       const removableIndex = pruned.findIndex((event, index) => index > 0 && !isProtectedEvent(event));
-      if (removableIndex >= 0) pruned.splice(removableIndex, 1);
-      else pruned.splice(0, pruned.length - MAX_EVENTS_PER_ROUND);
+      if (removableIndex >= 0) {
+        pruned.splice(removableIndex, 1);
+        removed = true;
+      } else {
+        pruned.splice(0, pruned.length - MAX_EVENTS_PER_ROUND);
+        removed = true;
+      }
     }
+    if (removed && pruned[0] && typeof pruned[0] === "object") pruned[0].pruned = true;
     return pruned;
   }
 

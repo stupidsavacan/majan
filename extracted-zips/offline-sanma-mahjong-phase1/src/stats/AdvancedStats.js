@@ -22,9 +22,16 @@
     return positive ? Number(positive.delta) : null;
   }
 
+  function isStatsEligible(record) {
+    if (!record || typeof record !== "object") return false;
+    if (record.imported === true || record.statsEligible === false) return false;
+    return true;
+  }
+
   function calculate(records) {
     const safeRecords = Array.isArray(records) ? records : [];
-    const entries = Sanma.RecordIndex.build(safeRecords);
+    const officialRecords = safeRecords.filter(isStatsEligible);
+    const entries = Sanma.RecordIndex.build(officialRecords);
     const ranks = entries.map((entry) => entry.finalRank);
     const finalPoints = entries.map((entry) => entry.finalPoints);
     const yakuFrequency = {};
@@ -43,7 +50,7 @@
     let dealInKnownRounds = 0;
     const winScores = [];
 
-    safeRecords.forEach((record) => {
+    officialRecords.forEach((record) => {
       if (!record || typeof record !== "object") return;
       const playerIndex = Sanma.RecordIndex.humanIndex(record);
       const rules = record.ruleConfig || {};
@@ -112,5 +119,5 @@
     return `${Number.isInteger(value) ? value : value.toFixed(2)}${suffix || ""}`;
   }
 
-  Sanma.AdvancedStats = { calculate, display };
+  Sanma.AdvancedStats = { calculate, display, isStatsEligible };
 })(window);

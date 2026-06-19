@@ -341,13 +341,13 @@
               this.emitChange();
               return true;
             }
+            this.recordGameEvent("draw", this.playerTileEvent(player, result.replacement));
             this.recordAssist(AssistManager.evaluateDraw({
               state: this,
               ruleConfig: this.ruleConfig,
               player,
               random: this.assistRandom,
             }));
-            this.recordGameEvent("draw", this.playerTileEvent(player, result.replacement));
             if (this.tryCpuTsumo(player)) return true;
           }
           return false;

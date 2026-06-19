@@ -21,6 +21,12 @@
     },
 
     resolvePendingCpuRon(engine, discarderIndex) {
+      const pending = engine
+        && engine.callWindow
+        && engine.callWindow.pendingCpuRonCandidate;
+      if (pending && Number.isInteger(pending.playerIndex) && pending.analysis) {
+        return engine.resolveRonWin(pending.playerIndex, pending.analysis, { isCpuRon: true });
+      }
       return Sanma.WinFlow.resolveRonCandidatesAfterDiscard.call(engine, discarderIndex);
     },
   };

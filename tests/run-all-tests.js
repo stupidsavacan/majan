@@ -72,6 +72,8 @@ const testFiles = [
   "draw-context-flow-preservation.test.js",
   "record-flow-preservation.test.js",
   "recovery-flow-preservation.test.js",
+  "issue-runtime-flow-regressions.test.js",
+  "issue-storage-replay-regressions.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",

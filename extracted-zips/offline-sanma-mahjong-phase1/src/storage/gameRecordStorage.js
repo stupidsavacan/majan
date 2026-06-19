@@ -212,6 +212,8 @@
   function importRecord(text, options) {
     try {
       const record = Sanma.GameRecord.deserializeImported(String(text || ""));
+      record.imported = true;
+      record.statsEligible = false;
       avoidImportIdCollision(record, options);
       if (!saveRecord(record)) throw new Error("牌譜を保存できませんでした");
       return { ok: true, record, reason: "牌譜をインポートしました。" };

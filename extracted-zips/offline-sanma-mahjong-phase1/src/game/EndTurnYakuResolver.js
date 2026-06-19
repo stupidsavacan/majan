@@ -43,7 +43,7 @@
       isChankan,
       isTenho: winType === "tsumo" && lastDraw.isTenho === true,
       isChiho: winType === "tsumo" && lastDraw.isChiho === true,
-      isHaitei: rules.haitei !== false && winType === "tsumo" && wallEmpty && !isRinshan,
+      isHaitei: rules.haitei !== false && winType === "tsumo" && wallEmpty && !isRinshan && !lastDraw.isKitaReplacement,
       isHoutei: rules.houtei !== false && winType === "ron" && wallEmpty && houteiEligible && !isChankan,
       uraDoraIndicators,
     };

@@ -44,10 +44,16 @@
             yaku: analysis.yakuResult,
             score: analysis.scoreResult,
             settlement,
+            context: analysis.context,
           };
           this.addCpuActionLog(player, "ツモ", "有効な和了形と役を検出したためツモ和了しました。");
           this.addLog(`${player.name} がツモ和了しました。`);
-          this.recordGameEvent("win", { playerIndex: player.id, playerName: player.name, winType: "tsumo" });
+          this.recordGameEvent("win", {
+            playerIndex: player.id,
+            playerName: player.name,
+            winType: "tsumo",
+            context: analysis.context,
+          });
           this.recordGameEvent("score_settlement", { changes: settlement.changes });
           this.finishGameRecord(this.winResult);
           this.emitChange();
@@ -114,10 +120,17 @@
           if (this.players[primary.playerIndex].isHuman) {
             const windowState = CallWindow.create(this, this.humanPlayer.id);
             if (!windowState) return false;
-            if (priority.fallbackCpu) {
-              windowState.actions = windowState.actions.filter((action) => action.id === "ron");
-              windowState.pendingCpuRonCandidate = priority.fallbackCpu;
+            windowState.actions = windowState.actions.filter((action) => action.id === "ron");
+            if (windowState.actions.length === 0) {
+              windowState.actions = [{
+                id: "ron",
+                label: "ロン",
+                enabled: true,
+                reason: "この捨て牌でロンできます。",
+                analysis: primary.analysis,
+              }];
             }
+            if (priority.fallbackCpu) windowState.pendingCpuRonCandidate = priority.fallbackCpu;
             windowState.kind = "discard-ron";
             this.markOpeningInterrupted("ロン選択窓");
             this.callWindow = windowState;
@@ -138,6 +151,7 @@
             return;
           }
           this.humanPlayer.receiveTile(drawn);
+          this.lastDiscard = null;
           this.lastDrawContext = this.createNormalDrawContext(this.humanPlayer);
           this.recordGameEvent("draw", this.playerTileEvent(this.humanPlayer, drawn));
           this.recordAssist(AssistManager.evaluateDraw({
@@ -187,12 +201,19 @@
             yaku: analysis.yaku,
             score: analysis.score,
             settlement,
+            context: analysis.context,
           };
           this.addLog(`あなたがツモ和了しました。${analysis.score.limitName || `${analysis.score.han}飜${analysis.score.fu}符`} / ${analysis.score.payments.tsumo.total.toLocaleString()}点。`);
-          this.recordGameEvent("win", { playerIndex: this.humanPlayer.id, playerName: this.humanPlayer.name, winType: "tsumo" });
+          this.recordGameEvent("win", {
+            playerIndex: this.humanPlayer.id,
+            playerName: this.humanPlayer.name,
+            winType: "tsumo",
+            context: analysis.context,
+          });
           this.recordGameEvent("score_settlement", { changes: settlement.changes });
           this.finishGameRecord(this.winResult);
           this.emitChange();
+          return true;
         },
 
         claimHumanRon() {
