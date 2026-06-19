@@ -60,7 +60,7 @@
       "RuleConfig", "TileUtil", "HandAnalysis", "DoraCalculator", "YakuAnalysis", "ScoreCalculator", "Settlement",
       "RoundManager", "HonbaManager", "RankingManager", "EndConditionManager", "MatchManager",
       "RiichiManager", "KanManager", "KitaManager", "FuritenManager", "RiichiRules", "KanRules",
-      "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "AssistManager",
+      "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "CallResolver", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "SeedPolicy", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
       "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
