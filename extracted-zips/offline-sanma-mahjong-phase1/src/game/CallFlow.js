@@ -24,6 +24,45 @@
     return engine && typeof engine.tileSnapshot === "function" ? engine.tileSnapshot(tile) : tile;
   }
 
+  function sortedConsumeIds(ids) {
+    return (Array.isArray(ids) ? ids : []).map((id) => String(id)).sort();
+  }
+
+  function sameConsumeIds(left, right) {
+    const leftIds = sortedConsumeIds(left);
+    const rightIds = sortedConsumeIds(right);
+    return leftIds.length === rightIds.length
+      && leftIds.every((id, index) => id === rightIds[index]);
+  }
+
+  function sameOpenCallOption(actionId, submitted, legal) {
+    if (!submitted || !legal) return false;
+    if ((submitted.type || actionId) !== actionId) return false;
+    if ((legal.type || actionId) !== actionId) return false;
+    if (submitted.fromPlayerIndex !== legal.fromPlayerIndex) return false;
+    if (!submitted.tile || !legal.tile) return false;
+    if (String(submitted.tile.instanceId) !== String(legal.tile.instanceId)) return false;
+    return sameConsumeIds(submitted.consumeInstanceIds, legal.consumeInstanceIds);
+  }
+
+  function getCurrentLegalOpenCallOptions(engine, playerIndex, actionId) {
+    if (Sanma.CallResolver && typeof Sanma.CallResolver.getLegalCallActions === "function") {
+      const action = Sanma.CallResolver.getLegalCallActions(engine, playerIndex)
+        .find((candidate) => candidate && candidate.id === actionId);
+      return action && Array.isArray(action.options) ? action.options : [];
+    }
+    if (Sanma.ActionResolver && typeof Sanma.ActionResolver.findAction === "function") {
+      const action = Sanma.ActionResolver.findAction(engine, playerIndex, actionId);
+      return action && action.enabled && Array.isArray(action.options) ? action.options : [];
+    }
+    return [];
+  }
+
+  function isCurrentLegalOpenCallOption(engine, playerIndex, actionId, option) {
+    return getCurrentLegalOpenCallOptions(engine, playerIndex, actionId)
+      .some((legalOption) => sameOpenCallOption(actionId, option, legalOption));
+  }
+
   function validateOpenCall(engine, playerIndex, actionId, option) {
     if (!engine || !Array.isArray(engine.players)) return { ok: false, reason: "ゲーム状態が不正です。" };
     if (actionId !== "pon" && actionId !== "chi") return { ok: false, reason: "対応していない鳴きです。" };
@@ -67,6 +106,9 @@
     });
     if (consumedEntries.some((entry) => entry.index < 0 || !entry.tile)) {
       return { ok: false, reason: "鳴きに必要な牌を手牌から取り出せませんでした。" };
+    }
+    if (!isCurrentLegalOpenCallOption(engine, playerIndex, actionId, option)) {
+      return { ok: false, reason: "現在合法な鳴き候補と一致しないため、鳴きを取り消しました。" };
     }
 
     return {
