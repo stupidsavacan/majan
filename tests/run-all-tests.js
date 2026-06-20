@@ -33,6 +33,7 @@ const testFiles = [
   "yakuman-multiplicity.test.js",
   "cpu-ron-reaction.test.js",
   "cpu-call-reactions.test.js",
+  "cpu-call-legality-hardening.test.js",
   "seed-policy-module.test.js",
   "ron-priority-human-window.test.js",
   "chankan-priority-human-window.test.js",
