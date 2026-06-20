@@ -76,19 +76,24 @@
     if (!state || !state.callWindow) {
       return { ok: false, reason: "復旧対象の呼び出し窓がありません" };
     }
-    if ((state.callWindow.kind === "chankan" || state.callWindow.pendingCpuRonCandidate)
-      && typeof state.skipHumanCall === "function") {
+    const hasPendingReaction = state.callWindow.kind === "chankan"
+      || state.callWindow.pendingCpuRonCandidate
+      || state.callWindow.pendingCpuCallCandidate;
+    if (hasPendingReaction && typeof state.skipHumanCall === "function") {
       const kind = state.callWindow.kind || "discard-ron";
-      const pendingPlayer = state.callWindow.pendingCpuRonCandidate
+      const pendingRonPlayer = state.callWindow.pendingCpuRonCandidate
         ? state.callWindow.pendingCpuRonCandidate.playerIndex
         : null;
-      record(state, "pending ron recovery", { kind, pendingPlayer });
+      const pendingCallPlayer = state.callWindow.pendingCpuCallCandidate
+        ? state.callWindow.pendingCpuCallCandidate.playerIndex
+        : null;
+      record(state, "pending reaction recovery", { kind, pendingRonPlayer, pendingCallPlayer });
       const result = Sanma.RecoveryFlow
         ? Sanma.RecoveryFlow.skipHumanCall(state)
         : state.skipHumanCall();
       return {
         ok: result !== false,
-        reason: "保留中のロン/槍槓処理を通常スキップ経路で復旧しました。",
+        reason: "保留中のロン/槍槓/CPU鳴き処理を通常スキップ経路で復旧しました。",
         phase: state.phase,
       };
     }

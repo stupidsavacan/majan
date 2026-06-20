@@ -1,4 +1,5 @@
 const { assert, createTileFactory, loadModules } = require("./test-helpers");
+const { arrangeEngine, createEngine } = require("./phase14-2-test-utils");
 
 const Sanma = loadModules();
 const tile = createTileFactory(Sanma.TileUtil);
@@ -57,6 +58,13 @@ function analyzePlayer(playerIndex, meld, concealedCodes, winningCode, loserInde
 
 function hasYaku(analysis, id) {
   return analysis.yakuResult.yaku.some((item) => item.id === id);
+}
+
+function setLastDiscardFromRiver(engine, playerIndex, discardIndex) {
+  const discardedTile = engine.players[playerIndex].discards[discardIndex || 0];
+  assert(discardedTile, `player ${playerIndex} の河に対象牌がありません`);
+  engine.lastDiscard = engine.createLastDiscard(playerIndex, discardedTile);
+  return discardedTile;
 }
 
 const openChi = { type: "chi", open: true, fromPlayerIndex: 2, tiles: hand(["2p", "3p", "4p"]) };
@@ -143,5 +151,32 @@ const cpuOpenYakuhai = analyzePlayer(
 );
 assert(hasYaku(cpuOpenYakuhai.analysis, "yakuhai-dragon-5"), "CPU副露役牌を検出できませんでした");
 assert(cpuOpenYakuhai.analysis.scoreResult.isValidWin, "CPU副露役牌を有効な和了として扱えませんでした");
+
+const liveCpuOpenPonEngine = createEngine(Sanma, "phase14-1-live-cpu-open-pon-scoring", { allowChi: true });
+arrangeEngine(Sanma, liveCpuOpenPonEngine, {
+  turnIndex: 0,
+  phase: "human-discard",
+  players: [
+    { hand: ["1p"], discards: ["white"] },
+    { hand: ["white", "white", "2p", "3p", "4p", "5p", "6p", "7p", "2s", "3s", "4s", "5s"], lastDraw: false },
+    { hand: ["1s", "2s", "3s"], lastDraw: false },
+  ],
+});
+setLastDiscardFromRiver(liveCpuOpenPonEngine, 0, 0);
+const liveCpuPonCandidate = Sanma.CallResolver.collectCpuCallCandidates(liveCpuOpenPonEngine, 0)
+  .find((candidate) => candidate.playerIndex === 1 && candidate.actionId === "pon");
+assert(liveCpuPonCandidate, "実際のCPUポン候補を検出できませんでした");
+assert(liveCpuOpenPonEngine.applyCpuCall(liveCpuPonCandidate), "実際のCPUポンを適用できませんでした");
+const liveCpuMeld = liveCpuOpenPonEngine.players[1].melds[0];
+assert(liveCpuMeld && liveCpuMeld.type === "pon" && liveCpuMeld.open === true, "実CPUポン副露がopen ponとして保存されていません");
+const liveCpuOpenPonAnalysis = Sanma.ActionResolver.analyzeWin(liveCpuOpenPonEngine, 1, "ron", tile("5s"), 2);
+assert(!liveCpuOpenPonAnalysis.context.isMenzen, "実CPUポン後の和了解析が門前扱いになりました");
+assert(liveCpuOpenPonAnalysis.context.melds === liveCpuOpenPonEngine.players[1].melds, "実CPUポンmeldsが和了コンテキストに渡っていません");
+assert(liveCpuOpenPonAnalysis.agariResult.bestPattern.melds.some((meld) => meld.fixed && meld.open), "実CPUポンのopen情報が和了形から失われました");
+assert(hasYaku(liveCpuOpenPonAnalysis, "yakuhai-dragon-5"), "実CPUポン後の副露役牌を検出できませんでした");
+assert(liveCpuOpenPonAnalysis.scoreResult.isValidWin, "実CPUポン後の副露役牌を有効な和了として扱えませんでした");
+["riichi", "menzen-tsumo", "pinfu", "iipeikou", "chiitoitsu"].forEach((id) => {
+  assert(!hasYaku(liveCpuOpenPonAnalysis, id), `実CPUポン後の副露手に門前限定役${id}が付きました`);
+});
 
 console.log("Phase 14.1 fixed meld scoring tests passed.");
