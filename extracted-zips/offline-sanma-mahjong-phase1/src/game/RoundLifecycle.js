@@ -141,15 +141,16 @@
         finishGameRecord(result) {
           if (!this.gameRecord || this.gameRecord.completedAt) return;
           const currentRound = this.gameRecord.rounds[this.gameRecord.rounds.length - 1];
-          if (currentRound && currentRound.result) return;
           const safeResult = this.withDrawTenpai(result);
           const points = this.players.map((player) => player.points);
-          GameRecord.completeRound(this.gameRecord, safeResult, points, {
-            dealerIndex: this.round.dealerIndex,
-            honba: this.round.honba,
-            riichiSticks: this.round.riichiSticks,
-            pointMovement: safeResult.settlement ? safeResult.settlement.changes : [],
-          });
+          if (!currentRound || !currentRound.result) {
+            GameRecord.completeRound(this.gameRecord, safeResult, points, {
+              dealerIndex: this.round.dealerIndex,
+              honba: this.round.honba,
+              riichiSticks: this.round.riichiSticks,
+              pointMovement: safeResult.settlement ? safeResult.settlement.changes : [],
+            });
+          }
           this.matchManager.syncRound(this.round);
           const matchState = this.matchManager.completeRound(safeResult, this.players);
           if (!["win-ended", "round-ended"].includes(this.phase)) this.phase = "round-ended";
@@ -166,11 +167,23 @@
 
         withDrawTenpai(result) {
           const safeResult = Object.assign({}, result || {});
-          if (safeResult.type !== "exhaustive_draw" || safeResult.dealerTenpai !== undefined) return safeResult;
-          const dealer = this.players[this.round.dealerIndex];
-          safeResult.dealerTenpai = HandAnalysis.analyzeTenpaiWithMelds
-            ? HandAnalysis.analyzeTenpaiWithMelds(dealer.hand, dealer.melds || [], this.ruleConfig).isTenpai
-            : HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(dealer), this.ruleConfig).isTenpai;
+          if (safeResult.type !== "exhaustive_draw") return safeResult;
+          const statuses = this.players.map((player) => {
+            const tenpai = HandAnalysis.analyzeTenpaiWithMelds
+              ? HandAnalysis.analyzeTenpaiWithMelds(player.hand, player.melds || [], this.ruleConfig)
+              : HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(player), this.ruleConfig);
+            return {
+              playerIndex: player.id,
+              isTenpai: Boolean(tenpai.isTenpai),
+              waits: Array.isArray(tenpai.waits) ? tenpai.waits.map((wait) => wait.tileType || wait.label || "") : [],
+            };
+          });
+          safeResult.tenpaiStatuses = statuses;
+          safeResult.tenpaiPlayerIndexes = statuses.filter((status) => status.isTenpai).map((status) => status.playerIndex);
+          safeResult.notenPlayerIndexes = statuses.filter((status) => !status.isTenpai).map((status) => status.playerIndex);
+          if (safeResult.dealerTenpai === undefined) {
+            safeResult.dealerTenpai = statuses.some((status) => status.playerIndex === this.round.dealerIndex && status.isTenpai);
+          }
           return safeResult;
         },
 

@@ -34,8 +34,11 @@ These tests verify public API compatibility, script order, Flow module boundarie
 
 - `tests/issue-runtime-flow-regressions.test.js`
 - `tests/issue-storage-replay-regressions.test.js`
+- `tests/issue6-resolution-regressions.test.js`
 
 These tests cover the issue sweep fixes for pending kan recovery, defensive state snapshots, recovery softlocks, ron-window action filtering, pending CPU ron recovery, imported-record stats eligibility, record import semantic guards, replay diagnostics, kan replay fallback, kita replacement event order, and haitei suppression on kita replacement draws.
+
+`issue6-resolution-regressions.test.js` covers the Issue #6 scoring / storage / replay addendum: ambiguous hand score selection, stale call-window cleanup, exhaustive-draw tenpai records, stats reset isolation, malformed record/stat defense, counted and multi-yakuman record summaries, legacy replay point fallback, and stale record-index rebuilds.
 
 ## Pull Request And CI
 

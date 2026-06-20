@@ -216,6 +216,7 @@
           }
           const option = action && action.options ? action.options[Number(optionIndex) || 0] : null;
           if (!action || !option) {
+            this.callWindow = null;
             this.addLog("選択した鳴きは利用できません。");
             this.emitChange();
             return false;
@@ -224,16 +225,26 @@
             if (FuritenManager && this.callWindow.actions.some((candidate) => candidate.id === "ron")) {
               FuritenManager.markMissedRon(this, this.humanPlayer.id);
             }
-            return this.applyHumanKan(option);
+            const applied = this.applyHumanKan(option);
+            if (!applied) {
+              this.callWindow = null;
+              this.emitChange();
+            }
+            return applied;
           }
           if (actionId !== "pon" && actionId !== "chi") return false;
           if (FuritenManager && this.callWindow.actions.some((candidate) => candidate.id === "ron")) {
             FuritenManager.markMissedRon(this, this.humanPlayer.id);
           }
-          return this.applyOpenCall(this.humanPlayer.id, actionId, option, {
+          const applied = this.applyOpenCall(this.humanPlayer.id, actionId, option, {
             phase: "caller-discard",
             logPrefix: this.humanPlayer.name || "あなた",
           });
+          if (!applied) {
+            this.callWindow = null;
+            this.emitChange();
+          }
+          return applied;
         },
 
         skipHumanCall() {

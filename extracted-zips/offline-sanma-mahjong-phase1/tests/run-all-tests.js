@@ -79,6 +79,7 @@ const testFiles = [
   "recovery-flow-preservation.test.js",
   "issue-runtime-flow-regressions.test.js",
   "issue-storage-replay-regressions.test.js",
+  "issue6-resolution-regressions.test.js",
   "smoke.test.js",
   "regression.test.js",
   "source-format.test.js",

@@ -25,12 +25,36 @@
   function isStatsEligible(record) {
     if (!record || typeof record !== "object") return false;
     if (record.imported === true || record.statsEligible === false) return false;
+    if (typeof record.completedAt !== "string" || !record.completedAt) return false;
+    if (!Array.isArray(record.finalPoints) || record.finalPoints.length !== 3) return false;
     return true;
   }
 
-  function calculate(records) {
+  function isAfterSince(record, since) {
+    if (!since) return true;
+    const playedAt = record.completedAt || record.createdAt || "";
+    return String(playedAt).localeCompare(String(since)) >= 0;
+  }
+
+  function isValidWinnerIndex(result, playerCount) {
+    return Boolean(result
+      && result.score
+      && result.score.isValidWin === true
+      && Number.isInteger(result.winnerIndex)
+      && result.winnerIndex >= 0
+      && result.winnerIndex < playerCount);
+  }
+
+  function countedYakumanName(result) {
+    if (!result || !result.score || result.score.isYakuman !== true) return null;
+    if (Array.isArray(result.yakuman) && result.yakuman.length > 0) return null;
+    return result.score.limitName || "数え役満";
+  }
+
+  function calculate(records, options) {
+    const input = options || {};
     const safeRecords = Array.isArray(records) ? records : [];
-    const officialRecords = safeRecords.filter(isStatsEligible);
+    const officialRecords = safeRecords.filter((record) => isStatsEligible(record) && isAfterSince(record, input.since));
     const entries = Sanma.RecordIndex.build(officialRecords);
     const ranks = entries.map((entry) => entry.finalRank);
     const finalPoints = entries.map((entry) => entry.finalPoints);
@@ -59,7 +83,7 @@
       addMode(modes.tsumoLoss, rules.tsumoLoss);
       (Array.isArray(record.rounds) ? record.rounds : []).forEach((round) => {
         const result = round && round.result;
-        if (!result || !Number.isInteger(result.winnerIndex)) return;
+        if (!isValidWinnerIndex(result, Math.max((record.players || []).length, 3))) return;
         if (result.winnerIndex === playerIndex) {
           wins += 1;
           if (result.winType === "tsumo") tsumoWins += 1;
@@ -74,6 +98,8 @@
           yakuman.forEach((name) => {
             if (name) yakumanNames[name] = (yakumanNames[name] || 0) + 1;
           });
+          const countedName = countedYakumanName(result);
+          if (countedName) yakumanNames[countedName] = (yakumanNames[countedName] || 0) + 1;
           if ((result.score && result.score.isYakuman) || yakuman.length) yakumanCount += 1;
         } else {
           losses += 1;

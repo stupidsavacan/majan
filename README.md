@@ -40,6 +40,21 @@ Regression coverage:
 
 - `tests/issue-runtime-flow-regressions.test.js`
 - `tests/issue-storage-replay-regressions.test.js`
+- `tests/issue6-resolution-regressions.test.js`
+
+## Phase 16.2 Issue #6 Resolution
+
+Issue #6 の scoring / storage / replay addendum は決定論的な回帰テストで再現し、修正しました。
+
+- 多面分解のある和了形では標準形の候補を列挙し、スコア候補の中から最大評価の結果を採用します。
+- 失敗した人間の鳴き選択は stale `callWindow` を残しません。
+- 流局結果には全員分のテンパイ/ノーテン状態を保存します。
+- 既に `round.result` が入っている復旧局でも `finishGameRecord()` は対局状態へ局終了を同期します。
+- 成績リセット後は `resetAt` 以降のローカル完了牌譜だけを高度成績へ反映します。
+- 不正な `winnerIndex`、`isValidWin: false`、未完了牌譜は高度成績・牌譜索引で勝敗として数えません。
+- 数え役満と複数役満は高度成績・牌譜索引で区別します。
+- 古い牌譜に `score_settlement` が無い場合も、局結果の点数移動からリプレイ最終点を復元します。
+- 同一IDでも古い `RecordIndex` は牌譜本体と照合し、食い違う場合は再構築します。
 
 ## Preserved Behavior
 
@@ -64,7 +79,7 @@ Root `index.html` がcanonical runtimeを読み込みます。root `src/main.js`
 ## Current Limitations
 
 - ダブロンは未実装です。ロン候補が複数ある場合は頭ハネで最寄り1名を勝者にします。
-- CPUのポン/チー/明槓は未実装です。CPU通常ロンとCPU槍槓は実装済みです。
+- CPUのポン/チー/明槓は実装済みです。CPU通常ロンとCPU槍槓も実装済みです。CPU戦略は簡易のままです。
 - CPU戦略は簡易です。押し引き、安全牌判断、打点期待値AIは未実装です。
 - 南入/西入、ZIP入力そのものの完全検証UIは未実装です。
 

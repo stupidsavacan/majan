@@ -25,6 +25,7 @@
       highestHand: null,
       totalScoreMovement: 0,
       lastPlayedAt: null,
+      resetAt: null,
     };
   }
 
@@ -98,8 +99,16 @@
   function indexMatchesRecords(entries, records) {
     if (!Array.isArray(records)) return true;
     if (entries.length !== records.length) return false;
-    const recordIds = new Set(records.map((record) => record && record.id).filter(Boolean));
-    return entries.every((entry) => entry && recordIds.has(entry.id));
+    const expectedById = new Map(Sanma.RecordIndex.build(records).map((entry) => [entry.id, entry]));
+    return entries.every((entry) => {
+      const expected = entry && expectedById.get(entry.id);
+      if (!expected) return false;
+      return entry.summary === expected.summary
+        && entry.finalRank === expected.finalRank
+        && entry.finalPoints === expected.finalPoints
+        && entry.sizeBytes === expected.sizeBytes
+        && JSON.stringify(entry.tags || []) === JSON.stringify(expected.tags || []);
+    });
   }
 
   function loadIndex(records) {
@@ -236,8 +245,10 @@
       ? loaded.highestHand
       : null;
     stats.lastPlayedAt = typeof loaded.lastPlayedAt === "string" ? loaded.lastPlayedAt : null;
+    stats.resetAt = typeof loaded.resetAt === "string" ? loaded.resetAt : null;
     if (loaded.highestHand !== undefined && loaded.highestHand !== null && !stats.highestHand) recovered = true;
     if (loaded.lastPlayedAt !== undefined && loaded.lastPlayedAt !== null && !stats.lastPlayedAt) recovered = true;
+    if (loaded.resetAt !== undefined && loaded.resetAt !== null && !stats.resetAt) recovered = true;
     if (recovered) {
       status.corruptedRecovered = true;
       backupCurrent(STATS_KEY, "不正な成績フィールドを修復しました");
@@ -312,8 +323,9 @@
 
   function resetStats() {
     try {
-      localStorage.removeItem(STATS_KEY);
-      return true;
+      const stats = defaultStats();
+      stats.resetAt = new Date().toISOString();
+      return writeJson(STATS_KEY, stats);
     } catch (error) {
       rememberError(error, "write");
       return false;

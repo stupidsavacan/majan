@@ -9,6 +9,26 @@ const players = [
   { id: 2, name: "CPU 2", seatWind: "west", isHuman: false, points: 35000 },
 ];
 const valid = Sanma.GameRecord.create({ players, seed: "saved-record-valid" });
+valid.completedAt = "2026-06-19T00:00:00.000Z";
+valid.finalPoints = [43000, 31000, 31000];
+valid.finalRankings = [
+  { playerIndex: 0, rank: 1, points: 43000 },
+  { playerIndex: 1, rank: 2, points: 31000 },
+  { playerIndex: 2, rank: 3, points: 31000 },
+];
+valid.rounds[0].result = {
+  type: "win",
+  winnerIndex: 0,
+  winType: "tsumo",
+  yaku: ["riichi"],
+  yakuman: [],
+  score: { isValidWin: true, isYakuman: false, han: 5, fu: 30, limitName: "mangan" },
+  changes: [
+    { playerIndex: 0, delta: 8000, after: 43000 },
+    { playerIndex: 1, delta: -4000, after: 31000 },
+    { playerIndex: 2, delta: -4000, after: 31000 },
+  ],
+};
 
 function stored(records) {
   storage.data[Sanma.GameRecordStorage.RECORDS_KEY] = JSON.stringify({ version: 2, records });
