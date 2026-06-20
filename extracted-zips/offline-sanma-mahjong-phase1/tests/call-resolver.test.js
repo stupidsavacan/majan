@@ -51,6 +51,7 @@ function snapshotState(state) {
       discards: player.discards.map((discardedTile) => discardedTile.instanceId),
       melds: player.melds,
       hasRiichi: player.hasRiichi,
+      riichi: player.riichi,
       lastDraw: player.lastDraw && player.lastDraw.instanceId,
     })),
   });
@@ -113,6 +114,20 @@ riichiState.players[1].hasRiichi = true;
 discardFrom(riichiState, 0, "white");
 assert(CallResolver.collectCpuCallCandidates(riichiState, 0).length === 0, "CPU must not collect non-winning calls after riichi");
 
+const riichiPendingState = createState();
+riichiPendingState.players[1].hand = hand(["white", "white", "white", "1p"]);
+riichiPendingState.players[1].riichi = Object.assign({}, riichiPendingState.players[1].riichi, { pending: true });
+discardFrom(riichiPendingState, 0, "white");
+assert(CallResolver.getLegalCallActions(riichiPendingState, 1).length === 0, "riichi.pending must block non-winning call exposure");
+assert(CallResolver.collectCpuCallCandidates(riichiPendingState, 0).length === 0, "riichi.pending must block CPU call candidates");
+
+const riichiDeclaredState = createState();
+riichiDeclaredState.players[1].hand = hand(["white", "white", "white", "1p"]);
+riichiDeclaredState.players[1].riichi = Object.assign({}, riichiDeclaredState.players[1].riichi, { declared: true });
+discardFrom(riichiDeclaredState, 0, "white");
+assert(CallResolver.getLegalCallActions(riichiDeclaredState, 1).length === 0, "riichi.declared must block non-winning call exposure");
+assert(CallResolver.collectCpuCallCandidates(riichiDeclaredState, 0).length === 0, "riichi.declared must block CPU call candidates");
+
 const minkanState = createState();
 minkanState.players[1].hand = hand(["white", "white", "white", "1p"]);
 discardFrom(minkanState, 0, "white");
@@ -127,7 +142,7 @@ assert(CallResolver.collectCpuCallCandidates(emptyWallState, 0).length === 0, "C
 
 const originalChooseCall = Sanma.CpuStrategy.chooseCall;
 delete Sanma.CpuStrategy.chooseCall;
-assert(CallResolver.selectCpuCallCandidate(minkanState, minkanCandidates) === null, "selectCpuCallCandidate must return null when CpuStrategy.chooseCall is absent");
+assert(CallResolver.selectCpuCallCandidate(minkanState, minkanCandidates) === minkanCandidates[0], "selectCpuCallCandidate must fall back to the deterministic first legal candidate when CpuStrategy.chooseCall is absent");
 Sanma.CpuStrategy.chooseCall = ({ legalCalls }) => legalCalls[0];
 assert(CallResolver.selectCpuCallCandidate(minkanState, minkanCandidates) === minkanCandidates[0], "selectCpuCallCandidate must accept a legal strategy result");
 Sanma.CpuStrategy.chooseCall = () => ({ playerIndex: 2, actionId: "pon", optionIndex: 0, option: { type: "pon" } });
