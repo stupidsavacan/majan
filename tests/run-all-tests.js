@@ -7,6 +7,7 @@ const testFiles = [
   "yaku-analysis.test.js",
   "score-calculator.test.js",
   "action-resolver.test.js",
+  "call-resolver.test.js",
   "rules-scoring-regression.test.js",
   "advanced-rules.test.js",
   "state-integrity.test.js",
