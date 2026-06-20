@@ -31,10 +31,29 @@
     let highest = null;
     (record.rounds || []).forEach((round) => {
       const result = round && round.result;
-      if (!result || !result.score || !result.score.isValidWin) return;
+      if (!isValidWinResult(result, record.players && record.players.length)) return;
       if (!highest || scoreValue(result) > scoreValue(highest)) highest = result;
     });
     return highest;
+  }
+
+  function isValidWinResult(result, playerCount) {
+    const count = Number.isInteger(playerCount) && playerCount > 0 ? playerCount : 3;
+    return Boolean(result
+      && result.score
+      && result.score.isValidWin === true
+      && Number.isInteger(result.winnerIndex)
+      && result.winnerIndex >= 0
+      && result.winnerIndex < count);
+  }
+
+  function yakumanMultiplier(record) {
+    return (record.rounds || []).reduce((max, round) => {
+      const result = round && round.result;
+      const score = result && result.score;
+      if (!isValidWinResult(result, record.players && record.players.length) || !score || score.isYakuman !== true) return max;
+      return Math.max(max, Math.max(1, Number(score.yakumanCount) || 1));
+    }, 0);
   }
 
   function sizeBytes(value) {
@@ -53,19 +72,23 @@
       ? Number(record.finalPoints[playerIndex])
       : null;
     const rounds = Array.isArray(record.rounds) ? record.rounds : [];
-    const humanWins = rounds.filter((round) => round && round.result && round.result.winnerIndex === playerIndex).length;
+    const playerCount = Array.isArray(record.players) ? record.players.length : 3;
+    const humanWins = rounds.filter((round) => (
+      isValidWinResult(round && round.result, playerCount) && round.result.winnerIndex === playerIndex
+    )).length;
     const losses = rounds.filter((round) => (
-      round && round.result && Number.isInteger(round.result.winnerIndex) && round.result.winnerIndex !== playerIndex
+      isValidWinResult(round && round.result, playerCount) && round.result.winnerIndex !== playerIndex
     )).length;
     const yakuman = rounds.some((round) => (
-      round && round.result && (
+      isValidWinResult(round && round.result, playerCount) && (
         (round.result.score && round.result.score.isYakuman)
         || (Array.isArray(round.result.yakuman) && round.result.yakuman.length > 0)
       )
     ));
+    const yakumanCount = yakumanMultiplier(record);
     const highScore = rounds.some((round) => {
       const result = round && round.result;
-      return result && result.score && (
+      return isValidWinResult(result, playerCount) && result.score && (
         result.score.isYakuman
         || Boolean(result.score.limitName)
         || Number(result.score.han) >= 5
@@ -77,6 +100,7 @@
     if (losses > 0) tags.push("敗北");
     if (yakuman) tags.push("役満");
     if (highScore) tags.push("高打点");
+    if (yakuman && yakumanCount > 1) tags.push(`${yakumanCount}倍役満`);
     const mode = record.ruleConfig && (record.ruleConfig.matchLength || record.ruleConfig.gameLength);
     const modeLabel = mode === "single" ? "一局戦" : mode === "tonpuu" ? "東風戦" : mode === "hanchan" ? "半荘戦" : "対局";
     const summaryParts = [modeLabel];
@@ -93,6 +117,7 @@
       humanWins,
       losses,
       hasYakuman: yakuman,
+      yakumanCount,
       hasHighScore: highScore,
       tags,
       schemaVersion: Number(record.version) || 1,
@@ -125,6 +150,8 @@
     finalRank,
     scoreValue,
     highestHand,
+    isValidWinResult,
+    yakumanMultiplier,
     sizeBytes,
     buildEntry,
     build,

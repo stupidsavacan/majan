@@ -225,11 +225,12 @@
 
   function renderRecords() {
     const records = Sanma.GameRecordStorage.loadRecords();
+    const stats = Sanma.GameRecordStorage.loadStats();
     Sanma.RecordPanel.render(recordsRoot, {
       records,
       entries: Sanma.GameRecordStorage.loadIndex(records),
-      stats: Sanma.GameRecordStorage.loadStats(),
-      advancedStats: Sanma.AdvancedStats.calculate(records),
+      stats,
+      advancedStats: Sanma.AdvancedStats.calculate(records, { since: stats.resetAt }),
       diagnostics: Sanma.GameRecordStorage.getDiagnostics(),
     }, {
       onCopy: (text, status) => {

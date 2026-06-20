@@ -115,7 +115,18 @@
   }
 
   function validateResultSemantics(result) {
-    if (!result || !Array.isArray(result.changes)) return;
+    if (!result) return;
+    if (result.winnerIndex !== undefined && result.winnerIndex !== null) {
+      if (!Number.isInteger(result.winnerIndex)
+        || result.winnerIndex < 0
+        || result.winnerIndex >= REQUIRED_PLAYER_COUNT) {
+        throw new Error("winnerIndex is outside the player range.");
+      }
+      if (result.score && result.score.isValidWin === false) {
+        throw new Error("winnerIndex cannot be set on an invalid win result.");
+      }
+    }
+    if (!Array.isArray(result.changes)) return;
     const seen = new Set();
     let deltaSum = 0;
     result.changes.forEach((change) => {
@@ -357,6 +368,9 @@
         delta: change.delta,
         after: change.after,
       })),
+      tenpaiStatuses: Array.isArray(input.tenpaiStatuses) ? clone(input.tenpaiStatuses) : [],
+      tenpaiPlayerIndexes: Array.isArray(input.tenpaiPlayerIndexes) ? input.tenpaiPlayerIndexes.slice() : [],
+      notenPlayerIndexes: Array.isArray(input.notenPlayerIndexes) ? input.notenPlayerIndexes.slice() : [],
       reason: input.reason || "",
     };
   }

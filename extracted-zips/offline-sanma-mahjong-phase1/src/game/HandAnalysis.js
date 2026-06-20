@@ -120,14 +120,80 @@
     return null;
   }
 
+  function findAllMelds(counts, melds, results) {
+    const output = results || [];
+    const first = counts.findIndex((count) => count > 0);
+    if (first < 0) {
+      output.push(melds.slice());
+      return output;
+    }
+
+    if (counts[first] >= 3) {
+      counts[first] -= 3;
+      melds.push(describeGroup("triplet", [first, first, first]));
+      findAllMelds(counts, melds, output);
+      melds.pop();
+      counts[first] += 3;
+    }
+
+    const type = tileTypes[first];
+    const canSequence = (type.suit === "p" || type.suit === "s") && type.rank <= 7;
+    if (canSequence && counts[first + 1] > 0 && counts[first + 2] > 0) {
+      counts[first] -= 1;
+      counts[first + 1] -= 1;
+      counts[first + 2] -= 1;
+      melds.push(describeGroup("sequence", [first, first + 1, first + 2]));
+      findAllMelds(counts, melds, output);
+      melds.pop();
+      counts[first] += 1;
+      counts[first + 1] += 1;
+      counts[first + 2] += 1;
+    }
+
+    return output;
+  }
+
   function invalidAgariResult(type, reason, tileCount) {
     return { isAgari: false, type, pair: null, melds: [], tileCount, reason };
+  }
+
+  function standardPatternFrom(pairIndex, melds, tileCount, fixedGroups) {
+    const fixed = Array.isArray(fixedGroups) ? fixedGroups : [];
+    return {
+      isAgari: true,
+      type: "standard",
+      typeLabel: fixed.length ? "fixed standard" : "standard",
+      pair: describeGroup("pair", [pairIndex, pairIndex]),
+      melds: melds.concat(fixed),
+      fixedMelds: fixed.slice(),
+      tileCount,
+      concealedTileCount: tileCount - fixed.length * 3,
+      reason: "standard decomposition",
+    };
+  }
+
+  function standardAgariPatternsFromCounts(converted, requiredMelds, fixedGroups) {
+    const patterns = [];
+    for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
+      if (converted.counts[pairIndex] < 2) continue;
+      const remaining = converted.counts.slice();
+      remaining[pairIndex] -= 2;
+      findAllMelds(remaining, [], [])
+        .filter((melds) => melds.length === requiredMelds)
+        .forEach((melds) => {
+          patterns.push(standardPatternFrom(pairIndex, melds, 14, fixedGroups));
+        });
+    }
+    return patterns;
   }
 
   function isStandardAgari(tiles, ruleConfig) {
     const converted = toCountArray(tiles, ruleConfig);
     if (!converted.isValid) return invalidAgariResult("standard", converted.reason, converted.tileCount);
     if (converted.tileCount !== 14) return invalidAgariResult("standard", "4面子1雀頭判定には14枚必要です。", converted.tileCount);
+
+    const patterns = standardAgariPatternsFromCounts(converted, 4, []);
+    if (patterns.length > 0) return Object.assign({}, patterns[0], { patterns });
 
     for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
       if (converted.counts[pairIndex] < 2) continue;
@@ -236,6 +302,9 @@
       );
     }
 
+    const patterns = standardAgariPatternsFromCounts(converted, 4 - fixedGroups.length, fixedGroups);
+    if (patterns.length > 0) return Object.assign({}, patterns[0], { patterns });
+
     for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
       if (converted.counts[pairIndex] < 2) continue;
       const remaining = converted.counts.slice();
@@ -262,10 +331,11 @@
     const melds = Array.isArray(fixedMelds) ? fixedMelds : [];
     if (melds.length === 0) return analyzeAgari(concealedTiles, ruleConfig);
     const standard = isStandardAgariWithMelds(concealedTiles, melds, ruleConfig);
+    const patterns = standard.isAgari && Array.isArray(standard.patterns) ? standard.patterns : (standard.isAgari ? [standard] : []);
     return {
       isAgari: standard.isAgari,
-      patterns: standard.isAgari ? [standard] : [],
-      bestPattern: standard.isAgari ? standard : null,
+      patterns,
+      bestPattern: patterns[0] || null,
       tileCount: standard.tileCount,
       reason: standard.reason,
     };
@@ -277,12 +347,14 @@
       return { isAgari: false, patterns: [], bestPattern: null, tileCount: converted.tileCount, reason: converted.reason };
     }
 
+    const standard = isStandardAgari(tiles, ruleConfig);
     const checked = [
-      isStandardAgari(tiles, ruleConfig),
+      standard,
       isChiitoitsuAgari(tiles, ruleConfig),
       isKokushiAgari(tiles, ruleConfig),
     ];
-    const patterns = checked.filter((pattern) => pattern.isAgari);
+    const standardPatterns = standard.isAgari && Array.isArray(standard.patterns) ? standard.patterns : (standard.isAgari ? [standard] : []);
+    const patterns = standardPatterns.concat(checked.slice(1).filter((pattern) => pattern.isAgari));
     const priority = ["kokushi", "chiitoitsu", "standard"];
     const bestPattern = priority.map((type) => patterns.find((pattern) => pattern.type === type)).find(Boolean) || null;
     return {

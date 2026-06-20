@@ -89,6 +89,29 @@
       : context;
   }
 
+  function scoreCandidateRank(scoreResult) {
+    if (!scoreResult || !scoreResult.isValidWin) return -1;
+    const yakumanWeight = scoreResult.isYakuman
+      ? 100000000 + (Number(scoreResult.yakumanCount) || 1) * 1000000
+      : 0;
+    const payment = scoreResult.payments && scoreResult.payments.ron
+      ? Number(scoreResult.payments.ron.winnerGain || scoreResult.payments.ron.amount) || 0
+      : scoreResult.payments && scoreResult.payments.tsumo
+        ? Number(scoreResult.payments.tsumo.winnerGain || scoreResult.payments.tsumo.total) || 0
+        : 0;
+    return yakumanWeight
+      + payment
+      + (Number(scoreResult.han) || 0) * 10000
+      + (Number(scoreResult.fu) || 0);
+  }
+
+  function agariForPattern(agariResult, pattern) {
+    return Object.assign({}, agariResult, {
+      bestPattern: pattern,
+      patterns: Array.isArray(agariResult.patterns) ? agariResult.patterns : [pattern],
+    });
+  }
+
   function analyzeWin(state, playerIndex, winType, discardedTile, loserIndex) {
     const player = state.players[playerIndex];
     const concealedTiles = (player.hand || []).slice().concat(discardedTile ? [discardedTile] : []);
@@ -100,10 +123,62 @@
       player.melds || [],
       state.ruleConfig || {}
     );
-    context.waitType = waitTypeForPattern(agariResult.bestPattern, context.winningTile);
-    const yakuResult = Sanma.YakuAnalysis.analyzeYaku({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, context });
-    const scoreResult = Sanma.ScoreCalculator.calculateScore({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, yakuResult, context });
-    return { tiles, context, agariResult, yakuResult, scoreResult };
+    const candidatePatterns = Array.isArray(agariResult.patterns) && agariResult.patterns.length
+      ? agariResult.patterns
+      : [agariResult.bestPattern].filter(Boolean);
+    const scoreCandidates = candidatePatterns.map((pattern) => {
+      const candidateAgari = agariForPattern(agariResult, pattern);
+      const candidateContext = Object.assign({}, context, {
+        waitType: waitTypeForPattern(pattern, context.winningTile),
+      });
+      const candidateYaku = Sanma.YakuAnalysis.analyzeYaku({
+        tiles,
+        ruleConfig: state.ruleConfig || {},
+        agariResult: candidateAgari,
+        context: candidateContext,
+      });
+      const candidateScore = Sanma.ScoreCalculator.calculateScore({
+        tiles,
+        ruleConfig: state.ruleConfig || {},
+        agariResult: candidateAgari,
+        yakuResult: candidateYaku,
+        context: candidateContext,
+      });
+      return {
+        agariResult: candidateAgari,
+        context: candidateContext,
+        yakuResult: candidateYaku,
+        scoreResult: candidateScore,
+        rankScore: scoreCandidateRank(candidateScore),
+      };
+    });
+    const selected = scoreCandidates
+      .slice()
+      .sort((left, right) => right.rankScore - left.rankScore)[0] || {
+        agariResult,
+        context,
+        yakuResult: Sanma.YakuAnalysis.analyzeYaku({ tiles, ruleConfig: state.ruleConfig || {}, agariResult, context }),
+        scoreResult: null,
+        rankScore: -1,
+      };
+    if (!selected.scoreResult) {
+      selected.scoreResult = Sanma.ScoreCalculator.calculateScore({
+        tiles,
+        ruleConfig: state.ruleConfig || {},
+        agariResult: selected.agariResult,
+        yakuResult: selected.yakuResult,
+        context: selected.context,
+      });
+    }
+    return {
+      tiles,
+      context: selected.context,
+      agariResult: selected.agariResult,
+      yakuResult: selected.yakuResult,
+      scoreResult: selected.scoreResult,
+      scoreCandidates,
+      selectedScoreCandidate: selected,
+    };
   }
 
   function matchingTiles(player, tile) {

@@ -58,7 +58,10 @@ malformed.rounds[0].result.yaku = {};
 malformed.rounds[0].result.yakuman = {};
 malformed.rounds[0].result.score = null;
 const stats = Sanma.AdvancedStats.calculate([malformed]);
+assert(stats && stats.hand.wins === 0 && stats.hand.losses === 0, "malformed null-score record was counted as a win/loss");
+/*
 assert(stats && stats.hand.wins === 1, "不正な役配列またはnull scoreで成績計算が停止しました");
+*/
 function node() {
   return {
     children: [],

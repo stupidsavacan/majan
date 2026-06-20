@@ -218,10 +218,40 @@
     return view;
   }
 
+  function pointChangesFromRound(round) {
+    if (!round || typeof round !== "object") return [];
+    if (round.result && Array.isArray(round.result.changes) && round.result.changes.length > 0) {
+      return round.result.changes;
+    }
+    if (Array.isArray(round.pointMovement) && round.pointMovement.length > 0) {
+      return round.pointMovement;
+    }
+    return [];
+  }
+
+  function applyLegacyPointFallback(view, round) {
+    pointChangesFromRound(round).forEach((change) => {
+      if (
+        change
+        && Number.isInteger(change.playerIndex)
+        && change.playerIndex >= 0
+        && change.playerIndex < view.points.length
+        && Number.isFinite(Number(change.after))
+      ) {
+        view.points[change.playerIndex] = Number(change.after);
+      }
+    });
+  }
+
   function rebuild(state) {
     const round = state.record.rounds[state.roundIndex];
     const view = initialView(state.record, round);
-    round.events.slice(0, state.eventIndex).forEach((event) => applyEvent(view, event));
+    const appliedEvents = round.events.slice(0, state.eventIndex);
+    appliedEvents.forEach((event) => applyEvent(view, event));
+    if (state.eventIndex >= round.events.length
+      && !appliedEvents.some((event) => event && event.type === "score_settlement")) {
+      applyLegacyPointFallback(view, round);
+    }
     state.view = view;
     state.diagnostics = view.diagnostics.slice();
     state.partial = !round.events.some((event) => event && event.type === "deal")
