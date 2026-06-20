@@ -38,7 +38,7 @@
     return Boolean(
       supplied
       && legal
-      && supplied.type === actionId
+      && (!supplied.type || supplied.type === actionId)
       && legal.type === actionId
       && supplied.fromPlayerIndex === legal.fromPlayerIndex
       && tileInstanceId(supplied) === tileInstanceId(legal)
@@ -68,7 +68,7 @@
     if (!engine.lastDiscard || !Number.isInteger(engine.lastDiscard.playerIndex) || !engine.lastDiscard.tile) {
       return { ok: false, reason: "対象の捨て牌がありません。" };
     }
-    if (!option || option.type !== actionId || !option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
+    if (!option || (option.type && option.type !== actionId) || !option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
       return { ok: false, reason: "鳴き情報が不正です。" };
     }
     if (!Number.isInteger(option.fromPlayerIndex) || option.fromPlayerIndex !== engine.lastDiscard.playerIndex) {
@@ -79,9 +79,12 @@
       return { ok: false, reason: "鳴く牌が現在の捨て牌と一致しません。" };
     }
 
-    const currentLegalOption = findCurrentLegalOpenCallOption(engine, playerIndex, actionId, option);
-    if (!currentLegalOption) {
-      return { ok: false, reason: "現在の合法な鳴き候補と一致しません。" };
+    let currentLegalOption = option;
+    if (Sanma.CallResolver && typeof Sanma.CallResolver.getLegalCallActions === "function") {
+      currentLegalOption = findCurrentLegalOpenCallOption(engine, playerIndex, actionId, option);
+      if (!currentLegalOption) {
+        return { ok: false, reason: "現在の合法な鳴き候補と一致しません。" };
+      }
     }
 
     const discarder = engine.players[currentLegalOption.fromPlayerIndex];
@@ -179,7 +182,7 @@
             return this.beginKanAttempt(candidate.playerIndex, candidate.option);
           }
           if (actionId !== "pon" && actionId !== "chi") return false;
-          return this.applyOpenCall(candidate.playerIndex, actionId, candidate.option, metadata);
+          return Sanma.CallFlow.applyOpenCall.call(this, candidate.playerIndex, actionId, candidate.option, metadata);
         },
 
         claimHumanCall(actionId, optionIndex) {
