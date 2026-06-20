@@ -90,6 +90,22 @@
     return consumed;
   }
 
+  function kanMeldFromEvent(data, tiles, existingMeld) {
+    const kanType = (data && data.kanType) || (existingMeld && existingMeld.kanType) || "kan";
+    const meld = {
+      type: "kan",
+      kanType,
+      tiles: Array.isArray(tiles) ? tiles.slice() : [],
+      open: kanType !== "ankan",
+    };
+    if (data && Number.isInteger(data.fromPlayerIndex)) {
+      meld.fromPlayerIndex = data.fromPlayerIndex;
+    } else if (existingMeld && Number.isInteger(existingMeld.fromPlayerIndex)) {
+      meld.fromPlayerIndex = existingMeld.fromPlayerIndex;
+    }
+    return meld;
+  }
+
   function warn(view, message) {
     if (!Array.isArray(view.diagnostics)) view.diagnostics = [];
     view.diagnostics.push(message);
@@ -172,9 +188,9 @@
         tiles.forEach((tile) => removeOrWarn(view, playerZone(view, "hands", playerIndex), tile, "kan"));
       }
       if (data.kanType === "kakan" && Number.isInteger(data.meldIndex) && melds[data.meldIndex]) {
-        melds[data.meldIndex] = { type: "kakan", tiles };
+        melds[data.meldIndex] = kanMeldFromEvent(data, tiles, melds[data.meldIndex]);
       } else {
-        melds.push({ type: data.kanType || "kan", tiles });
+        melds.push(kanMeldFromEvent(data, tiles, null));
       }
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
       if (data.kanType === "minkan" && sourceDiscards) removeOrWarn(view, sourceDiscards, data.calledTile, "minkan discard");
