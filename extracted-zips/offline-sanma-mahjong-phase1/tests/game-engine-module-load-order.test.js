@@ -3,7 +3,8 @@ const path = require("path");
 const { assert, loadModules, projectRoot } = require("./test-helpers");
 
 const Sanma = loadModules();
-const flowModules = [
+const preEngineModules = [
+  "CallResolver",
   "DrawContext",
   "RecordFlow",
   "RoundLifecycle",
@@ -21,7 +22,7 @@ const mainSource = fs.readFileSync(path.resolve(projectRoot, "src", "main.js"), 
 function assertOrder(source, prefix) {
   const gameEngineIndex = source.indexOf(`${prefix}GameEngine.js`);
   assert(gameEngineIndex >= 0, "GameEngine.js must be loaded");
-  flowModules.forEach((name) => {
+  preEngineModules.forEach((name) => {
     const modulePath = `${prefix}${name}.js`;
     const moduleIndex = source.indexOf(modulePath);
     assert(moduleIndex >= 0, `${modulePath} must be loaded`);
@@ -33,7 +34,7 @@ assertOrder(canonicalIndex, "src/game/");
 assertOrder(rootIndex, "extracted-zips/offline-sanma-mahjong-phase1/src/game/");
 assertOrder(testHelpers, "src/game/");
 
-flowModules.forEach((name) => {
+preEngineModules.forEach((name) => {
   assert(Sanma[name], `Sanma.${name} must be attached`);
   assert(mainSource.includes(`"${name}"`), `diagnostics must include ${name}`);
 });
@@ -41,7 +42,7 @@ assert(mainSource.includes("modules_loaded: requiredModules.every"), "diagnostic
 
 const simulatedModules = Object.assign({}, Sanma);
 delete simulatedModules.TurnFlow;
-const missing = flowModules.filter((name) => !simulatedModules[name]);
+const missing = preEngineModules.filter((name) => !simulatedModules[name]);
 assert(missing.length === 1 && missing[0] === "TurnFlow", "missing module detection must catch a removed flow module");
 
 console.log("Phase 16 GameEngine module load-order tests passed.");

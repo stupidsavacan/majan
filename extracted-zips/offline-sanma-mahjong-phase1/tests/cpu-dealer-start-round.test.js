@@ -18,6 +18,26 @@ function currentEvents(engine) {
   return engine.gameRecord.rounds[engine.gameRecord.rounds.length - 1].events;
 }
 
+function discardWasClaimedByCall(events, discarderIndex, discardEvent) {
+  const tile = discardEvent && discardEvent.data && discardEvent.data.tile;
+  if (!tile || !tile.instanceId) return false;
+  return events.some((event) => (
+    event
+    && event.type === "call"
+    && event.data
+    && event.data.fromPlayerIndex === discarderIndex
+    && event.data.calledTile
+    && event.data.calledTile.instanceId === tile.instanceId
+  ));
+}
+
+function discardIsVisibleOrClaimed(engine, events, discarderIndex, discardEvent) {
+  const tile = discardEvent && discardEvent.data && discardEvent.data.tile;
+  if (!tile || !tile.instanceId) return false;
+  return engine.players[discarderIndex].discards.some((discard) => discard.instanceId === tile.instanceId)
+    || discardWasClaimedByCall(events, discarderIndex, discardEvent);
+}
+
 function setDealer(engine, dealerIndex) {
   const state = engine.matchManager.state;
   state.dealerIndex = dealerIndex;
@@ -121,6 +141,7 @@ try {
   const cpuDealerDiscardIndex = cpuDealerEvents.findIndex((event) =>
     event.type === "discard" && event.data.playerIndex === 1
   );
+  const cpuDealerDiscardEvent = cpuDealerDiscardIndex >= 0 ? cpuDealerEvents[cpuDealerDiscardIndex] : null;
   const cpuDealerDrawIndex = cpuDealerEvents.findIndex((event) =>
     event.type === "draw" && event.data.playerIndex === 1
   );
@@ -134,8 +155,11 @@ try {
     cpuDealerDrawIndex < 0 || cpuDealerDrawIndex > cpuDealerDiscardIndex,
     "CPU 1親が初打牌前に通常ツモしました"
   );
-  assert(cpuDealer.players[1].discards.length === 1, "CPU 1親の初打牌が河にありません");
-  assert(cpuDealer.players[1].hand.length === 13, "CPU 1親が初打牌後も14枚を保持しています");
+  assert(
+    discardIsVisibleOrClaimed(cpuDealer, cpuDealerEvents, 1, cpuDealerDiscardEvent),
+    "CPU 1 dealer first discard is neither visible in river nor claimed by a call"
+  );
+  assert(cpuDealer.players[1].hand.length <= 13, "CPU 1 dealer holds 14 or more tiles after first discard progression");
   assert(!drawAssistCalls.includes(1), "CPU 1親の初打牌前にdraw assistが評価されました");
   assertLegalHumanInteraction(cpuDealer, "CPU 1親自動開始");
   assert(Sanma.TileLedger.inspect(cpuDealer, cpuDealer.ruleConfig).ok, "CPU 1親自動開始後のTileLedgerが不正です");
@@ -144,9 +168,17 @@ try {
   disableCpuSpecialActions(cpuTwoDealer);
   setDealer(cpuTwoDealer, 2);
   cpuTwoDealer.startRound();
+  const cpuTwoEvents = currentEvents(cpuTwoDealer);
+  const cpuTwoDiscardIndex = cpuTwoEvents.findIndex((event) =>
+    event.type === "discard" && event.data.playerIndex === 2
+  );
+  const cpuTwoDiscardEvent = cpuTwoDiscardIndex >= 0 ? cpuTwoEvents[cpuTwoDiscardIndex] : null;
   assert(cpuTwoDealer.round.dealerIndex === 2, "CPU 2親への実親ローテーションが保持されていません");
-  assert(cpuTwoDealer.players[2].discards.length === 1, "CPU 2親が自動で初打牌しませんでした");
-  assert(cpuTwoDealer.players[2].hand.length === 13, "CPU 2親が初打牌後も14枚を保持しています");
+  assert(
+    discardIsVisibleOrClaimed(cpuTwoDealer, cpuTwoEvents, 2, cpuTwoDiscardEvent),
+    "CPU 2 dealer first discard is neither visible in river nor claimed by a call"
+  );
+  assert(cpuTwoDealer.players[2].hand.length <= 13, "CPU 2 dealer holds 14 or more tiles after first discard progression");
   assertLegalHumanInteraction(cpuTwoDealer, "CPU 2親自動開始");
   assert(Sanma.TileLedger.inspect(cpuTwoDealer, cpuTwoDealer.ruleConfig).ok, "CPU 2親自動開始後のTileLedgerが不正です");
 

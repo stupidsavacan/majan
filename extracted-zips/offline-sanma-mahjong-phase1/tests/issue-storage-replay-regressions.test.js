@@ -78,6 +78,44 @@ Sanma.ReplayViewer.jumpToEnd(replay);
 assert(replay.partial === true, "Replay did not mark missing tile removal as partial");
 assert(replay.diagnostics && replay.diagnostics.length > 0, "Replay missing tile did not record diagnostics");
 
+function replayTile(baseId, instanceId) {
+  return { baseId, label: baseId, instanceId };
+}
+
+const calledTile = replayTile("3p", "discard-3p");
+const consumedOne = replayTile("3p", "cpu-hand-3p-a");
+const consumedTwo = replayTile("3p", "cpu-hand-3p-b");
+const keptTile = replayTile("5s", "cpu-keep-5s");
+const cpuCallReplayRecord = Sanma.GameRecord.create({ players });
+Sanma.GameRecord.addEvent(cpuCallReplayRecord, "deal", {
+  hands: [
+    { playerIndex: 0, tiles: [calledTile] },
+    { playerIndex: 1, tiles: [consumedOne, consumedTwo, keptTile] },
+    { playerIndex: 2, tiles: [] },
+  ],
+});
+Sanma.GameRecord.addEvent(cpuCallReplayRecord, "discard", { playerIndex: 0, tile: calledTile });
+Sanma.GameRecord.addEvent(cpuCallReplayRecord, "call", {
+  playerIndex: 1,
+  playerName: "CPU 1",
+  action: "pon",
+  fromPlayerIndex: 0,
+  tiles: [consumedOne, consumedTwo, calledTile],
+  calledTile,
+});
+const cpuCallReplay = Sanma.ReplayViewer.create(cpuCallReplayRecord);
+Sanma.ReplayViewer.jumpToEnd(cpuCallReplay);
+assert(cpuCallReplay.partial === false, "CPU call replay was incorrectly marked partial");
+assert(cpuCallReplay.view.discards[0].length === 0, "CPU call replay left the called tile in the source river");
+assert(
+  cpuCallReplay.view.hands[1].length === 1 && cpuCallReplay.view.hands[1][0].instanceId === keptTile.instanceId,
+  "CPU call replay removed the wrong caller hand tiles"
+);
+assert(
+  cpuCallReplay.view.melds[1].length === 1 && cpuCallReplay.view.melds[1][0].tiles.length === 3,
+  "CPU call replay did not create a complete meld"
+);
+
 const kanReplayRecord = Sanma.GameRecord.create({ players });
 Sanma.GameRecord.addEvent(kanReplayRecord, "deal", {
   hands: [{ playerIndex: 0, tiles: ["1p", "1p", "1p", "1p"] }],

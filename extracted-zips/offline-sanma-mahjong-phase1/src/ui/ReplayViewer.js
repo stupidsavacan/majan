@@ -51,6 +51,45 @@
     return false;
   }
 
+  function removeFirstMatchingTile(tiles, tile) {
+    if (!Array.isArray(tiles) || !tile) return false;
+    const index = tiles.findIndex((candidate) => sameTile(candidate, tile));
+    if (index < 0) return false;
+    tiles.splice(index, 1);
+    return true;
+  }
+
+  function callMeldTiles(data, tiles) {
+    const meldTiles = Array.isArray(tiles) ? tiles.slice() : [];
+    const expectedMeldSize = data && (data.action === "pon" || data.action === "chi") ? 3 : 0;
+    if (
+      data
+      && data.calledTile
+      && (meldTiles.length < expectedMeldSize || !meldTiles.some((tile) => sameTile(tile, data.calledTile)))
+    ) {
+      meldTiles.push(data.calledTile);
+    }
+    return meldTiles;
+  }
+
+  function callConsumedTiles(data, tiles) {
+    if (data && Array.isArray(data.consumedTiles)) {
+      return data.consumedTiles.slice();
+    }
+    if (
+      data
+      && Array.isArray(data.consumedTileInstanceIds)
+      && data.consumedTileInstanceIds.length > 0
+    ) {
+      return data.consumedTileInstanceIds.map((instanceId) => ({ instanceId }));
+    }
+    const consumed = Array.isArray(tiles) ? tiles.slice() : [];
+    if (data && data.calledTile) {
+      removeFirstMatchingTile(consumed, data.calledTile);
+    }
+    return consumed;
+  }
+
   function warn(view, message) {
     if (!Array.isArray(view.diagnostics)) view.diagnostics = [];
     view.diagnostics.push(message);
@@ -96,8 +135,15 @@
       && playerZone(view, "melds", playerIndex)
     ) {
       const tiles = Array.isArray(data.tiles) ? data.tiles.slice() : [];
-      tiles.forEach((tile) => removeOrWarn(view, playerZone(view, "hands", playerIndex), tile, "call"));
-      playerZone(view, "melds", playerIndex).push({ type: data.action || "call", tiles });
+      const meldTiles = callMeldTiles(data, tiles);
+      const consumedTiles = callConsumedTiles(data, tiles);
+      consumedTiles.forEach((tile) => removeOrWarn(view, playerZone(view, "hands", playerIndex), tile, "call"));
+      playerZone(view, "melds", playerIndex).push({
+        type: data.action || "call",
+        tiles: meldTiles,
+        fromPlayerIndex: data.fromPlayerIndex,
+        open: true,
+      });
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
       if (sourceDiscards && sourceDiscards.length) {
         if (data.calledTile) removeOrWarn(view, sourceDiscards, data.calledTile, "called discard");
