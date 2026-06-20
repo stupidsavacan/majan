@@ -24,6 +24,32 @@
     return engine && typeof engine.tileSnapshot === "function" ? engine.tileSnapshot(tile) : tile;
   }
 
+  function normalisedIds(ids) {
+    return (Array.isArray(ids) ? ids : []).slice().sort().join(",");
+  }
+
+  function tileInstanceId(tile) {
+    return tile && tile.instanceId ? tile.instanceId : "";
+  }
+
+  function sameCallOption(actionId, legalOption, option) {
+    if (!legalOption || !option) return false;
+    if (legalOption.type !== actionId || option.type !== actionId) return false;
+    if (legalOption.fromPlayerIndex !== option.fromPlayerIndex) return false;
+    if (tileInstanceId(legalOption.tile) !== tileInstanceId(option.tile)) return false;
+    return normalisedIds(legalOption.consumeInstanceIds) === normalisedIds(option.consumeInstanceIds);
+  }
+
+  function isCurrentLegalOpenCall(engine, playerIndex, actionId, option) {
+    if (!Sanma.CallResolver || typeof Sanma.CallResolver.getLegalCallActions !== "function") return false;
+    return Sanma.CallResolver.getLegalCallActions(engine, playerIndex).some((action) => (
+      action
+      && action.id === actionId
+      && Array.isArray(action.options)
+      && action.options.some((legalOption) => sameCallOption(actionId, legalOption, option))
+    ));
+  }
+
   function validateOpenCall(engine, playerIndex, actionId, option) {
     if (!engine || !Array.isArray(engine.players)) return { ok: false, reason: "ゲーム状態が不正です。" };
     if (actionId !== "pon" && actionId !== "chi") return { ok: false, reason: "対応していない鳴きです。" };
@@ -49,6 +75,15 @@
       return { ok: false, reason: "鳴く牌が現在の捨て牌と一致しません。" };
     }
 
+    const consumeInstanceIds = option.consumeInstanceIds.slice();
+    if (consumeInstanceIds.length !== 2) return { ok: false, reason: "鳴きに必要な消費牌の枚数が不正です。" };
+    if (new Set(consumeInstanceIds).size !== consumeInstanceIds.length) {
+      return { ok: false, reason: "同じ手牌を複数回消費する鳴きはできません。" };
+    }
+    if (!isCurrentLegalOpenCall(engine, playerIndex, actionId, option)) {
+      return { ok: false, reason: "現在の合法な鳴き候補と一致しません。" };
+    }
+
     const discarder = engine.players[option.fromPlayerIndex];
     if (!discarder || !Array.isArray(discarder.discards)) {
       return { ok: false, reason: "鳴き元の河が不正です。" };
@@ -56,11 +91,6 @@
     const discardIndex = discarder.discards.findIndex((tile) => tile && tile.instanceId === option.tile.instanceId);
     if (discardIndex < 0) return { ok: false, reason: "対象の捨て牌が河にありません。" };
 
-    const consumeInstanceIds = option.consumeInstanceIds.slice();
-    if (consumeInstanceIds.length !== 2) return { ok: false, reason: "鳴きに必要な消費牌の枚数が不正です。" };
-    if (new Set(consumeInstanceIds).size !== consumeInstanceIds.length) {
-      return { ok: false, reason: "同じ手牌を複数回消費する鳴きはできません。" };
-    }
     const consumedEntries = consumeInstanceIds.map((instanceId) => {
       const index = caller.hand.findIndex((tile) => tile && tile.instanceId === instanceId);
       return { instanceId, index, tile: index >= 0 ? caller.hand[index] : null };
