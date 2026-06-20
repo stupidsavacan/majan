@@ -24,6 +24,36 @@
     return engine && typeof engine.tileSnapshot === "function" ? engine.tileSnapshot(tile) : tile;
   }
 
+  function sortedInstanceIds(option) {
+    return Array.isArray(option && option.consumeInstanceIds)
+      ? option.consumeInstanceIds.slice().sort().join(",")
+      : "";
+  }
+
+  function tileInstanceId(option) {
+    return option && option.tile ? option.tile.instanceId : null;
+  }
+
+  function optionMatchesCurrentLegalAction(actionId, supplied, legal) {
+    return Boolean(
+      supplied
+      && legal
+      && (!supplied.type || supplied.type === actionId)
+      && legal.type === actionId
+      && supplied.fromPlayerIndex === legal.fromPlayerIndex
+      && tileInstanceId(supplied) === tileInstanceId(legal)
+      && sortedInstanceIds(supplied) === sortedInstanceIds(legal)
+    );
+  }
+
+  function findCurrentLegalOpenCallOption(engine, playerIndex, actionId, option) {
+    if (!Sanma.CallResolver || typeof Sanma.CallResolver.getLegalCallActions !== "function") return null;
+    const actions = Sanma.CallResolver.getLegalCallActions(engine, playerIndex);
+    const action = actions.find((candidate) => candidate && candidate.id === actionId);
+    if (!action || !Array.isArray(action.options)) return null;
+    return action.options.find((legalOption) => optionMatchesCurrentLegalAction(actionId, option, legalOption)) || null;
+  }
+
   function validateOpenCall(engine, playerIndex, actionId, option) {
     if (!engine || !Array.isArray(engine.players)) return { ok: false, reason: "ゲーム状態が不正です。" };
     if (actionId !== "pon" && actionId !== "chi") return { ok: false, reason: "対応していない鳴きです。" };
@@ -38,7 +68,7 @@
     if (!engine.lastDiscard || !Number.isInteger(engine.lastDiscard.playerIndex) || !engine.lastDiscard.tile) {
       return { ok: false, reason: "対象の捨て牌がありません。" };
     }
-    if (!option || !option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
+    if (!option || (option.type && option.type !== actionId) || !option.tile || !option.tile.instanceId || !Array.isArray(option.consumeInstanceIds)) {
       return { ok: false, reason: "鳴き情報が不正です。" };
     }
     if (!Number.isInteger(option.fromPlayerIndex) || option.fromPlayerIndex !== engine.lastDiscard.playerIndex) {
@@ -49,14 +79,22 @@
       return { ok: false, reason: "鳴く牌が現在の捨て牌と一致しません。" };
     }
 
-    const discarder = engine.players[option.fromPlayerIndex];
+    let currentLegalOption = option;
+    if (Sanma.CallResolver && typeof Sanma.CallResolver.getLegalCallActions === "function") {
+      currentLegalOption = findCurrentLegalOpenCallOption(engine, playerIndex, actionId, option);
+      if (!currentLegalOption) {
+        return { ok: false, reason: "現在の合法な鳴き候補と一致しません。" };
+      }
+    }
+
+    const discarder = engine.players[currentLegalOption.fromPlayerIndex];
     if (!discarder || !Array.isArray(discarder.discards)) {
       return { ok: false, reason: "鳴き元の河が不正です。" };
     }
-    const discardIndex = discarder.discards.findIndex((tile) => tile && tile.instanceId === option.tile.instanceId);
+    const discardIndex = discarder.discards.findIndex((tile) => tile && tile.instanceId === currentLegalOption.tile.instanceId);
     if (discardIndex < 0) return { ok: false, reason: "対象の捨て牌が河にありません。" };
 
-    const consumeInstanceIds = option.consumeInstanceIds.slice();
+    const consumeInstanceIds = currentLegalOption.consumeInstanceIds.slice();
     if (consumeInstanceIds.length !== 2) return { ok: false, reason: "鳴きに必要な消費牌の枚数が不正です。" };
     if (new Set(consumeInstanceIds).size !== consumeInstanceIds.length) {
       return { ok: false, reason: "同じ手牌を複数回消費する鳴きはできません。" };
@@ -75,7 +113,7 @@
       discarder,
       discardIndex,
       consumedEntries,
-      fromPlayerIndex: option.fromPlayerIndex,
+      fromPlayerIndex: currentLegalOption.fromPlayerIndex,
     };
   }
 
@@ -144,7 +182,7 @@
             return this.beginKanAttempt(candidate.playerIndex, candidate.option);
           }
           if (actionId !== "pon" && actionId !== "chi") return false;
-          return this.applyOpenCall(candidate.playerIndex, actionId, candidate.option, metadata);
+          return Sanma.CallFlow.applyOpenCall.call(this, candidate.playerIndex, actionId, candidate.option, metadata);
         },
 
         claimHumanCall(actionId, optionIndex) {
