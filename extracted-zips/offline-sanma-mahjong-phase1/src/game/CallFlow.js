@@ -144,7 +144,19 @@
             return this.beginKanAttempt(candidate.playerIndex, candidate.option);
           }
           if (actionId !== "pon" && actionId !== "chi") return false;
-          return this.applyOpenCall(candidate.playerIndex, actionId, candidate.option, metadata);
+          const applied = this.applyOpenCall(candidate.playerIndex, actionId, candidate.option, metadata);
+          if (!applied) return false;
+
+          const caller = this.players && this.players[candidate.playerIndex];
+          if (caller && !caller.isHuman) {
+            this.pendingCpuCallDiscardIndex = candidate.playerIndex;
+            this.turnIndex = candidate.playerIndex;
+            if (this.phase !== "human-call" && this.phase !== "win-ended" && this.phase !== "round-ended") {
+              this.phase = "cpu-running";
+            }
+          }
+
+          return true;
         },
 
         claimHumanCall(actionId, optionIndex) {
