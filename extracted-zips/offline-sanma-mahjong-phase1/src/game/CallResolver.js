@@ -13,6 +13,13 @@
     return state && Array.isArray(state.players) ? state.players : [];
   }
 
+  function isCallLockedByRiichi(player) {
+    return Boolean(player && (
+      player.hasRiichi
+      || (player.riichi && (player.riichi.pending || player.riichi.declared))
+    ));
+  }
+
   function hasCallTarget(state, playerIndex) {
     const players = getPlayers(state);
     const lastDiscard = state && state.lastDiscard;
@@ -46,7 +53,13 @@
   }
 
   function getLegalCallActions(state, playerIndex) {
-    if (!Sanma.ActionResolver || !hasCallTarget(state, playerIndex) || !hasLiveWallForNonWinningCall(state)) {
+    const player = getPlayers(state)[playerIndex];
+    if (
+      !Sanma.ActionResolver
+      || !hasCallTarget(state, playerIndex)
+      || !hasLiveWallForNonWinningCall(state)
+      || isCallLockedByRiichi(player)
+    ) {
       return [];
     }
     return Sanma.ActionResolver.getAvailableActions(state, playerIndex)
@@ -89,7 +102,7 @@
 
     const candidates = [];
     players.forEach((player, playerIndex) => {
-      if (!player || player.isHuman || playerIndex === discarderIndex) return;
+      if (!player || player.isHuman || playerIndex === discarderIndex || isCallLockedByRiichi(player)) return;
       getLegalCallActions(state, playerIndex).forEach((action) => {
         (action.options || []).forEach((option, optionIndex) => {
           candidates.push(createCandidate(state, discarderIndex, playerIndex, action, option, optionIndex));
@@ -128,7 +141,7 @@
   function selectCpuCallCandidate(state, candidates) {
     const sorted = sortCandidates(candidates || []);
     if (sorted.length === 0) return null;
-    if (!Sanma.CpuStrategy || typeof Sanma.CpuStrategy.chooseCall !== "function") return null;
+    if (!Sanma.CpuStrategy || typeof Sanma.CpuStrategy.chooseCall !== "function") return sorted[0];
 
     const selected = Sanma.CpuStrategy.chooseCall({
       state,
