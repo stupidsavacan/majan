@@ -105,6 +105,44 @@ const selectedPonCall = Sanma.CpuStrategy.chooseCall({
 assert(selectedPonCall === ponCandidate, "CPUが合法な役牌ポン候補をそのまま返しません");
 assert(callPlayer.hand.length === 13, "CPU鳴き選択が手牌枚数を変更しました");
 
+const riichiOuterPlayer = Object.assign(playerWith([
+  "1p", "2p", "3p",
+  "4p", "5p", "6p",
+  "7s", "8s", "9s",
+  "east", "east",
+  "9m", "9m",
+]), { id: 1, name: "CPU 1", hasRiichi: true });
+const secondCpuCaller = Object.assign(playerWith([
+  "1p", "2p", "3p",
+  "4p", "5p", "6p",
+  "7s", "8s", "9s",
+  "white", "white",
+  "9m", "9m",
+]), { id: 2, name: "CPU 2", seatWind: "east" });
+const secondCpuPonCandidate = {
+  playerIndex: 2,
+  actionId: "pon",
+  optionIndex: 0,
+  priority: 3,
+  option: {
+    type: "pon",
+    tile: discardedWhite,
+    fromPlayerIndex: 0,
+    consumeInstanceIds: secondCpuCaller.hand
+      .filter((ownedTile) => ownedTile.baseId === "z5")
+      .map((ownedTile) => ownedTile.instanceId),
+  },
+};
+assert(
+  Sanma.CpuStrategy.chooseCall({
+    state: { ruleConfig, round: { roundWind: "east" }, players: [{ id: 0 }, riichiOuterPlayer, secondCpuCaller] },
+    player: riichiOuterPlayer,
+    legalCalls: [secondCpuPonCandidate],
+    random: function zeroRandom() { return 0; },
+  }) === secondCpuPonCandidate,
+  "CPU鳴き選択が別CPU候補を外側playerの状態で誤評価しています"
+);
+
 const chiPlayer = playerWith([
   "1p", "2p",
   "4p", "5p", "6p",

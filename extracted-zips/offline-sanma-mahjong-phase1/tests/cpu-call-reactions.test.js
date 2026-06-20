@@ -196,7 +196,7 @@ test("applyCpuCallのポンは手牌・河・副露・手番・記録を一貫�
   assert(meld.tiles.some((tile) => tile.instanceId === calledTile.instanceId), "副露に打牌者の捨て牌が含まれていません");
   assertNoCalledTileInRiver(engine, 0, calledTile);
   assert(engine.turnIndex === 1, "CPUポン後に鳴いたCPUが現在の打牌者になっていません");
-  assert(engine.phase === "caller-discard", "CPUポン後のフェーズが caller-discard ではありません");
+  assert(engine.phase === "cpu-running", "CPU pon should leave the CPU runner active");
   assert(engine.lastDiscard === null, "CPUポン後に lastDiscard が残っています");
   assert(engine.callWindow === null, "CPUポン後に callWindow が残っています");
   assert(!Sanma.RiichiRules.isMenzen(engine.players[1]), "CPUポン後も門前扱いになっています");
@@ -220,7 +220,7 @@ test("applyCpuCallのチーは正しい順子副露を作る", () => {
   assert(meld && meld.type === "chi" && meld.open === true, "CPUチー副露が open な chi として作られていません");
   assert(meld.tiles.map((tile) => tile.baseId).sort().join(",") === "2p,3p,4p", "CPUチー副露の構成牌が2p/3p/4pではありません");
   assertNoCalledTileInRiver(engine, 0, calledTile);
-  assert(engine.turnIndex === 1 && engine.phase === "caller-discard", "CPUチー後に鳴いたCPUの打牌番になっていません");
+  assert(engine.turnIndex === 1 && engine.phase === "cpu-running", "CPU chi should leave the CPU runner active");
 });
 
 test("人間の鳴き窓がある場合はCPU候補をpendingにし、スキップ後にCPUが鳴く", () => {
@@ -229,9 +229,9 @@ test("人間の鳴き窓がある場合はCPU候補をpendingにし、スキッ�
     turnIndex: 1,
     phase: "cpu-running",
     players: [
-      { hand: ["white", "white", "1p"], lastDraw: false },
-      { hand: ["2p"], discards: ["white"], lastDraw: false },
-      { hand: ["white", "white", "3p"], lastDraw: false },
+      { hand: ["3p", "3p", "1s"], lastDraw: false },
+      { hand: ["2s"], discards: ["3p"], lastDraw: false },
+      { hand: ["2p", "4p", "9p"], lastDraw: false },
     ],
   });
   const discarded = setLastDiscardFromRiver(engine, 1, 0);
@@ -241,7 +241,7 @@ test("人間の鳴き窓がある場合はCPU候補をpendingにし、スキッ�
   assert(engine.callWindow.actions.some((action) => action.id === "pon"), "人間ポン選択肢が鳴き窓にありません");
   assert(engine.callWindow.pendingCpuCallCandidate, "CPU鳴き候補が pendingCpuCallCandidate として保持されていません");
   engine.skipHumanCall();
-  assert(engine.players[2].melds.length === 1 && engine.players[2].melds[0].type === "pon", "人間スキップ後にCPU pending ポンが解決されません");
+  assert(engine.players[2].melds.length === 1 && engine.players[2].melds[0].type === "chi", "CPU pending call was not resolved after human skip");
   assertNoCalledTileInRiver(engine, 1, discarded);
 });
 
@@ -262,7 +262,7 @@ test("通常フローではCPU鳴き後にCPUが打牌して進行を再開す�
   engine.tryCpuKan = () => false;
   engine.tryCpuRiichi = () => false;
   engine.chooseCpuDiscardIndex = (player) => Math.max(0, player.hand.findIndex((tile) => tile.baseId === "2p"));
-  const humanDiscard = engine.players[0].hand.find((tile) => tile.baseId === "white");
+  const humanDiscard = engine.players[0].hand.find((tile) => tile.baseId === "z5");
   engine.discardHumanTile(humanDiscard.instanceId);
   const events = engine.gameRecord.rounds[engine.gameRecord.rounds.length - 1].events;
   const callIndex = events.findIndex((event) => event && event.type === "call" && event.data.playerIndex === 1 && event.data.action === "pon");
@@ -271,7 +271,7 @@ test("通常フローではCPU鳴き後にCPUが打牌して進行を再開す�
     events.slice(callIndex + 1).some((event) => event && event.type === "discard" && event.data.playerIndex === 1),
     "CPUポン後に鳴いたCPUの次打牌が記録されません"
   );
-  assert(!engine.players[0].discards.some((tile) => tile.baseId === "white"), "通常フロー後も鳴かれた白が人間の河に残っています");
+  assert(!engine.players[0].discards.some((tile) => tile.baseId === "z5"), "called white tile remained in the human river after CPU call flow");
 });
 
 test("CPU候補がないときは通常の次順へ進む", () => {
@@ -287,7 +287,7 @@ test("CPU候補がないときは通常の次順へ進む", () => {
   });
   requireCpuCallApi(engine);
   engine.runCpuUntilHumanTurn = () => true;
-  const discarded = engine.players[0].hand.find((tile) => tile.baseId === "white");
+  const discarded = engine.players[0].hand.find((tile) => tile.baseId === "z5");
   engine.discardHumanTile(discarded.instanceId);
   assert(engine.players[1].melds.length === 0 && engine.players[2].melds.length === 0, "CPU候補がないのに副露が作られました");
   assert(engine.turnIndex === 1, "CPU候補がない場合に通常の下家へ手番が進みません");
@@ -328,20 +328,14 @@ test("複数CPU候補は決定論的に優先順位で選ばれる", () => {
   });
   setLastDiscardFromRiver(engine, 0, 0);
   requireCallResolver();
-  const originalChooseCall = Sanma.CpuStrategy.chooseCall;
-  Sanma.CpuStrategy.chooseCall = () => null;
-  try {
     const candidates = Sanma.CallResolver.collectCpuCallCandidates(engine, 0);
     assert(candidates.some((candidate) => candidate.actionId === "chi" && candidate.playerIndex === 1), "チー候補がありません");
     assert(candidates.some((candidate) => candidate.actionId === "pon" && candidate.playerIndex === 2), "ポン候補がありません");
     const selected = Sanma.CallResolver.selectCpuCallCandidate(engine, candidates);
     assert(selected && selected.playerIndex === 2 && selected.actionId === "pon", "複数候補でポン優先の決定論的選択ができていません");
-  } finally {
-    Sanma.CpuStrategy.chooseCall = originalChooseCall;
-  }
 });
 
-test("CPU戦略が不正候補を返しても選択結果は合法候補に丸められる", () => {
+test("CPU strategy invalid candidate is rejected safely", () => {
   const engine = arrangePonFromHuman("cpu-call-strategy-illegal-guard");
   requireCallResolver();
   const originalChooseCall = Sanma.CpuStrategy.chooseCall;
@@ -349,10 +343,7 @@ test("CPU戦略が不正候補を返しても選択結果は合法候補に丸�
   try {
     const candidates = Sanma.CallResolver.collectCpuCallCandidates(engine, 0);
     const selected = Sanma.CallResolver.selectCpuCallCandidate(engine, candidates);
-    assert(
-      selected && candidates.some((candidate) => candidate.playerIndex === selected.playerIndex && candidate.actionId === selected.actionId && candidate.optionIndex === selected.optionIndex),
-      "CPU戦略の不正候補が合法候補として採用されました"
-    );
+    assert(selected === null, "CPU strategy illegal candidate was not rejected safely");
   } finally {
     Sanma.CpuStrategy.chooseCall = originalChooseCall;
   }

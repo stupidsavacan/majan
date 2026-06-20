@@ -36,8 +36,19 @@ function arrangeEngine(Sanma, engine, setup) {
     player.riichiMissedWin = false;
   });
 
+  function normalizeBaseId(code) {
+    if (code && typeof code === "object" && code.baseId) return code.baseId;
+    if (typeof code !== "string") return code;
+    if (/^z[1-7]$/.test(code)) return code;
+    const honorMap = { east: 1, south: 2, west: 3, north: 4, white: 5, green: 6, red: 7 };
+    if (honorMap[code]) return Sanma.TileUtil.baseId("z", honorMap[code]);
+    const suited = code.match(/^([1-9])([mps])$/);
+    if (suited) return Sanma.TileUtil.baseId(suited[2], Number(suited[1]));
+    return code;
+  }
+
   function take(baseId) {
-    const index = pool.findIndex((tile) => tile.baseId === baseId);
+    const index = pool.findIndex((tile) => tile.baseId === normalizeBaseId(baseId));
     assert(index >= 0, `牌が不足しています: ${baseId}`);
     return pool.splice(index, 1)[0];
   }

@@ -126,6 +126,7 @@ discardFrom(emptyWallState, 0, "white");
 assert(CallResolver.collectCpuCallCandidates(emptyWallState, 0).length === 0, "CPU non-winning calls must not be collected with an empty wall");
 
 const originalChooseCall = Sanma.CpuStrategy.chooseCall;
+delete Sanma.CpuStrategy.chooseCall;
 assert(CallResolver.selectCpuCallCandidate(minkanState, minkanCandidates) === null, "selectCpuCallCandidate must return null when CpuStrategy.chooseCall is absent");
 Sanma.CpuStrategy.chooseCall = ({ legalCalls }) => legalCalls[0];
 assert(CallResolver.selectCpuCallCandidate(minkanState, minkanCandidates) === minkanCandidates[0], "selectCpuCallCandidate must accept a legal strategy result");

@@ -302,17 +302,28 @@
     const player = options.player || {};
     const legalCalls = Array.isArray(options.legalCalls) ? options.legalCalls.filter(Boolean) : [];
     const random = typeof options.random === "function" ? options.random : function zeroRandom() { return 0; };
-    if (legalCalls.length === 0 || isRiichiLocked(player)) return null;
+    if (legalCalls.length === 0) return null;
 
-    const beforeShanten = estimateShanten({
-      tiles: Array.isArray(player.hand) ? player.hand : [],
-      ruleConfig: state.ruleConfig || {},
-      openMeldCount: Array.isArray(player.melds) ? player.melds.length : 0,
-    });
-    const ranked = legalCalls.map((candidate, index) => Object.assign(
-      { candidate, index },
-      scoreCallCandidate(candidate, player, state, beforeShanten, random)
-    )).filter((candidate) => candidate.accepted);
+    const ranked = legalCalls.map((candidate, index) => {
+      const candidatePlayer = (
+        state
+        && Array.isArray(state.players)
+        && Number.isInteger(candidate.playerIndex)
+        && state.players[candidate.playerIndex]
+      ) || player;
+      if (isRiichiLocked(candidatePlayer)) {
+        return { candidate, index, accepted: false, score: -1000, reason: "リーチ中" };
+      }
+      const beforeShanten = estimateShanten({
+        tiles: Array.isArray(candidatePlayer.hand) ? candidatePlayer.hand : [],
+        ruleConfig: state.ruleConfig || {},
+        openMeldCount: Array.isArray(candidatePlayer.melds) ? candidatePlayer.melds.length : 0,
+      });
+      return Object.assign(
+        { candidate, index },
+        scoreCallCandidate(candidate, candidatePlayer, state, beforeShanten, random)
+      );
+    }).filter((candidate) => candidate.accepted);
 
     ranked.sort((left, right) => (
       right.score - left.score
