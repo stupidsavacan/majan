@@ -17,6 +17,13 @@
       : Sanma.RiichiManager.isMenzen(player);
   }
 
+  function isCallLockedByRiichi(player) {
+    return Boolean(player && (
+      player.hasRiichi
+      || (player.riichi && (player.riichi.pending || player.riichi.declared))
+    ));
+  }
+
   function waitTypeForPattern(pattern, winningTile) {
     if (!pattern || !winningTile) return null;
     const tileType = winningTile.baseId;
@@ -104,7 +111,7 @@
   }
 
   function ponAvailability(state, playerIndex) {
-    if (state.players[playerIndex] && state.players[playerIndex].hasRiichi) {
+    if (isCallLockedByRiichi(state.players[playerIndex])) {
       return { enabled: false, reason: "リーチ後はポンできません。", options: [] };
     }
     const lastDiscard = state.lastDiscard;
@@ -127,7 +134,7 @@
   }
 
   function chiAvailability(state, playerIndex) {
-    if (state.players[playerIndex] && state.players[playerIndex].hasRiichi) {
+    if (isCallLockedByRiichi(state.players[playerIndex])) {
       return { enabled: false, reason: "リーチ後はチーできません。", options: [] };
     }
     const lastDiscard = state.lastDiscard;
