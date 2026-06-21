@@ -22,9 +22,14 @@
       dealerNotenDraw: false,
     }),
     doubleRonPolicy: Object.freeze({ allowed: false, honbaIncrement: 1 }),
+    exhaustiveDrawSettlement: Object.freeze({
+      enabled: true,
+      mode: "noten-bappu-3000",
+      totalPoints: 3000,
+    }),
 
     northMode: "kita-dora",
-    allowChi: true,
+    allowChi: false,
     tsumoLoss: false,
 
     kuitan: true,
@@ -200,6 +205,22 @@
     merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
     merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
     merged.doubleRonPolicy.allowed = false;
+    const drawSettlementInput = input.exhaustiveDrawSettlement && typeof input.exhaustiveDrawSettlement === "object"
+      ? input.exhaustiveDrawSettlement
+      : {};
+    merged.exhaustiveDrawSettlement = Object.assign(
+      {},
+      defaultRuleConfig.exhaustiveDrawSettlement,
+      drawSettlementInput
+    );
+    merged.exhaustiveDrawSettlement.enabled = merged.exhaustiveDrawSettlement.enabled !== false;
+    merged.exhaustiveDrawSettlement.mode = merged.exhaustiveDrawSettlement.mode === "noten-bappu-3000"
+      ? merged.exhaustiveDrawSettlement.mode
+      : defaultRuleConfig.exhaustiveDrawSettlement.mode;
+    merged.exhaustiveDrawSettlement.totalPoints = normalizeHonbaPoint(
+      merged.exhaustiveDrawSettlement.totalPoints,
+      defaultRuleConfig.exhaustiveDrawSettlement.totalPoints
+    );
     const advancedInput = input.advancedRules || {};
     merged.advancedRules = {};
     Object.keys(defaultRuleConfig.advancedRules).forEach((key) => {
