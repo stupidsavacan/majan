@@ -88,6 +88,8 @@ assert(has(chanta, "chanta"), "混全帯么九を判定できません");
 const junchan = analyze(["1p", "2p", "3p", "7p", "8p", "9p", "1s", "2s", "3s", "7s", "8s", "9s", "1m", "1m"]);
 assert(has(junchan, "junchan"), "純全帯么九を判定できません");
 assert(!has(junchan, "chanta"), "純全帯么九に混全帯么九を二重計上しています");
+const ambiguousJunchan = analyze(["1p", "1p", "1p", "2p", "2p", "2p", "3p", "3p", "3p", "7p", "8p", "9p", "9m", "9m"]);
+assert(has(ambiguousJunchan, "junchan"), "暗刻優先分解だけで曖昧形の純全帯么九を落としています");
 const noChanta = analyze(["1p", "2p", "3p", "4p", "5p", "6p", "7s", "8s", "9s", "1s", "1s", "1s", "9m", "9m"]);
 assert(!has(noChanta, "chanta") && !has(noChanta, "junchan"), "中張牌順子を含む手をチャンタ系にしています");
 

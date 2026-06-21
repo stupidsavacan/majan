@@ -36,6 +36,28 @@
     return scoreResult.limitName || `${scoreResult.han}飜${scoreResult.fu}符`;
   }
 
+  function moveAcceptedKakanChankanTile(engine) {
+    const attempt = engine && engine.pendingKanAttempt;
+    if (!attempt || attempt.kanType !== "kakan" || !attempt.requested) return null;
+    const player = engine.players && engine.players[attempt.playerIndex];
+    if (!player || !Array.isArray(player.hand) || !Array.isArray(player.discards)) return null;
+    const consumeIds = Array.isArray(attempt.requested.consumeInstanceIds)
+      ? attempt.requested.consumeInstanceIds
+      : [];
+    const moved = [];
+    consumeIds.forEach((instanceId) => {
+      const index = player.hand.findIndex((tile) => tile && tile.instanceId === instanceId);
+      if (index < 0) return;
+      const tile = player.hand.splice(index, 1)[0];
+      if (player.lastDraw && player.lastDraw.instanceId === tile.instanceId) player.lastDraw = null;
+      if (!player.discards.some((discard) => discard && discard.instanceId === tile.instanceId)) {
+        player.discards.push(tile);
+      }
+      moved.push(tile);
+    });
+    return moved.length ? moved : null;
+  }
+
   Sanma.WinFlow = {
         tryCpuTsumo(player) {
           const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
@@ -321,6 +343,7 @@
             return false;
           }
           const details = metadata || {};
+          if (details.isChankan) moveAcceptedKakanChankanTile(this);
           this.phase = "win-ended";
           this.callWindow = null;
           this.pendingKanAttempt = null;
@@ -408,7 +431,7 @@
           this.callWindow = null;
           this.pendingKanAttempt = null;
           this.winResult = {
-            type: "win",
+            type: "double_ron",
             winnerIndex: winners[0].winnerIndex,
             winnerIndexes,
             winnerName: winners.map((winner) => winner.winnerName).join("・"),

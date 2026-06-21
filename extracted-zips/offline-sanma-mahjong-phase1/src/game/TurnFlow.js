@@ -24,6 +24,23 @@
   const GameStateMachine = Sanma.GameStateMachine;
   const InvariantChecker = Sanma.InvariantChecker;
 
+  function riichiEventPayload(state, player, discarded) {
+    const stickValue = Number(state.ruleConfig && state.ruleConfig.riichiStickValue) || 1000;
+    return {
+      playerIndex: player.id,
+      playerName: player.name,
+      declarationDiscard: TileUtil.getTileShortLabel(discarded),
+      riichiStickValue: stickValue,
+      riichiSticks: state.round ? Number(state.round.riichiSticks) || 0 : 0,
+      changes: [{
+        playerIndex: player.id,
+        playerName: player.name,
+        delta: -stickValue,
+        after: player.points,
+      }],
+    };
+  }
+
   Sanma.TurnFlow = {
         discardHumanTile(instanceId) {
           const validation = this.validateAction("打牌", ["waitingForDiscard"]);
@@ -64,11 +81,7 @@
           const riichiResult = RiichiRules.handleDiscard(this, this.humanPlayer.id, discarded);
           if (riichiResult.finalized) {
             this.addLog(riichiResult.reason);
-            this.recordGameEvent("riichi", {
-              playerIndex: this.humanPlayer.id,
-              playerName: this.humanPlayer.name,
-              declarationDiscard: TileUtil.getTileShortLabel(discarded),
-            });
+            this.recordGameEvent("riichi", riichiEventPayload(this, this.humanPlayer, discarded));
           }
           const tenpai = HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(this.humanPlayer), this.ruleConfig);
           if (tenpai.isTenpai) {
@@ -261,11 +274,7 @@
             if (riichiResult.finalized) {
               this.addCpuActionLog(player, "リーチ", riichiResult.reason);
               this.addLog(riichiResult.reason);
-              this.recordGameEvent("riichi", {
-                playerIndex: player.id,
-                playerName: player.name,
-                declarationDiscard: TileUtil.getTileShortLabel(discarded),
-              });
+              this.recordGameEvent("riichi", riichiEventPayload(this, player, discarded));
             }
             this.addLog(`${player.name} が ${TileUtil.getTileAriaLabel(discarded)} を切りました。`);
             this.recordGameEvent("discard", this.playerTileEvent(player, discarded));

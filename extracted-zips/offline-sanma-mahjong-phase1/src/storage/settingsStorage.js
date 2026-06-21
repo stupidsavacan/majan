@@ -16,10 +16,20 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return RuleConfig.createRuleConfig({});
       const parsed = JSON.parse(raw);
-      const candidate = parsed && parsed.settings ? parsed.settings : parsed;
+      const defaults = RuleConfig.publicSettings(RuleConfig.defaultRuleConfig);
+      const migrated = SaveMigration.migrateParsed("settings", parsed, defaults);
+      const candidate = migrated && migrated.value && migrated.value.settings
+        ? migrated.value.settings
+        : defaults;
       const validation = RuleConfig.validatePublicSettings(candidate);
       if (!validation.ok) {
         throw new Error(validation.reason);
+      }
+      if (migrated && migrated.migrated) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          version: SaveMigration.versions.settings,
+          settings: validation.settings,
+        }));
       }
       return RuleConfig.createRuleConfig(validation.settings);
     } catch (error) {

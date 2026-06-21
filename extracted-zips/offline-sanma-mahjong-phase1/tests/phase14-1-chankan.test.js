@@ -94,6 +94,10 @@ assert(kakanRon.beginKanAttempt(0, kakanRonOption), "加槓宣言を開始でき
 assert(kakanRon.phase === "win-ended" && kakanRon.winResult.winnerIndex === 1, "CPU槍槓ロンが解決されませんでした");
 assert(kakanRon.winResult.context.isChankan, "槍槓の和了文脈が設定されていません");
 assert(kakanRon.players[0].melds[0].type === "pon" && kakanRon.players[0].melds[0].tiles.length === 3, "槍槓成立後に加槓が確定しました");
+assert(
+  !(kakanRonOption.consumeInstanceIds || []).some((instanceId) => kakanRon.players[0].hand.some((tile) => tile.instanceId === instanceId)),
+  "槍槓成立後に加槓牌が宣言者の手牌へ残っています"
+);
 assert(kakanRon.wall.doraIndicators.length === doraBeforeRon && kakanRon.wall.rinshanDrawCount === rinshanBeforeRon, "槍槓成立後にカンドラまたは嶺上牌が進みました");
 assert(currentEvents(kakanRon).some((event) => event.type === "kan_attempt"), "牌譜にカン試行がありません");
 assert(currentEvents(kakanRon).some((event) => event.type === "chankan_offer"), "牌譜に槍槓提示イベントがありません");

@@ -316,10 +316,53 @@
     return panel;
   }
 
+  function scoreLabel(score) {
+    const safeScore = score || {};
+    return safeScore.limitName || `${safeScore.han}飜${safeScore.fu}符`;
+  }
+
+  function yakuNamesFrom(yakuResult) {
+    return [
+      ...((yakuResult && yakuResult.yaku) || []).map((item) => item.name),
+      ...((yakuResult && yakuResult.dora) || []).map((item) => `${item.name} ${item.han}`),
+      ...((yakuResult && yakuResult.yakuman) || []).map((item) => item.name),
+    ];
+  }
+
+  function paymentTotal(score, winType) {
+    const safeScore = score || {};
+    return winType === "ron"
+      ? (safeScore.payments && safeScore.payments.ron ? safeScore.payments.ron.amount : 0)
+      : (safeScore.payments && safeScore.payments.tsumo ? safeScore.payments.tsumo.total : 0);
+  }
+
   function renderWinResult(winResult) {
     const score = winResult.score || {};
     const settlement = winResult.settlement || {};
     const panel = el("section", "win-result");
+    if (Array.isArray(winResult.winners) && winResult.winners.length > 1) {
+      panel.appendChild(el("h2", "section-title", "和了結果"));
+      panel.appendChild(el("strong", "win-result-title", `ダブロン / ${winResult.winnerName || ""}`));
+      winResult.winners.forEach((winner) => {
+        const row = el("div", "win-result-winner");
+        const winnerScore = winner.score || {};
+        row.appendChild(el(
+          "strong",
+          "win-result-winner-title",
+          `${winner.winnerName || `P${winner.winnerIndex}`} / ${winner.winType === "tsumo" ? "ツモ" : "ロン"} / ${scoreLabel(winnerScore)}`
+        ));
+        row.appendChild(el("div", "win-result-payment", `支払い合計: ${paymentTotal(winnerScore, winner.winType || "ron").toLocaleString()}点`));
+        row.appendChild(el("div", "win-result-yaku", `役: ${yakuNamesFrom(winner.yaku).join("、") || "なし"}`));
+        panel.appendChild(row);
+      });
+      const changes = el("ul", "win-result-changes");
+      (settlement.changes || []).forEach((change) => {
+        const sign = change.delta >= 0 ? "+" : "";
+        changes.appendChild(el("li", "", `${change.playerName}: ${sign}${change.delta.toLocaleString()}点 → ${change.after.toLocaleString()}点`));
+      });
+      panel.appendChild(changes);
+      return panel;
+    }
     panel.appendChild(el("h2", "section-title", "和了結果"));
     panel.appendChild(el(
       "strong",

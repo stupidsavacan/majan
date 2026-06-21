@@ -27,6 +27,28 @@ assert(Sanma.SettingsStorage.getDiagnostics().corruptedRecovered, "不正localSt
 assert(Sanma.SettingsStorage.getDiagnostics().lastError, "不正localStorage設定のエラーが診断にありません");
 assert(Object.keys(storage.data).some((key) => key.startsWith(Sanma.SaveMigration.BACKUP_PREFIX)), "不正localStorage設定を退避しません");
 
+storage.data[Sanma.SettingsStorage.STORAGE_KEY] = JSON.stringify({
+  version: 1,
+  matchLength: "tonpuu",
+  allowChi: true,
+  tsumoLoss: true,
+});
+const legacyTopLevel = Sanma.SettingsStorage.loadSettings();
+assert(legacyTopLevel.matchLength === "tonpuu", "legacy top-level settingsのmatchLengthを保持できません");
+assert(legacyTopLevel.allowChi === true, "legacy top-level settingsのallowChiを保持できません");
+assert(legacyTopLevel.tsumoLoss === true, "legacy top-level settingsのtsumoLossを保持できません");
+const migratedLegacy = JSON.parse(storage.data[Sanma.SettingsStorage.STORAGE_KEY]);
+assert(migratedLegacy.version === 2 && migratedLegacy.settings.allowChi === true, "legacy top-level settingsをversion 2へ移行できません");
+
+storage.data[Sanma.SettingsStorage.STORAGE_KEY] = JSON.stringify({
+  version: 1,
+  matchLength: "tonpuu",
+  allowChi: true,
+  advancedRules: {},
+});
+const rejectedLegacy = Sanma.SettingsStorage.loadSettings();
+assert(rejectedLegacy.allowChi === false, "legacy top-level settingsの非公開項目を受理しました");
+
 const valid = loadStored({
   matchLength: "tonpuu",
   northMode: "normal-tile",

@@ -250,6 +250,9 @@
     }
 
     const pattern = agariResult.bestPattern;
+    const standardPatterns = [pattern]
+      .concat(Array.isArray(pattern.alternativeMeldPatterns) ? pattern.alternativeMeldPatterns : [])
+      .filter((candidate) => candidate && candidate.type === "standard" && Array.isArray(candidate.melds));
     const ryanpeikouFromTiles = context.isMenzen && detectRyanpeikou(tiles, ruleConfig);
     if (context.isTenho) addYakuman("tenho", "天和", "親の配牌時のツモ和了です。");
     if (context.isChiho) addYakuman("chiho", "地和", "子の第一ツモでの和了です。");
@@ -365,7 +368,21 @@
         })) {
           addYaku("ittsuu", "一気通貫", 2, 1, "同一色の123・456・789の順子があります。");
         }
-        if (sequences.length > 0) {
+        const chantaPattern = standardPatterns.find((candidate) => {
+          const candidateMelds = candidate.melds || [];
+          return candidateMelds.some((group) => group.kind === "sequence")
+            && candidateMelds.every(groupHasTerminalOrHonor)
+            && groupHasTerminalOrHonor(candidate.pair);
+        });
+        if (chantaPattern) {
+          const chantaMelds = chantaPattern.melds || [];
+          const allJunchan = chantaMelds.every((group) => groupHasTerminal(group) && !groupHasHonor(group))
+            && groupHasTerminal(chantaPattern.pair)
+            && !groupHasHonor(chantaPattern.pair);
+          if (allJunchan) addYaku("junchan", "純全帯么九", 3, 2, "代替分解を含め、全ての面子と雀頭に老頭牌があり、字牌を含みません。");
+          else addYaku("chanta", "混全帯么九", 2, 1, "代替分解を含め、全ての面子と雀頭に么九牌が関係しています。");
+        }
+        if (false && sequences.length > 0) {
           const allChanta = melds.every(groupHasTerminalOrHonor) && groupHasTerminalOrHonor(pattern.pair);
           const allJunchan = allChanta && melds.every((group) => groupHasTerminal(group) && !groupHasHonor(group))
             && groupHasTerminal(pattern.pair) && !groupHasHonor(pattern.pair);
