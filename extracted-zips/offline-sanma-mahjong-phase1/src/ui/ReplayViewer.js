@@ -216,6 +216,8 @@
     ) {
       removeOrWarn(view, playerZone(view, "hands", playerIndex), data.outgoing, "assist");
       playerZone(view, "hands", playerIndex).push(data.incoming);
+    } else if (event.type === "riichi") {
+      applyPointChanges(view, data.changes);
     } else if (event.type === "score_settlement") {
       applyPointChanges(view, data.changes || (data.result && data.result.changes));
     } else if (event.type === "win" || event.type === "double_ron" || event.type === "round_result") {

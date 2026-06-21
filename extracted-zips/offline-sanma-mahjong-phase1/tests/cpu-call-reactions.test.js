@@ -246,6 +246,30 @@ test("人間の鳴き窓がある場合はCPU候補をpendingにし、スキッ�
 });
 
 test("通常フローではCPU鳴き後にCPUが打牌して進行を再開する", () => {
+  const engine = createEngine(Sanma, "cpu-call-priority-over-human-chi", { allowChi: true });
+  arrangeEngine(Sanma, engine, {
+    turnIndex: 2,
+    phase: "cpu-running",
+    players: [
+      { hand: ["1p", "2p", "9s"], lastDraw: false },
+      { hand: ["3p", "3p", "9p"], lastDraw: false },
+      { hand: ["5s"], discards: ["3p"], lastDraw: false },
+    ],
+  });
+  const priorityDiscarded = setLastDiscardFromRiver(engine, 2, 0);
+  requireCpuCallApi(engine);
+  engine.runCpuUntilHumanTurn = function noopCpuResume() {};
+  engine.resolveNonWinningCallsAfterDiscard(2);
+  assert(engine.phase === "human-call" && engine.callWindow, "人間チー窓が開いていません");
+  assert(engine.callWindow.actions.some((action) => action.id === "chi"), "人間チー候補がありません");
+  assert(engine.callWindow.pendingCpuCallCandidate && engine.callWindow.pendingCpuCallCandidate.actionId === "pon", "CPUポン候補がpendingされていません");
+  assert(engine.claimHumanCall("chi", 0), "人間チー選択時に優先CPUポンを処理できません");
+  assert(engine.players[1].melds.length === 1 && engine.players[1].melds[0].type === "pon", "優先CPUポンが成立していません");
+  assert(engine.players[0].melds.length === 0, "下位の人間チーが成立してしまいました");
+  assertNoCalledTileInRiver(engine, 2, priorityDiscarded);
+});
+
+test("騾壼ｸｸ繝輔Ο繝ｼ縺ｧ縺ｯCPU魑ｴ縺榊ｾ後↓CPU縺梧遠迚後＠縺ｦ騾ｲ陦後ｒ蜀埼幕縺吶ｋ", () => {
   const engine = createEngine(Sanma, "cpu-call-flow-discard-after-call", { allowChi: true });
   arrangeEngine(Sanma, engine, {
     turnIndex: 0,

@@ -52,6 +52,29 @@ invalidRecord((record) => record.rounds[0].roundLabel = "x".repeat(Sanma.GameRec
 invalidRecord((record) => record.rounds[0].result.yaku = {});
 invalidRecord((record) => record.rounds[0].result.yakuman = {});
 invalidRecord((record) => record.rounds[0].result.score = "broken");
+invalidRecord((record) => record.rounds[0].result.winnerIndex = 99);
+invalidRecord((record) => record.rounds[0].result.fromPlayerIndex = 99);
+invalidRecord((record) => record.rounds[0].result.tenpaiPlayers = [0, 99]);
+invalidRecord((record) => record.rounds[0].result.pointTransfers = [{ fromPlayerIndex: 0, toPlayerIndex: 99, points: 1000 }]);
+
+const legacyRoot = originalParse(validText);
+legacyRoot.id = "valid-legacy-root-winner-index";
+delete legacyRoot.rounds[0].result.winners;
+legacyRoot.rounds[0].result.winnerIndex = 0;
+legacyRoot.rounds[0].result.fromPlayerIndex = 1;
+assert(Sanma.GameRecordStorage.importRecord(JSON.stringify(legacyRoot)).ok, "正常な旧形式winnerIndex/fromPlayerIndexを拒否しました");
+
+const riichiStickRecord = originalParse(validText);
+riichiStickRecord.id = "valid-riichi-stick-positive-delta";
+riichiStickRecord.rounds[0].result.score.payments = {
+  ron: { amount: 8000, winnerGain: 9000, riichiSticks: 1000 },
+};
+riichiStickRecord.rounds[0].result.changes = [
+  { playerIndex: 0, delta: 9000, after: 44000 },
+  { playerIndex: 1, delta: -8000, after: 27000 },
+  { playerIndex: 2, delta: 0, after: 35000 },
+];
+assert(Sanma.GameRecordStorage.importRecord(JSON.stringify(riichiStickRecord)).ok, "リーチ棒返還を含む和了結果を拒否しました");
 
 const malformed = originalParse(validText);
 malformed.rounds[0].result.yaku = {};

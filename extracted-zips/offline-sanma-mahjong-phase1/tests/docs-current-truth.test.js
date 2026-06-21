@@ -8,6 +8,7 @@ function read(relativePath) {
 }
 
 const readme = read("README.md");
+const canonicalReadme = read("extracted-zips/offline-sanma-mahjong-phase1/README.md");
 const testing = read("docs/TESTING.md");
 const bugs = read("docs/BUGS.md");
 const roadmap = read("docs/ROADMAP.md");
@@ -24,6 +25,9 @@ assert(readme.startsWith("# Offline Sanma Mahjong - Phase 16"), "README must be 
 assert(readme.includes("挙動保存リファクタ") && readme.includes("GameEngine"), "README must describe Phase 16 as behavior-preserving GameEngine split");
 assert(readme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed` で切り替え可能") && readme.includes("CPUのポン/チー/明槓、CPU通常ロン、CPU槍槓は実装済み"), "README must keep current CPU/call behavior honest");
 assert(index.includes("Phase 16現在の正本") && index.includes("PHASE16_GAME_ENGINE_SPLIT.md"), "docs/INDEX.md must point to Phase 16 source of truth");
+assert(canonicalReadme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed` で切り替え可能です。"), "canonical README must document double ron support");
+assert(canonicalReadme.includes("CPU の通常ロン、槍槓ロン、ポン、チー、明槓は実装済みです。"), "canonical README must document current CPU call support");
+assert(!canonicalReadme.includes("ダブロンは未実装") && !canonicalReadme.includes("CPUのポン/チー/明槓は未実装"), "canonical README must not retain stale unsupported claims");
 assert(architecture.includes("DrawContext") && architecture.includes("RecoveryFlow") && architecture.includes("Script Load Order"), "architecture doc must describe flow modules and load order");
 assert(phase16.includes("Behavior Preservation Tests") && phase16.includes("RoundLifecycle") && phase16.includes("TurnFlow"), "Phase 16 report must describe split and tests");
 assert(bugIntake.includes("bug_report") && bugIntake.includes("related_module"), "Phase 16.1 bug intake format must be documented");

@@ -109,6 +109,31 @@ const partialReplay = Sanma.ReplayViewer.create(partialRecord);
 Sanma.ReplayViewer.jumpToEnd(partialReplay);
 assert(partialReplay.partial && partialReplay.view.hands[0][0] === "9s", "古い不完全牌譜を安全に部分再生できません");
 
+const riichiRecord = Sanma.GameRecord.create({
+  players,
+  startingPoints: [35000, 35000, 35000],
+});
+riichiRecord.id = "record-riichi-replay";
+Sanma.GameRecord.addEvent(riichiRecord, "deal", {
+  hands: [
+    { playerIndex: 0, tiles: ["1p", "2p", "3p"] },
+    { playerIndex: 1, tiles: [] },
+    { playerIndex: 2, tiles: [] },
+  ],
+});
+Sanma.GameRecord.addEvent(riichiRecord, "riichi", {
+  playerIndex: 0,
+  playerName: players[0].name,
+  declarationDiscard: "3p",
+  changes: [{ playerIndex: 0, delta: -1000, after: 34000 }],
+});
+const riichiReplay = Sanma.ReplayViewer.create(riichiRecord);
+Sanma.ReplayViewer.stepForward(riichiReplay);
+Sanma.ReplayViewer.stepForward(riichiReplay);
+assert(riichiReplay.view.points[0] === 34000, "リーチイベントの供託支払いをReplayに反映できません");
+Sanma.ReplayViewer.jumpToEnd(riichiReplay);
+assert(riichiReplay.view.points[0] === 34000, "リーチ供託支払いをReplayで二重適用しています");
+
 assert(!Sanma.GameRecordStorage.importRecord("{invalid-json").ok, "不正な牌譜インポートを受理しました");
 assert(
   !Sanma.GameRecordStorage.importRecord(JSON.stringify({ id: "invalid-record", rounds: [] })).ok,

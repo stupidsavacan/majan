@@ -92,11 +92,35 @@
     }
   }
 
+  function validatePlayerIndex(value, label, options) {
+    const allowNull = !options || options.allowNull !== false;
+    if (value === undefined || (value === null && allowNull)) return;
+    if (!Number.isInteger(value) || value < 0 || value >= REQUIRED_PLAYER_COUNT) {
+      throw new Error(`${label} is out of range.`);
+    }
+  }
+
+  function validatePlayerIndexArray(values, label) {
+    if (values === undefined || values === null) return;
+    if (!Array.isArray(values)) throw new Error(`${label} must be an array.`);
+    values.forEach((value) => validatePlayerIndex(value, label, { allowNull: false }));
+  }
+
+  function validatePointTransfer(transfer, index) {
+    if (!isObject(transfer)) throw new Error(`pointTransfers[${index}] is invalid.`);
+    validatePlayerIndex(transfer.fromPlayerIndex, `pointTransfers[${index}].fromPlayerIndex`, { allowNull: false });
+    validatePlayerIndex(transfer.toPlayerIndex, `pointTransfers[${index}].toPlayerIndex`, { allowNull: false });
+    if (!Number.isFinite(Number(transfer.points)) || Number(transfer.points) < 0 || Number(transfer.points) > MAX_REASONABLE_POINTS) {
+      throw new Error(`pointTransfers[${index}].points is invalid.`);
+    }
+  }
+
   function validateWinner(winner) {
     if (!isObject(winner)) throw new Error("局結果のwinners内容が不正です。");
     if (!Number.isInteger(winner.winnerIndex) || winner.winnerIndex < 0 || winner.winnerIndex >= REQUIRED_PLAYER_COUNT) {
       throw new Error("局結果のwinners.winnerIndexが不正です。");
     }
+    validatePlayerIndex(winner.fromPlayerIndex, "winners.fromPlayerIndex");
     if (winner.winType !== undefined && winner.winType !== null && typeof winner.winType !== "string") {
       throw new Error("局結果のwinners.winTypeは文字列で指定してください。");
     }
@@ -116,6 +140,11 @@
         throw new Error(`局結果の${key}は配列で指定してください。`);
       }
     });
+    validatePlayerIndex(result.winnerIndex, "result.winnerIndex");
+    validatePlayerIndex(result.fromPlayerIndex, "result.fromPlayerIndex");
+    validatePlayerIndex(result.dealerIndex, "result.dealerIndex");
+    validatePlayerIndexArray(result.tenpaiPlayers, "result.tenpaiPlayers");
+    validatePlayerIndexArray(result.notenPlayers, "result.notenPlayers");
     if (Array.isArray(result.winners)) result.winners.forEach(validateWinner);
     validateScore(result.score, "局結果");
     if (result.changes !== undefined && !Array.isArray(result.changes)) {
@@ -124,6 +153,7 @@
     if (result.pointTransfers !== undefined && !Array.isArray(result.pointTransfers)) {
       throw new Error("局結果のpointTransfersは配列で指定してください。");
     }
+    if (Array.isArray(result.pointTransfers)) result.pointTransfers.forEach(validatePointTransfer);
     if (result.drawSettlement !== undefined && result.drawSettlement !== null && !isObject(result.drawSettlement)) {
       throw new Error("局結果のdrawSettlement形式が不正です。");
     }
@@ -206,6 +236,18 @@
       deltaSum += Number(change.delta);
     });
     if (seen.size < REQUIRED_PLAYER_COUNT) return;
+    const score = isObject(result.score) ? result.score : {};
+    const payments = isObject(score.payments) ? score.payments : {};
+    const riichiStickAllowance = ["ron", "tsumo"]
+      .map((key) => (isObject(payments[key]) && Number.isFinite(Number(payments[key].riichiSticks))
+        ? Number(payments[key].riichiSticks)
+        : 0))
+      .reduce((sum, value) => sum + value, 0);
+    const explicitAllowance = Number.isFinite(Number(result.riichiStickGain))
+      ? Number(result.riichiStickGain)
+      : 0;
+    const allowedDelta = Math.max(0, riichiStickAllowance, explicitAllowance);
+    if (Math.abs(deltaSum) <= 1 || Math.abs(deltaSum - allowedDelta) <= 1) return;
     if (Math.abs(deltaSum) > 1) throw new Error("局結果のchanges合計が0になりません。");
   }
 
@@ -466,8 +508,13 @@
     const yakuman = normalizeYakuArray(input.yakuman)
       .concat(rootGroups.yakuman)
       .filter((name, index, array) => array.indexOf(name) === index);
+    const resultType = winners.length > 1 || input.isMultiRon
+      ? "double_ron"
+      : (input.type || (winners.length > 0 ? "win" : "exhaustive_draw"));
+    const drawSettlement = input.drawSettlement
+      || (resultType === "exhaustive_draw" ? input.settlement : null);
     return {
-      type: input.type || (winners.length > 0 ? (winners.length > 1 ? "double_ron" : "win") : "exhaustive_draw"),
+      type: resultType,
       winnerIndex: firstWinner ? firstWinner.winnerIndex : null,
       winners,
       winType: firstWinner ? firstWinner.winType : input.winType || null,
@@ -476,7 +523,7 @@
       tenpaiPlayers: Array.isArray(input.tenpaiPlayers) ? input.tenpaiPlayers.slice() : [],
       notenPlayers: Array.isArray(input.notenPlayers) ? input.notenPlayers.slice() : [],
       tenpaiStatus: Array.isArray(input.tenpaiStatus) ? clone(input.tenpaiStatus) : [],
-      drawSettlement: compactDrawSettlement(input.drawSettlement || input.settlement),
+      drawSettlement: compactDrawSettlement(drawSettlement),
       yaku: normalizeYakuArray(input.yaku).concat(rootGroups.yaku).filter((name, index, array) => array.indexOf(name) === index),
       yakuman,
       score: compactScore(input.score || (firstWinner && firstWinner.score) || {}),

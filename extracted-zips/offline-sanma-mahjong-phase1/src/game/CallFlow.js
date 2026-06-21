@@ -9,6 +9,31 @@
     return actionId === "pon" ? "ポン" : "チー";
   }
 
+  const ACTION_PRIORITIES = { kan: 2, pon: 3, chi: 4 };
+
+  function turnDistance(engine, playerIndex) {
+    const fromPlayerIndex = engine && engine.lastDiscard ? engine.lastDiscard.playerIndex : null;
+    const playerCount = engine && Array.isArray(engine.players) ? engine.players.length : 0;
+    if (!Number.isInteger(fromPlayerIndex) || !playerCount) return 0;
+    return (playerIndex - fromPlayerIndex + playerCount) % playerCount;
+  }
+
+  function shouldApplyCpuCallBeforeHuman(engine, humanActionId) {
+    const pending = engine && engine.callWindow ? engine.callWindow.pendingCpuCallCandidate : null;
+    if (!pending || !humanActionId || humanActionId === "ron") return false;
+    const cpuPriority = Number.isFinite(Number(pending.priority))
+      ? Number(pending.priority)
+      : ACTION_PRIORITIES[pending.actionId] || 99;
+    const humanPriority = ACTION_PRIORITIES[humanActionId] || 99;
+    if (cpuPriority !== humanPriority) return cpuPriority < humanPriority;
+    const cpuDistance = Number.isFinite(Number(pending.turnDistance))
+      ? Number(pending.turnDistance)
+      : turnDistance(engine, pending.playerIndex);
+    const humanDistance = turnDistance(engine, engine.humanPlayer ? engine.humanPlayer.id : 0);
+    if (cpuDistance !== humanDistance) return cpuDistance < humanDistance;
+    return Number(pending.playerIndex) < Number(engine.humanPlayer ? engine.humanPlayer.id : 0);
+  }
+
   function hasRiichi(player) {
     return Boolean(player && (player.hasRiichi || (player.riichi && (player.riichi.declared || player.riichi.pending))));
   }
@@ -213,6 +238,19 @@
             this.callWindow = null;
             this.continueAfterDiscard(fromPlayerIndex);
             return false;
+          }
+          if (shouldApplyCpuCallBeforeHuman(this, actionId)) {
+            const pending = this.callWindow.pendingCpuCallCandidate;
+            if (FuritenManager && this.callWindow.actions.some((candidate) => candidate.id === "ron")) {
+              FuritenManager.markMissedRon(this, this.humanPlayer.id);
+            }
+            this.callWindow = null;
+            const applied = this.applySelectedCpuCallCandidate(pending, { source: "priority-over-human-call" });
+            if (applied && this.phase === "cpu-running" && !this.cpuTaskActive) {
+              this.emitChange();
+              this.runCpuUntilHumanTurn();
+            }
+            return applied;
           }
           const option = action && action.options ? action.options[Number(optionIndex) || 0] : null;
           if (!action || !option) {

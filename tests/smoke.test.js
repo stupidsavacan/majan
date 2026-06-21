@@ -6,6 +6,7 @@ const Sanma = loadModules([
   "src/storage/SaveMigration.js",
   "src/storage/settingsStorage.js",
   "src/storage/gameRecordStorage.js",
+  "src/ui/settingsPanel.js",
   "src/ui/settingsExportImport.js",
   "src/ui/recordPanel.js",
 ]);
@@ -37,6 +38,7 @@ const requiredModules = [
   "Sanma.ReplayViewer",
   "Sanma.RecordListPanel",
   "Sanma.GameRecordStorage",
+  "Sanma.SettingsPanel",
   "Sanma.SettingsExportImport",
   "Sanma.RecordPanel",
   "Sanma.DebugEventLog",
@@ -139,6 +141,7 @@ const requiredScriptOrder = [
   "src/storage/gameRecordStorage.js",
   "src/stats/AdvancedStats.js",
   "src/ui/renderTable.js",
+  "src/ui/settingsPanel.js",
   "src/ui/settingsExportImport.js",
   "src/ui/ReplayViewer.js",
   "src/ui/RecordListPanel.js",
@@ -190,6 +193,7 @@ if (isNestedCanonicalApp && fs.existsSync(repositoryRootIndexPath)) {
     "src/stats/AdvancedStats.js",
     "src/ui/ReplayViewer.js",
     "src/ui/RecordListPanel.js",
+    "src/ui/settingsPanel.js",
     "src/main.js",
   ].forEach((source) => {
     assert(

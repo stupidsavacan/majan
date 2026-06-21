@@ -21,6 +21,10 @@ assert(
   "和了結果が呼び出し窓より前に配置されています"
 );
 assert(
+  renderTableSource.includes("winResult.winners") && renderTableSource.includes("win-result-winner"),
+  "ダブロン表示で複数勝者ごとの結果を描画する分岐がありません"
+);
+assert(
   /\.center-board\s*\{[^}]*grid-template-columns:1fr minmax\(12rem,.35fr\)/s.test(mainCss),
   "デスクトップのcenter-boardが河メイン列・ドラサイド列の2列構成ではありません"
 );

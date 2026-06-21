@@ -120,6 +120,39 @@
     return null;
   }
 
+  function findAllMelds(counts, melds, results, limit) {
+    const first = counts.findIndex((count) => count > 0);
+    if (first < 0) {
+      results.push(melds.slice());
+      return results;
+    }
+    if (results.length >= limit) return results;
+
+    if (counts[first] >= 3) {
+      counts[first] -= 3;
+      melds.push(describeGroup("triplet", [first, first, first]));
+      findAllMelds(counts, melds, results, limit);
+      melds.pop();
+      counts[first] += 3;
+    }
+
+    const type = tileTypes[first];
+    const canSequence = (type.suit === "p" || type.suit === "s") && type.rank <= 7;
+    if (canSequence && counts[first + 1] > 0 && counts[first + 2] > 0 && results.length < limit) {
+      counts[first] -= 1;
+      counts[first + 1] -= 1;
+      counts[first + 2] -= 1;
+      melds.push(describeGroup("sequence", [first, first + 1, first + 2]));
+      findAllMelds(counts, melds, results, limit);
+      melds.pop();
+      counts[first] += 1;
+      counts[first + 1] += 1;
+      counts[first + 2] += 1;
+    }
+
+    return results;
+  }
+
   function invalidAgariResult(type, reason, tileCount) {
     return { isAgari: false, type, pair: null, melds: [], tileCount, reason };
   }
@@ -129,18 +162,29 @@
     if (!converted.isValid) return invalidAgariResult("standard", converted.reason, converted.tileCount);
     if (converted.tileCount !== 14) return invalidAgariResult("standard", "4面子1雀頭判定には14枚必要です。", converted.tileCount);
 
+    const alternativeMeldPatterns = [];
     for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
       if (converted.counts[pairIndex] < 2) continue;
       const remaining = converted.counts.slice();
       remaining[pairIndex] -= 2;
-      const melds = findMelds(remaining, []);
+      const melds = findMelds(remaining.slice(), []);
       if (melds && melds.length === 4) {
+        findAllMelds(remaining.slice(), [], [], 64)
+          .filter((candidate) => candidate.length === 4)
+          .forEach((candidate) => {
+            alternativeMeldPatterns.push({
+              type: "standard",
+              pair: describeGroup("pair", [pairIndex, pairIndex]),
+              melds: candidate,
+            });
+          });
         return {
           isAgari: true,
           type: "standard",
           typeLabel: "4面子1雀頭",
           pair: describeGroup("pair", [pairIndex, pairIndex]),
           melds,
+          alternativeMeldPatterns,
           tileCount: converted.tileCount,
           reason: "4面子1雀頭に分解できます。",
         };
@@ -236,12 +280,22 @@
       );
     }
 
+    const alternativeMeldPatterns = [];
     for (let pairIndex = 0; pairIndex < converted.counts.length; pairIndex += 1) {
       if (converted.counts[pairIndex] < 2) continue;
       const remaining = converted.counts.slice();
       remaining[pairIndex] -= 2;
-      const concealedMelds = findMelds(remaining, []);
+      const concealedMelds = findMelds(remaining.slice(), []);
       if (concealedMelds && concealedMelds.length === 4 - fixedGroups.length) {
+        findAllMelds(remaining.slice(), [], [], 64)
+          .filter((candidate) => candidate.length === 4 - fixedGroups.length)
+          .forEach((candidate) => {
+            alternativeMeldPatterns.push({
+              type: "standard",
+              pair: describeGroup("pair", [pairIndex, pairIndex]),
+              melds: candidate.concat(fixedGroups),
+            });
+          });
         return {
           isAgari: true,
           type: "standard",
@@ -249,6 +303,7 @@
           pair: describeGroup("pair", [pairIndex, pairIndex]),
           melds: concealedMelds.concat(fixedGroups),
           fixedMelds: fixedGroups,
+          alternativeMeldPatterns,
           tileCount: 14,
           concealedTileCount: converted.tileCount,
           reason: "固定面子を保持した和了形に分解できます。",

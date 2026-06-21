@@ -51,6 +51,7 @@ function baseRecord(ruleConfig) {
     ] },
   }, [67000, 3000, 35000]);
   const result = record.rounds[0].result;
+  assert(result.drawSettlement === null, "通常和了に流局用drawSettlementを保存してはいけません");
   assert(result.yaku.includes("混一色"), "honitsuは混一色として保存する");
   assert(result.yaku.includes("清一色"), "chinitsuは清一色として保存する");
   assert(result.yakuman.includes("四暗刻"), "suuankouは四暗刻として保存する");
@@ -131,6 +132,7 @@ function baseRecord(ruleConfig) {
     ],
   }, [43000, 15000, 47000]);
   const normalized = Sanma.GameRecord.normalize(record);
+  assert(normalized.rounds[0].result.type === "double_ron", "ダブロン結果typeをdouble_ronとして保存する");
   assert(normalized.rounds[0].result.winners.length === 2, "ダブロン複数勝者を保存する");
   assert(normalized.rounds[0].result.winners[0].yaku.includes("混一色"), "ダブロン勝者ごとの役を保存する");
   assert(normalized.rounds[0].result.winners[1].yakuman.includes("大三元"), "ダブロン勝者ごとの役満を保存する");
@@ -138,6 +140,8 @@ function baseRecord(ruleConfig) {
   Sanma.ReplayViewer.jumpToEnd(state);
   assert(state.view.points[1] === 15000, "Replayがダブロンイベントで落ちず点棒を反映する");
   const stats = Sanma.AdvancedStats.calculate([normalized]);
+  const index = Sanma.RecordIndex.build([normalized]);
+  assert(index[0].tags.includes("ダブロン"), "RecordIndexはダブロンタグを付与する");
   assert(stats.hand.wins === 1, "Statsは人間をダブロン勝者として集計する");
   assert(stats.hand.doubleRonCount === 1, "Statsはダブロン回数を集計する");
   assert(stats.yaku.frequency["混一色"] === 1, "Statsは新規役を集計する");
