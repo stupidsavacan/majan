@@ -17,7 +17,7 @@ const malicious = [
 ];
 malicious.forEach((settings) => {
   const config = loadStored(settings);
-  assert(config.allowChi === true, "不正設定を含むlocalStorageを部分受理しました");
+  assert(config.allowChi === false, "不正設定を含むlocalStorageを部分受理しました");
   assert(config.riichiStickValue === 1000, "localStorageがriichiStickValueを変更しました");
   assert(config.dramaticDrawAssistRate === Sanma.RuleConfig.defaultRuleConfig.dramaticDrawAssistRate, "localStorageがassist率を変更しました");
   assert(config.maxAssistDrawsPerRoundForHuman === Sanma.RuleConfig.defaultRuleConfig.maxAssistDrawsPerRoundForHuman, "localStorageがassist上限を変更しました");

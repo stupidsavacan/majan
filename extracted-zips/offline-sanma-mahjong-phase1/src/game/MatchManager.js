@@ -6,15 +6,46 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  function compactResult(result) {
-    const input = result || {};
+  function compactDrawSettlement(input) {
+    if (!input || typeof input !== "object") return null;
     return {
-      type: input.type || (Number.isInteger(input.winnerIndex) ? "win" : "exhaustive_draw"),
-      winnerIndex: Number.isInteger(input.winnerIndex) ? input.winnerIndex : null,
-      winType: input.winType || null,
-      dealerTenpai: Boolean(input.dealerTenpai),
+      applied: Boolean(input.applied),
+      type: input.type || "exhaustive_draw",
+      mode: input.mode || "noten-bappu-3000",
+      tenpaiPlayers: Array.isArray(input.tenpaiPlayers) ? input.tenpaiPlayers.slice() : [],
+      notenPlayers: Array.isArray(input.notenPlayers) ? input.notenPlayers.slice() : [],
+      changes: (input.changes || []).map((change) => ({
+        playerIndex: change.playerIndex,
+        delta: change.delta,
+        after: change.after,
+      })),
       reason: input.reason || "",
     };
+  }
+
+  function compactResult(result) {
+    const input = result || {};
+    const winnerIndexes = Array.isArray(input.winnerIndexes)
+      ? input.winnerIndexes.filter(Number.isInteger)
+      : (Number.isInteger(input.winnerIndex) ? [input.winnerIndex] : []);
+    return {
+      type: input.type || (winnerIndexes.length > 0 ? "win" : "exhaustive_draw"),
+      winnerIndex: winnerIndexes.length > 0 ? winnerIndexes[0] : null,
+      winnerIndexes,
+      isMultiRon: Boolean(input.isMultiRon || winnerIndexes.length > 1),
+      winType: input.winType || null,
+      dealerTenpai: Boolean(input.dealerTenpai),
+      tenpaiPlayers: Array.isArray(input.tenpaiPlayers) ? input.tenpaiPlayers.slice() : [],
+      notenPlayers: Array.isArray(input.notenPlayers) ? input.notenPlayers.slice() : [],
+      drawSettlement: compactDrawSettlement(input.drawSettlement || input.settlement),
+      reason: input.reason || "",
+    };
+  }
+
+  function doubleRonHonbaIncrement(ruleConfig, compact) {
+    if (!compact.isMultiRon || !ruleConfig || !ruleConfig.doubleRonPolicy) return 1;
+    const value = Number(ruleConfig.doubleRonPolicy.honbaIncrement);
+    return Number.isInteger(value) && value >= 1 ? value : 1;
   }
 
   class MatchManager {
@@ -78,8 +109,7 @@
       if (this.state.roundEnded) return this.getState();
       this.syncPlayers(players);
       const compact = compactResult(result);
-      const dealerWon = Number.isInteger(compact.winnerIndex)
-        && compact.winnerIndex === this.state.dealerIndex;
+      const dealerWon = compact.winnerIndexes.includes(this.state.dealerIndex);
       const dealerDrawContinues = compact.type === "exhaustive_draw"
         && compact.dealerTenpai
         && this.ruleConfig.renchanPolicy.dealerTenpaiDraw;
@@ -88,7 +118,9 @@
         : dealerDrawContinues;
 
       this.pendingRound = Sanma.RoundManager.nextRound(this.state, dealerContinues);
-      this.pendingRound.honba = Sanma.HonbaManager.nextHonba(this.state.honba, dealerContinues);
+      this.pendingRound.honba = dealerContinues
+        ? this.state.honba + doubleRonHonbaIncrement(this.ruleConfig, compact)
+        : 0;
       this.pendingRound.riichiSticks = Sanma.HonbaManager.nextRiichiSticks(this.state.riichiSticks, compact);
       this.state.riichiSticks = this.pendingRound.riichiSticks;
       this.state.roundEnded = true;

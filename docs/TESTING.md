@@ -37,6 +37,16 @@ These tests verify public API compatibility, script order, Flow module boundarie
 
 These tests cover the issue sweep fixes for pending kan recovery, defensive state snapshots, recovery softlocks, ron-window action filtering, pending CPU ron recovery, imported-record stats eligibility, record import semantic guards, replay diagnostics, kan replay fallback, kita replacement event order, and haitei suppression on kita replacement draws.
 
+## Issue #26 Test Foundation
+
+Issue #26 acceptance coverage starts with a green foundation test instead of failing tests for features that are still intentionally unimplemented.
+
+- `tests/issue26-acceptance-matrix.test.js` verifies that the Issue #26 matrix, current limitation docs, runner registration, and promotion policy stay synchronized.
+- `tests/issue26-test-helpers.js` exposes matrix rows and deterministic fixture descriptors for later implementation PRs.
+- `docs/ISSUE26_ACCEPTANCE_MATRIX.md` is the source-of-truth checklist for promoting TODO rows into executable tests.
+
+Implementation agents should promote a TODO row only after the matching behavior is implemented, a deterministic test is added, and `node tests/run-all-tests.js` plus `node --check` for changed JavaScript files pass locally.
+
 ## Pull Request And CI
 
 Phase 16 changes must go through a pull request. Direct push to `main` is forbidden for this phase.
@@ -48,3 +58,15 @@ GitHub Actions must pass before merge. The PR body records local commands, deter
 `.github/workflows/unpack-uploaded-zip.yml` unpacks uploaded ZIP sources into a branch and opens or updates a pull request. It must not push directly to `main`.
 
 ZIP展開PRゲート: mainへ展開結果を直接pushしません。
+
+## Issue #26 Integrated Tests
+
+The F integration package registers these executable tests:
+
+- `tests/issue26-priority-a-yaku.test.js`
+- `tests/issue26-priority-bc-yaku.test.js`
+- `tests/issue26-chi-default-and-ryuukyoku.test.js`
+- `tests/issue26-daburon.test.js`
+- `tests/issue26-record-replay-stats-ui.test.js`
+- `tests/issue26-acceptance-matrix.test.js`
+- `tests/issue26-test-helpers.js`

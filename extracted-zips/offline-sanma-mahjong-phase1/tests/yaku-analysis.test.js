@@ -60,7 +60,7 @@ const kokushi = ["1m", "9m", "1p", "9p", "1s", "9s", "east", "south", "west", "n
 const kokushiResult = analyze(kokushi);
 assert(has(kokushiResult, "kokushi-musou") && kokushiResult.isYakuman, "国士無双を役満として判定できません");
 
-const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "7s", "8s", "9s", "1m", "1m"];
+const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "2s", "3s", "4s", "7s", "8s", "9s", "1m", "1m"];
 const noYakuResult = analyze(noYaku);
 assert(!noYakuResult.hasYaku && noYakuResult.reason === "和了形ですが役がありません。", "役なし和了形を正しく報告できません");
 

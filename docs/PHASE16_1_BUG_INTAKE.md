@@ -34,7 +34,7 @@ bug_report:
 
 ## Out Of Scope For Phase 16.1
 
-- CPU pon/chi/minkan implementation.
+- CPU call strategy expansion beyond the currently implemented pon/chi/minkan flow.
 - New yaku or scoring rules.
 - UI redesign.
 - Storage format breaking changes.

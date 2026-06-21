@@ -21,10 +21,24 @@
       dealerTenpaiDraw: true,
       dealerNotenDraw: false,
     }),
-    doubleRonPolicy: Object.freeze({ allowed: false, honbaIncrement: 1 }),
+    doubleRonPolicy: Object.freeze({
+      allowed: false,
+      honbaIncrement: 1,
+      riichiStickPolicy: "head-bump-first",
+    }),
+    exhaustiveDrawSettlement: Object.freeze({
+      enabled: true,
+      mode: "noten-bappu-3000",
+      totalPoints: 3000,
+    }),
+    yakuRules: Object.freeze({
+      ryuuiisouRequiresHatsu: false,
+      renhou: "disabled",
+      nagashiMangan: "deferred",
+    }),
 
     northMode: "kita-dora",
-    allowChi: true,
+    allowChi: false,
     tsumoLoss: false,
 
     kuitan: true,
@@ -109,7 +123,7 @@
         { value: "disabled", label: "北なし" },
       ],
     },
-    { key: "allowChi", label: "チーあり", type: "checkbox" },
+    { key: "allowChi", label: "チーあり", type: "checkbox", help: "標準三麻寄りの初期値はチーなし。必要な場合だけONにできます。" },
     { key: "tsumoLoss", label: "ツモ損あり", type: "checkbox" },
     { key: "highScoreMode", label: "高打点モード", type: "checkbox", help: "五筒・五索を全赤化。赤ドラ表示牌から決まるドラ価値は2倍。" },
     { key: "uraDora", label: "裏ドラ", type: "checkbox" },
@@ -198,8 +212,43 @@
       ),
     };
     merged.renchanPolicy = Object.assign({}, defaultRuleConfig.renchanPolicy, input.renchanPolicy || {});
-    merged.doubleRonPolicy = Object.assign({}, defaultRuleConfig.doubleRonPolicy, input.doubleRonPolicy || {});
-    merged.doubleRonPolicy.allowed = false;
+    const requestedDoubleRonPolicy = input.doubleRonPolicy && typeof input.doubleRonPolicy === "object"
+      ? input.doubleRonPolicy
+      : {};
+    merged.doubleRonPolicy = {
+      allowed: requestedDoubleRonPolicy.allowed === true,
+      honbaIncrement: normalizeDoubleRonHonbaIncrement(
+        requestedDoubleRonPolicy.honbaIncrement,
+        defaultRuleConfig.doubleRonPolicy.honbaIncrement
+      ),
+      riichiStickPolicy: requestedDoubleRonPolicy.riichiStickPolicy === "head-bump-first"
+        ? "head-bump-first"
+        : defaultRuleConfig.doubleRonPolicy.riichiStickPolicy,
+    };
+    const drawSettlementInput = input.exhaustiveDrawSettlement && typeof input.exhaustiveDrawSettlement === "object"
+      ? input.exhaustiveDrawSettlement
+      : {};
+    merged.exhaustiveDrawSettlement = Object.assign(
+      {},
+      defaultRuleConfig.exhaustiveDrawSettlement,
+      drawSettlementInput
+    );
+    merged.exhaustiveDrawSettlement.enabled = merged.exhaustiveDrawSettlement.enabled !== false;
+    merged.exhaustiveDrawSettlement.mode = merged.exhaustiveDrawSettlement.mode === "noten-bappu-3000"
+      ? merged.exhaustiveDrawSettlement.mode
+      : defaultRuleConfig.exhaustiveDrawSettlement.mode;
+    merged.exhaustiveDrawSettlement.totalPoints = normalizeHonbaPoint(
+      merged.exhaustiveDrawSettlement.totalPoints,
+      defaultRuleConfig.exhaustiveDrawSettlement.totalPoints
+    );
+    merged.yakuRules = Object.assign({}, defaultRuleConfig.yakuRules, input.yakuRules || {});
+    merged.yakuRules.ryuuiisouRequiresHatsu = merged.yakuRules.ryuuiisouRequiresHatsu === true;
+    if (!["disabled", "yakuman", "mangan"].includes(merged.yakuRules.renhou)) {
+      merged.yakuRules.renhou = defaultRuleConfig.yakuRules.renhou;
+    }
+    if (!["disabled", "deferred"].includes(merged.yakuRules.nagashiMangan)) {
+      merged.yakuRules.nagashiMangan = defaultRuleConfig.yakuRules.nagashiMangan;
+    }
     const advancedInput = input.advancedRules || {};
     merged.advancedRules = {};
     Object.keys(defaultRuleConfig.advancedRules).forEach((key) => {
@@ -236,6 +285,12 @@
       : fallback;
   }
 
+  function normalizeDoubleRonHonbaIncrement(value, fallback) {
+    return Number.isFinite(value) && Number.isInteger(value) && value >= 1 && value <= 2
+      ? value
+      : fallback;
+  }
+
   function describeRuleConfig(config) {
     const northLabel = {
       "kita-dora": "北抜き",
@@ -247,6 +302,7 @@
       config.matchLength === "single" ? "一局戦" : config.matchLength === "hanchan" ? "半荘" : "東風",
       northLabel,
       config.allowChi ? "チーあり" : "チーなし",
+      config.doubleRonPolicy && config.doubleRonPolicy.allowed ? "ダブロンあり" : "ダブロンなし",
       config.tsumoLoss ? "ツモ損あり" : "ツモ損なし",
       config.highScoreMode ? "高打点ON" : "高打点OFF",
     ].join(" / ");

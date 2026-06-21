@@ -24,6 +24,18 @@
   const GameStateMachine = Sanma.GameStateMachine;
   const InvariantChecker = Sanma.InvariantChecker;
 
+  function isDoubleRonEnabled(ruleConfig) {
+    return Boolean(ruleConfig && ruleConfig.doubleRonPolicy && ruleConfig.doubleRonPolicy.allowed === true);
+  }
+
+  function orderedRonCandidates(candidates) {
+    return (candidates || []).slice().sort((left, right) => left.priorityOffset - right.priorityOffset);
+  }
+
+  function ronLimitLabel(scoreResult) {
+    return scoreResult.limitName || `${scoreResult.han}飜${scoreResult.fu}符`;
+  }
+
   Sanma.WinFlow = {
         tryCpuTsumo(player) {
           const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
@@ -84,13 +96,11 @@
             );
             if (analysis.scoreResult.isValidWin) candidates.push({ playerIndex, analysis, priorityOffset: offset });
           }
-          return candidates.sort((left, right) => left.priorityOffset - right.priorityOffset);
+          return orderedRonCandidates(candidates);
         },
 
         selectHeadBumpCandidates(candidates) {
-          const ordered = (candidates || [])
-            .slice()
-            .sort((left, right) => left.priorityOffset - right.priorityOffset);
+          const ordered = orderedRonCandidates(candidates);
           const primary = ordered[0] || null;
           const fallbackCpu = primary && this.players[primary.playerIndex].isHuman
             ? ordered.slice(1).find((candidate) => !this.players[candidate.playerIndex].isHuman) || null
@@ -106,6 +116,11 @@
         },
 
         tryCpuRonAfterDiscard(discarderIndex) {
+          const candidates = this.collectRonCandidatesAfterDiscard(discarderIndex) || [];
+          if (isDoubleRonEnabled(this.ruleConfig)) {
+            const cpuOnly = orderedRonCandidates(candidates).filter((candidate) => !this.players[candidate.playerIndex].isHuman);
+            if (cpuOnly.length > 1) return Sanma.WinFlow.resolveMultiRonWin.call(this, cpuOnly, { isCpuRon: true });
+          }
           const reaction = this.findCpuRonAfterDiscard(discarderIndex);
           if (!reaction) return false;
           this.addCpuActionLog(this.players[reaction.playerIndex], "ロン", "他家の打牌に対する和了を選択しました。");
@@ -113,10 +128,48 @@
         },
 
         resolveRonCandidatesAfterDiscard(discarderIndex) {
-          const candidates = this.collectRonCandidatesAfterDiscard(discarderIndex) || [];
+          const candidates = orderedRonCandidates(this.collectRonCandidatesAfterDiscard(discarderIndex) || []);
           const priority = this.selectHeadBumpCandidates(candidates);
           const primary = priority.primary;
           if (!primary) return false;
+
+          if (isDoubleRonEnabled(this.ruleConfig)) {
+            const humanCandidate = candidates.find((candidate) => this.players[candidate.playerIndex].isHuman) || null;
+            if (humanCandidate) {
+              const windowState = CallWindow.create(this, this.humanPlayer.id);
+              if (!windowState) return false;
+              windowState.actions = windowState.actions.filter((action) => action.id === "ron");
+              if (windowState.actions.length === 0) {
+                windowState.actions = [{
+                  id: "ron",
+                  label: "ロン",
+                  enabled: true,
+                  reason: "この捨て牌でロンできます。",
+                  analysis: humanCandidate.analysis,
+                }];
+              } else {
+                windowState.actions = windowState.actions.map((action) => Object.assign({}, action, {
+                  analysis: humanCandidate.analysis,
+                }));
+              }
+              windowState.ronCandidates = candidates;
+              windowState.pendingCpuRonCandidate = candidates.find((candidate) => !this.players[candidate.playerIndex].isHuman) || null;
+              windowState.kind = "discard-ron";
+              this.markOpeningInterrupted("ロン選択窓");
+              this.callWindow = windowState;
+              this.phase = "human-call";
+              this.addLog(`${this.players[discarderIndex].name}の捨て牌にロンできます。`);
+              this.emitChange();
+              return true;
+            }
+            if (candidates.length > 1) {
+              candidates.forEach((candidate) => {
+                this.addCpuActionLog(this.players[candidate.playerIndex], "ロン", "ダブロン許可ルールで和了を選択しました。");
+              });
+              return Sanma.WinFlow.resolveMultiRonWin.call(this, candidates, { isCpuRon: true });
+            }
+          }
+
           if (this.players[primary.playerIndex].isHuman) {
             const windowState = CallWindow.create(this, this.humanPlayer.id);
             if (!windowState) return false;
@@ -174,13 +227,13 @@
           if (this.phase !== "human-discard" || this.turnIndex !== this.humanPlayer.id) {
             this.addLog("現在はツモ和了できません。");
             this.emitChange();
-            return;
+            return false;
           }
           const analysis = this.analyzeHumanWin("tsumo");
           if (!analysis.score.isValidWin) {
             this.addLog(analysis.score.reason);
             this.emitChange();
-            return;
+            return false;
           }
 
           const settlement = Settlement.applySettlement({
@@ -191,7 +244,7 @@
           if (!settlement.applied) {
             this.addLog(settlement.reason);
             this.emitChange();
-            return;
+            return false;
           }
           this.phase = "win-ended";
           this.winResult = {
@@ -225,13 +278,13 @@
           if (this.phase !== "human-call" || !this.callWindow) {
             this.addLog("現在はロンできません。");
             this.emitChange();
-            return;
+            return false;
           }
           const action = this.callWindow.actions.find((candidate) => candidate.id === "ron");
           if (!action || !action.analysis || !action.analysis.scoreResult.isValidWin) {
             this.addLog("この捨て牌ではロンできません。");
             this.emitChange();
-            return;
+            return false;
           }
           const analysis = action.analysis;
           const metadata = this.callWindow.kind === "chankan"
@@ -241,6 +294,12 @@
               isAnkanKokushiException: Boolean(this.callWindow.isAnkanKokushiException),
             }
             : {};
+          const ronCandidates = Array.isArray(this.callWindow.ronCandidates)
+            ? orderedRonCandidates(this.callWindow.ronCandidates)
+            : [];
+          if (!metadata.isChankan && isDoubleRonEnabled(this.ruleConfig) && ronCandidates.length > 1) {
+            return Sanma.WinFlow.resolveMultiRonWin.call(this, ronCandidates, metadata);
+          }
           return this.resolveRonWin(this.humanPlayer.id, analysis, metadata);
         },
 
@@ -259,7 +318,7 @@
           if (!settlement.applied) {
             this.addLog(settlement.reason);
             this.emitChange();
-            return;
+            return false;
           }
           const details = metadata || {};
           this.phase = "win-ended";
@@ -274,7 +333,7 @@
             settlement,
             context: analysis.context,
           };
-          this.addLog(`${winner.name}がロン和了しました。${analysis.scoreResult.limitName || `${analysis.scoreResult.han}飜${analysis.scoreResult.fu}符`} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
+          this.addLog(`${winner.name}がロン和了しました。${ronLimitLabel(analysis.scoreResult)} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
           if (details.isChankan) {
             this.recordGameEvent("chankan", {
               playerIndex: winnerIndex,
@@ -294,6 +353,98 @@
             isAnkanKokushiException: Boolean(details.isAnkanKokushiException),
           });
           this.recordGameEvent("score_settlement", { changes: settlement.changes });
+          this.finishGameRecord(this.winResult);
+          this.pendingWinContext = null;
+          this.emitChange();
+          return true;
+        },
+
+        resolveMultiRonWin(candidates, metadata) {
+          const ordered = orderedRonCandidates(candidates).filter((candidate) => (
+            candidate
+            && this.players[candidate.playerIndex]
+            && candidate.analysis
+            && candidate.analysis.scoreResult
+            && candidate.analysis.scoreResult.isValidWin
+          ));
+          if (ordered.length === 0) {
+            this.addLog("ロン和了情報が不正です。");
+            this.emitChange();
+            return false;
+          }
+          if (ordered.length === 1) {
+            return this.resolveRonWin(ordered[0].playerIndex, ordered[0].analysis, metadata || {});
+          }
+          const settlement = Settlement.applyMultiRonSettlement({
+            players: this.players,
+            entries: ordered.map((candidate) => ({
+              playerIndex: candidate.playerIndex,
+              scoreResult: candidate.analysis.scoreResult,
+              context: candidate.analysis.context,
+            })),
+          });
+          if (!settlement.applied) {
+            this.addLog(settlement.reason);
+            this.emitChange();
+            return false;
+          }
+
+          const details = metadata || {};
+          const winners = ordered.map((candidate, index) => {
+            const player = this.players[candidate.playerIndex];
+            return {
+              winnerIndex: candidate.playerIndex,
+              winnerName: player.name,
+              winType: "ron",
+              yaku: candidate.analysis.yakuResult,
+              score: candidate.analysis.scoreResult,
+              context: candidate.analysis.context,
+              priorityOffset: candidate.priorityOffset,
+              order: index,
+            };
+          });
+          const winnerIndexes = winners.map((winner) => winner.winnerIndex);
+          this.phase = "win-ended";
+          this.callWindow = null;
+          this.pendingKanAttempt = null;
+          this.winResult = {
+            type: "win",
+            winnerIndex: winners[0].winnerIndex,
+            winnerIndexes,
+            winnerName: winners.map((winner) => winner.winnerName).join("・"),
+            winType: "ron",
+            yaku: winners[0].yaku,
+            score: winners[0].score,
+            settlement,
+            context: winners[0].context,
+            winners,
+            isMultiRon: true,
+            reason: `ダブロン: ${winners.map((winner) => winner.winnerName).join("、")}`,
+          };
+
+          this.addLog(`ダブロン: ${winners.map((winner) => winner.winnerName).join("、")}がロン和了しました。`);
+          winners.forEach((winner) => {
+            this.addLog(`${winner.winnerName}がロン和了しました。${ronLimitLabel(winner.score)} / ${winner.score.payments.ron.amount.toLocaleString()}点。`);
+            this.recordGameEvent("win", {
+              playerIndex: winner.winnerIndex,
+              playerName: winner.winnerName,
+              winType: "ron",
+              multiRon: true,
+              multiRonOrder: winner.order,
+              winnerIndexes,
+              isChankan: Boolean(details.isChankan),
+              kanType: details.kanType || null,
+              isAnkanKokushiException: Boolean(details.isAnkanKokushiException),
+            });
+          });
+          this.recordGameEvent("score_settlement", {
+            changes: settlement.changes,
+            multiRon: true,
+            winners: settlement.winners || winners.map((winner) => ({
+              playerIndex: winner.winnerIndex,
+              playerName: winner.winnerName,
+            })),
+          });
           this.finishGameRecord(this.winResult);
           this.pendingWinContext = null;
           this.emitChange();

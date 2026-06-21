@@ -124,6 +124,20 @@
       : null;
   }
 
+  function applyPointChanges(view, changes) {
+    (Array.isArray(changes) ? changes : []).forEach((change) => {
+      if (
+        change
+        && Number.isInteger(change.playerIndex)
+        && change.playerIndex >= 0
+        && change.playerIndex < view.points.length
+        && Number.isFinite(Number(change.after))
+      ) {
+        view.points[change.playerIndex] = Number(change.after);
+      }
+    });
+  }
+
   function applyEvent(view, event) {
     if (!event || typeof event !== "object") return view;
     const data = event && event.data ? event.data : {};
@@ -202,18 +216,10 @@
     ) {
       removeOrWarn(view, playerZone(view, "hands", playerIndex), data.outgoing, "assist");
       playerZone(view, "hands", playerIndex).push(data.incoming);
-    } else if (event.type === "score_settlement" && Array.isArray(data.changes)) {
-      data.changes.forEach((change) => {
-        if (
-          change
-          && Number.isInteger(change.playerIndex)
-          && change.playerIndex >= 0
-          && change.playerIndex < view.points.length
-          && Number.isFinite(Number(change.after))
-        ) {
-          view.points[change.playerIndex] = Number(change.after);
-        }
-      });
+    } else if (event.type === "score_settlement") {
+      applyPointChanges(view, data.changes || (data.result && data.result.changes));
+    } else if (event.type === "win" || event.type === "double_ron" || event.type === "round_result") {
+      applyPointChanges(view, data.changes || (data.result && data.result.changes));
     }
     return view;
   }
@@ -273,9 +279,30 @@
     return rebuild(state);
   }
 
-  function eventText(event) {
+  function playerNames(record, indexes) {
+    return (Array.isArray(indexes) ? indexes : [])
+      .map((index) => (record && record.players && record.players[index] && record.players[index].name) || `P${index}`);
+  }
+
+  function eventText(event, record) {
     if (!event) return "開始";
     const data = event.data || {};
+    if (event.type === "score_settlement") {
+      const result = data.result || data;
+      if (result.type === "exhaustive_draw") {
+        const tenpai = playerNames(record, result.tenpaiPlayers).join("、") || "なし";
+        const noten = playerNames(record, result.notenPlayers).join("、") || "なし";
+        return `${event.index || ""} 流局: テンパイ ${tenpai} / ノーテン ${noten}`.trim();
+      }
+      return `${event.index || ""} 点棒精算`.trim();
+    }
+    if (event.type === "double_ron") {
+      const winners = Array.isArray(data.winners) ? data.winners.map((winner) => winner && winner.winnerIndex) : [];
+      return `${event.index || ""} ダブロン: ${playerNames(record, winners).join("、")}`.trim();
+    }
+    if (event.type === "win" && Array.isArray(data.winners) && data.winners.length > 1) {
+      return `${event.index || ""} ダブロン: ${playerNames(record, data.winners.map((winner) => winner.winnerIndex)).join("、")}`.trim();
+    }
     const details = [data.playerName, data.tile ? tileLabel(data.tile) : null, data.action, data.kanType, data.reason].filter(Boolean);
     return `${event.index || ""} ${event.type}${details.length ? `: ${details.join(" / ")}` : ""}`.trim();
   }
@@ -383,7 +410,7 @@
       });
       root.append(head, controls);
       if (state.partial) root.appendChild(el("div", "replay-warning", "この牌譜は古い形式のため、一部の表示を省略しています。"));
-      root.append(board, el("div", "replay-current-event", eventText(current)));
+      root.append(board, el("div", "replay-current-event", eventText(current, state.record)));
     }
 
     draw();

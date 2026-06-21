@@ -99,7 +99,7 @@ assert(shanponRonScore.details.some((detail) => detail.includes("么九牌の明
   assert(waitFuScore.details.some((detail) => detail.includes("待ち形 2符")), `${waitType}の待ち符が付きません`);
 });
 
-const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "7s", "8s", "9s", "1m", "1m"];
+const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "2s", "3s", "4s", "7s", "8s", "9s", "1m", "1m"];
 assert(!calculate(noYaku, { winType: "ron", winnerIndex: 1, loserIndex: 2, dealerIndex: 0, seatWind: "south", roundWind: "east", isMenzen: true }).isValidWin, "役なし和了形が有効になっています");
 
 const limitTiles = chiitoitsu.map(tile);

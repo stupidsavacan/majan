@@ -22,14 +22,14 @@ const archiveFiles = fs.readdirSync(path.resolve(repositoryRoot, "docs", "archiv
 
 assert(readme.startsWith("# Offline Sanma Mahjong - Phase 16"), "README must be the Phase 16 current entry");
 assert(readme.includes("挙動保存リファクタ") && readme.includes("GameEngine"), "README must describe Phase 16 as behavior-preserving GameEngine split");
-assert(readme.includes("ダブロンは未実装") && readme.includes("CPUのポン/チー/明槓は未実装"), "README must keep current CPU/call limitations honest");
+assert(readme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed` で切り替え可能") && readme.includes("CPUのポン/チー/明槓、CPU通常ロン、CPU槍槓は実装済み"), "README must keep current CPU/call behavior honest");
 assert(index.includes("Phase 16現在の正本") && index.includes("PHASE16_GAME_ENGINE_SPLIT.md"), "docs/INDEX.md must point to Phase 16 source of truth");
 assert(architecture.includes("DrawContext") && architecture.includes("RecoveryFlow") && architecture.includes("Script Load Order"), "architecture doc must describe flow modules and load order");
 assert(phase16.includes("Behavior Preservation Tests") && phase16.includes("RoundLifecycle") && phase16.includes("TurnFlow"), "Phase 16 report must describe split and tests");
 assert(bugIntake.includes("bug_report") && bugIntake.includes("related_module"), "Phase 16.1 bug intake format must be documented");
 assert(testing.includes("game-engine-public-api.test.js") && testing.includes("node tests/run-all-tests.js"), "testing doc must list Phase 16 tests and central runner");
-assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|明槓|ゾンビ/.test(bugs), "docs/BUGS.md must not list fixed Phase 15 bugs as current bugs");
-assert(!/頭ハネ|槍槓|honbaPoints|山0枚|河底|ゾンビ/.test(roadmap), "docs/ROADMAP.md must not list fixed Phase 15 bugs as future work");
+assert(!/槍槓|honbaPoints|山0枚|河底|明槓|ゾンビ/.test(bugs), "docs/BUGS.md must not list fixed Phase 15 bugs as current bugs");
+assert(!/槍槓|honbaPoints|山0枚|河底|ゾンビ/.test(roadmap), "docs/ROADMAP.md must not list fixed Phase 15 bugs as future work");
 assert(changelog.includes("Phase 16") && changelog.includes("Flow modules"), "CHANGELOG.md must include Phase 16 split history");
 [
   "game-engine-public-api.test.js",

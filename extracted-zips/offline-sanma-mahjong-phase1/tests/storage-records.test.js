@@ -31,7 +31,7 @@ assert(!Sanma.SettingsExportImport.importSettings("{broken-json").ok, "不正な
 assert(!Sanma.SettingsExportImport.importSettings('{"unknown":true}').ok, "既知項目のない設定JSONを受理しました");
 assert(Sanma.SettingsStorage.saveSettings(settings), "設定を保存できません");
 assert(Sanma.SettingsStorage.resetSettings(), "設定だけを初期化できません");
-assert(Sanma.SettingsStorage.loadSettings().allowChi === true, "設定初期化後に既定値へ戻りません");
+assert(Sanma.SettingsStorage.loadSettings().allowChi === false, "設定初期化後に既定値へ戻りません");
 storageData[Sanma.SettingsStorage.STORAGE_KEY] = "{}";
 storageData[Sanma.GameRecordStorage.RECORDS_KEY] = "[]";
 storageData[Sanma.GameRecordStorage.STATS_KEY] = "{}";

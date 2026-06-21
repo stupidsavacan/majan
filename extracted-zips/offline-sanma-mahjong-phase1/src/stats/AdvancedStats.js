@@ -16,6 +16,19 @@
     else counter.unknown += 1;
   }
 
+  function resultWinners(result) {
+    if (Sanma.RecordIndex && Sanma.RecordIndex.resultWinners) return Sanma.RecordIndex.resultWinners(result);
+    if (!result || typeof result !== "object") return [];
+    if (Array.isArray(result.winners) && result.winners.length) return result.winners;
+    return Number.isInteger(result.winnerIndex) ? [{
+      winnerIndex: result.winnerIndex,
+      winType: result.winType,
+      yaku: result.yaku,
+      yakuman: result.yakuman,
+      score: result.score,
+    }] : [];
+  }
+
   function scoreFromResult(result, playerIndex) {
     const positive = (Array.isArray(result.changes) ? result.changes : [])
       .find((change) => change && change.playerIndex === playerIndex && Number(change.delta) > 0);
@@ -26,6 +39,12 @@
     if (!record || typeof record !== "object") return false;
     if (record.imported === true || record.statsEligible === false) return false;
     return true;
+  }
+
+  function addNameCounter(counter, names) {
+    (Array.isArray(names) ? names : []).forEach((name) => {
+      if (name) counter[name] = (counter[name] || 0) + 1;
+    });
   }
 
   function calculate(records) {
@@ -40,6 +59,7 @@
       highScoreMode: modeCounter(),
       allowChi: modeCounter(),
       tsumoLoss: modeCounter(),
+      doubleRon: modeCounter(),
     };
     let wins = 0;
     let losses = 0;
@@ -48,6 +68,9 @@
     let yakumanCount = 0;
     let dealInCount = 0;
     let dealInKnownRounds = 0;
+    let doubleRonCount = 0;
+    let exhaustiveDrawCount = 0;
+    let tenpaiDrawCount = 0;
     const winScores = [];
 
     officialRecords.forEach((record) => {
@@ -57,27 +80,35 @@
       addMode(modes.highScoreMode, rules.highScoreMode);
       addMode(modes.allowChi, rules.allowChi);
       addMode(modes.tsumoLoss, rules.tsumoLoss);
+      addMode(modes.doubleRon, rules.doubleRonPolicy && rules.doubleRonPolicy.allowed);
       (Array.isArray(record.rounds) ? record.rounds : []).forEach((round) => {
         const result = round && round.result;
-        if (!result || !Number.isInteger(result.winnerIndex)) return;
-        if (result.winnerIndex === playerIndex) {
+        if (!result) return;
+        if (result.type === "exhaustive_draw") {
+          exhaustiveDrawCount += 1;
+          if (Array.isArray(result.tenpaiPlayers) && result.tenpaiPlayers.includes(playerIndex)) tenpaiDrawCount += 1;
+          return;
+        }
+        if (result.type === "double_ron") doubleRonCount += 1;
+        const winners = resultWinners(result);
+        if (!winners.length) return;
+        const humanWinner = winners.find((winner) => winner && winner.winnerIndex === playerIndex);
+        if (humanWinner) {
           wins += 1;
-          if (result.winType === "tsumo") tsumoWins += 1;
-          if (result.winType === "ron") ronWins += 1;
+          if (humanWinner.winType === "tsumo" || result.winType === "tsumo") tsumoWins += 1;
+          if (humanWinner.winType === "ron" || result.winType === "ron") ronWins += 1;
           const score = scoreFromResult(result, playerIndex);
           if (Number.isFinite(score)) winScores.push(score);
-          const yaku = Array.isArray(result.yaku) ? result.yaku : [];
-          const yakuman = Array.isArray(result.yakuman) ? result.yakuman : [];
-          yaku.forEach((name) => {
-            if (name) yakuFrequency[name] = (yakuFrequency[name] || 0) + 1;
-          });
-          yakuman.forEach((name) => {
-            if (name) yakumanNames[name] = (yakumanNames[name] || 0) + 1;
-          });
-          if ((result.score && result.score.isYakuman) || yakuman.length) yakumanCount += 1;
+          addNameCounter(yakuFrequency, humanWinner.yaku || result.yaku);
+          addNameCounter(yakumanNames, humanWinner.yakuman || result.yakuman);
+          const winnerScore = humanWinner.score || result.score || {};
+          if ((winnerScore && winnerScore.isYakuman)
+            || (Array.isArray(humanWinner.yakuman) && humanWinner.yakuman.length)
+            || (Array.isArray(result.yakuman) && result.yakuman.length)) yakumanCount += 1;
         } else {
           losses += 1;
-          if (result.winType === "ron" && Array.isArray(result.changes) && result.changes.length > 0) {
+          if (winners.some((winner) => (winner && winner.winType === "ron") || result.winType === "ron")
+            && Array.isArray(result.changes) && result.changes.length > 0) {
             dealInKnownRounds += 1;
             if (result.changes.some((change) => change.playerIndex === playerIndex && Number(change.delta) < 0)) {
               dealInCount += 1;
@@ -104,6 +135,9 @@
         ronWinCount: ronWins,
         highestScore: winScores.length ? Math.max(...winScores) : null,
         yakumanCount,
+        doubleRonCount,
+        exhaustiveDrawCount,
+        tenpaiDrawCount,
       },
       yaku: {
         frequency: yakuFrequency,
@@ -119,5 +153,5 @@
     return `${Number.isInteger(value) ? value : value.toFixed(2)}${suffix || ""}`;
   }
 
-  Sanma.AdvancedStats = { calculate, display, isStatsEligible };
+  Sanma.AdvancedStats = { calculate, display, isStatsEligible, resultWinners };
 })(window);
