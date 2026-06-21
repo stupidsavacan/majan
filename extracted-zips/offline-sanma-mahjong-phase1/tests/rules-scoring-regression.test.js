@@ -42,7 +42,7 @@ function doraHan(result, id) {
   return item ? item.han : 0;
 }
 
-const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "7s", "8s", "9s", "1m", "1m"];
+const noYaku = ["1p", "2p", "3p", "4p", "5p", "6p", "2s", "3s", "4s", "7s", "8s", "9s", "1m", "1m"];
 const riichiOnly = analyze(noYaku, {
   winType: "ron",
   isMenzen: true,

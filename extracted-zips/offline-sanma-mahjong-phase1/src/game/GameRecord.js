@@ -8,6 +8,39 @@
   const MAX_REASONABLE_POINTS = 300000;
   let recordSequence = 0;
 
+  const YAKU_DISPLAY_NAMES = Object.freeze({
+    honitsu: "混一色",
+    chinitsu: "清一色",
+    ikkitsuukan: "一気通貫",
+    ittsu: "一気通貫",
+    chanta: "混全帯么九",
+    junchan: "純全帯么九",
+    sanankou: "三暗刻",
+    sankantsu: "三槓子",
+    shousangen: "小三元",
+    sanshokuDoukou: "三色同刻",
+    sanshoku_doukou: "三色同刻",
+    ryanpeikou: "二盃口",
+    suuankou: "四暗刻",
+    suuankouTanki: "四暗刻単騎",
+    daisangen: "大三元",
+    tsuuiisou: "字一色",
+    shousuushii: "小四喜",
+    daisuushii: "大四喜",
+    chinroutou: "清老頭",
+    ryuuiisou: "緑一色",
+    chuurenPoutou: "九蓮宝燈",
+    chuuren_poutou: "九蓮宝燈",
+    junseiChuurenPoutou: "純正九蓮宝燈",
+    suukantsu: "四槓子",
+    "suuankou-tanki": "四暗刻単騎",
+    "kokushi-musou": "国士無双",
+    "kokushi-musou-13-wait": "国士無双十三面待ち",
+    "sanshoku-doukou": "三色同刻",
+    "chuuren-poutou": "九蓮宝燈",
+    "chuuren-9-wait": "純正九蓮宝燈",
+  });
+
   function clone(value) {
     if (value === undefined) return null;
     return JSON.parse(JSON.stringify(value));
@@ -15,6 +48,18 @@
 
   function isObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+
+  function yakuDisplayName(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return YAKU_DISPLAY_NAMES[value] || value;
+    if (!isObject(value)) return String(value || "");
+    const raw = value.displayName || value.label || value.name || value.id || value.key || "";
+    return YAKU_DISPLAY_NAMES[raw] || raw;
+  }
+
+  function normalizeYakuArray(items) {
+    return (Array.isArray(items) ? items : []).map(yakuDisplayName).filter(Boolean);
   }
 
   function validateStringLengths(value) {
@@ -29,34 +74,58 @@
     }
   }
 
+  function validateScore(score, label) {
+    if (score === undefined || score === null) return;
+    if (!isObject(score)) throw new Error(`${label || "局結果"}のscore形式が不正です。`);
+    ["isValidWin", "isYakuman"].forEach((key) => {
+      if (score[key] !== undefined && typeof score[key] !== "boolean") {
+        throw new Error(`${label || "局結果"}のscore.${key}は真偽値で指定してください。`);
+      }
+    });
+    ["han", "fu", "yakumanCount", "basePoints"].forEach((key) => {
+      if (score[key] !== undefined && score[key] !== null && !Number.isFinite(score[key])) {
+        throw new Error(`${label || "局結果"}のscore.${key}は数値で指定してください。`);
+      }
+    });
+    if (score.limitName !== undefined && typeof score.limitName !== "string") {
+      throw new Error(`${label || "局結果"}のscore.limitNameは文字列で指定してください。`);
+    }
+  }
+
+  function validateWinner(winner) {
+    if (!isObject(winner)) throw new Error("局結果のwinners内容が不正です。");
+    if (!Number.isInteger(winner.winnerIndex) || winner.winnerIndex < 0 || winner.winnerIndex >= REQUIRED_PLAYER_COUNT) {
+      throw new Error("局結果のwinners.winnerIndexが不正です。");
+    }
+    if (winner.winType !== undefined && winner.winType !== null && typeof winner.winType !== "string") {
+      throw new Error("局結果のwinners.winTypeは文字列で指定してください。");
+    }
+    ["yaku", "yakuman"].forEach((key) => {
+      if (winner[key] !== undefined && !Array.isArray(winner[key])) {
+        throw new Error(`局結果のwinners.${key}は配列で指定してください。`);
+      }
+    });
+    validateScore(winner.score, "局結果のwinners");
+  }
+
   function validateResult(result) {
     if (result === null || result === undefined) return;
     if (!isObject(result)) throw new Error("局結果の形式が不正です。");
-    ["yaku", "yakuman"].forEach((key) => {
+    ["yaku", "yakuman", "winners", "tenpaiPlayers", "notenPlayers", "tenpaiStatus"].forEach((key) => {
       if (result[key] !== undefined && !Array.isArray(result[key])) {
         throw new Error(`局結果の${key}は配列で指定してください。`);
       }
     });
-    if (result.score !== undefined && result.score !== null) {
-      if (!isObject(result.score)) throw new Error("局結果のscore形式が不正です。");
-      ["isValidWin", "isYakuman"].forEach((key) => {
-        if (result.score[key] !== undefined && typeof result.score[key] !== "boolean") {
-          throw new Error(`局結果のscore.${key}は真偽値で指定してください。`);
-        }
-      });
-      ["han", "fu", "yakumanCount", "basePoints"].forEach((key) => {
-        if (result.score[key] !== undefined
-          && result.score[key] !== null
-          && !Number.isFinite(result.score[key])) {
-          throw new Error(`局結果のscore.${key}は数値で指定してください。`);
-        }
-      });
-      if (result.score.limitName !== undefined && typeof result.score.limitName !== "string") {
-        throw new Error("局結果のscore.limitNameは文字列で指定してください。");
-      }
-    }
+    if (Array.isArray(result.winners)) result.winners.forEach(validateWinner);
+    validateScore(result.score, "局結果");
     if (result.changes !== undefined && !Array.isArray(result.changes)) {
       throw new Error("局結果のchangesは配列で指定してください。");
+    }
+    if (result.pointTransfers !== undefined && !Array.isArray(result.pointTransfers)) {
+      throw new Error("局結果のpointTransfersは配列で指定してください。");
+    }
+    if (result.drawSettlement !== undefined && result.drawSettlement !== null && !isObject(result.drawSettlement)) {
+      throw new Error("局結果のdrawSettlement形式が不正です。");
     }
   }
 
@@ -225,7 +294,7 @@
   }
 
   function isProtectedEvent(event) {
-    return Boolean(event && ["deal", "round_start", "win", "score_settlement"].includes(event.type));
+    return Boolean(event && ["deal", "round_start", "win", "score_settlement", "double_ron"].includes(event.type));
   }
 
   function pruneEvents(events) {
@@ -252,6 +321,7 @@
     round.result = {
       type: "recovered_reset",
       winnerIndex: null,
+      winners: [],
       winType: null,
       dealerTenpai: false,
       yaku: [],
@@ -331,32 +401,91 @@
     return event;
   }
 
-  function compactResult(result) {
-    const input = result || {};
-    const score = input.score || {};
-    const yaku = input.yaku || {};
-    const settlement = input.settlement || {};
+  function compactScore(score) {
+    const input = score || {};
     return {
-      type: input.type || (input.winnerIndex === undefined ? "exhaustive_draw" : "win"),
-      winnerIndex: Number.isInteger(input.winnerIndex) ? input.winnerIndex : null,
-      winType: input.winType || null,
-      dealerTenpai: Boolean(input.dealerTenpai),
-      yaku: (yaku.yaku || []).concat(yaku.dora || []).map((item) => item.name),
-      yakuman: (yaku.yakuman || []).map((item) => item.name),
-      score: {
-        isValidWin: Boolean(score.isValidWin),
-        isYakuman: Boolean(score.isYakuman),
-        han: Number(score.han) || 0,
-        fu: score.fu === null || score.fu === undefined ? null : Number(score.fu),
-        yakumanCount: Number(score.yakumanCount) || 0,
-        basePoints: Number(score.basePoints) || 0,
-        limitName: score.limitName || "",
-      },
-      changes: (settlement.changes || []).map((change) => ({
+      isValidWin: Boolean(input.isValidWin),
+      isYakuman: Boolean(input.isYakuman),
+      han: Number(input.han) || 0,
+      fu: input.fu === null || input.fu === undefined ? null : Number(input.fu),
+      yakumanCount: Number(input.yakumanCount) || 0,
+      basePoints: Number(input.basePoints) || 0,
+      limitName: input.limitName || "",
+    };
+  }
+
+  function yakuGroups(input) {
+    const yaku = input && input.yaku ? input.yaku : {};
+    if (Array.isArray(yaku)) return { yaku: normalizeYakuArray(yaku), yakuman: [] };
+    return {
+      yaku: normalizeYakuArray((yaku.yaku || []).concat(yaku.dora || [])),
+      yakuman: normalizeYakuArray(yaku.yakuman || []),
+    };
+  }
+
+  function compactDrawSettlement(input) {
+    if (!input || typeof input !== "object") return null;
+    return {
+      applied: Boolean(input.applied),
+      type: input.type || "exhaustive_draw",
+      mode: input.mode || "noten-bappu-3000",
+      tenpaiPlayers: Array.isArray(input.tenpaiPlayers) ? input.tenpaiPlayers.slice() : [],
+      notenPlayers: Array.isArray(input.notenPlayers) ? input.notenPlayers.slice() : [],
+      changes: (input.changes || []).map((change) => ({
         playerIndex: change.playerIndex,
         delta: change.delta,
         after: change.after,
       })),
+      reason: input.reason || "",
+    };
+  }
+
+  function compactWinner(winner, fallback) {
+    const source = Object.assign({}, fallback || {}, winner || {});
+    const groups = yakuGroups(source);
+    return {
+      winnerIndex: Number.isInteger(source.winnerIndex) ? source.winnerIndex : null,
+      winType: source.winType || null,
+      fromPlayerIndex: Number.isInteger(source.fromPlayerIndex) ? source.fromPlayerIndex : null,
+      yaku: groups.yaku,
+      yakuman: normalizeYakuArray(source.yakuman).concat(groups.yakuman).filter((name, index, array) => array.indexOf(name) === index),
+      score: compactScore(source.score || {}),
+      pointTransfers: Array.isArray(source.pointTransfers) ? clone(source.pointTransfers) : [],
+    };
+  }
+
+  function compactResult(result) {
+    const input = result || {};
+    const settlement = input.settlement || {};
+    const changes = Array.isArray(settlement.changes) ? settlement.changes : input.changes || [];
+    const winners = Array.isArray(input.winners) && input.winners.length > 0
+      ? input.winners.map((winner) => compactWinner(winner, input))
+      : (Number.isInteger(input.winnerIndex) ? [compactWinner(input, {})] : []);
+    const firstWinner = winners[0] || null;
+    const rootGroups = yakuGroups(input);
+    const yakuman = normalizeYakuArray(input.yakuman)
+      .concat(rootGroups.yakuman)
+      .filter((name, index, array) => array.indexOf(name) === index);
+    return {
+      type: input.type || (winners.length > 0 ? (winners.length > 1 ? "double_ron" : "win") : "exhaustive_draw"),
+      winnerIndex: firstWinner ? firstWinner.winnerIndex : null,
+      winners,
+      winType: firstWinner ? firstWinner.winType : input.winType || null,
+      fromPlayerIndex: Number.isInteger(input.fromPlayerIndex) ? input.fromPlayerIndex : null,
+      dealerTenpai: Boolean(input.dealerTenpai),
+      tenpaiPlayers: Array.isArray(input.tenpaiPlayers) ? input.tenpaiPlayers.slice() : [],
+      notenPlayers: Array.isArray(input.notenPlayers) ? input.notenPlayers.slice() : [],
+      tenpaiStatus: Array.isArray(input.tenpaiStatus) ? clone(input.tenpaiStatus) : [],
+      drawSettlement: compactDrawSettlement(input.drawSettlement || input.settlement),
+      yaku: normalizeYakuArray(input.yaku).concat(rootGroups.yaku).filter((name, index, array) => array.indexOf(name) === index),
+      yakuman,
+      score: compactScore(input.score || (firstWinner && firstWinner.score) || {}),
+      changes: (changes || []).map((change) => ({
+        playerIndex: change.playerIndex,
+        delta: change.delta,
+        after: change.after,
+      })),
+      pointTransfers: Array.isArray(input.pointTransfers) ? clone(input.pointTransfers) : [],
       reason: input.reason || "",
     };
   }
@@ -394,13 +523,49 @@
     return finishMatch(record, finalPoints, [], "");
   }
 
+  function normalizeWinner(winner) {
+    if (!isObject(winner)) return null;
+    return {
+      winnerIndex: Number.isInteger(winner.winnerIndex) ? winner.winnerIndex : null,
+      winType: winner.winType || null,
+      fromPlayerIndex: Number.isInteger(winner.fromPlayerIndex) ? winner.fromPlayerIndex : null,
+      yaku: normalizeYakuArray(winner.yaku),
+      yakuman: normalizeYakuArray(winner.yakuman),
+      score: compactScore(winner.score || {}),
+      pointTransfers: Array.isArray(winner.pointTransfers) ? winner.pointTransfers : [],
+    };
+  }
+
+  function normalizeResult(result) {
+    if (!result || typeof result !== "object") return result || null;
+    const normalized = clone(result);
+    if (!Array.isArray(normalized.winners)) {
+      normalized.winners = Number.isInteger(normalized.winnerIndex)
+        ? [compactWinner(normalized, {})]
+        : [];
+    } else {
+      normalized.winners = normalized.winners.map(normalizeWinner).filter(Boolean);
+    }
+    normalized.winnerIndex = normalized.winners.length ? normalized.winners[0].winnerIndex : null;
+    normalized.yaku = normalizeYakuArray(normalized.yaku);
+    normalized.yakuman = normalizeYakuArray(normalized.yakuman);
+    normalized.score = compactScore(normalized.score || (normalized.winners[0] && normalized.winners[0].score) || {});
+    normalized.changes = Array.isArray(normalized.changes) ? normalized.changes : [];
+    normalized.pointTransfers = Array.isArray(normalized.pointTransfers) ? normalized.pointTransfers : [];
+    normalized.tenpaiPlayers = Array.isArray(normalized.tenpaiPlayers) ? normalized.tenpaiPlayers : [];
+    normalized.notenPlayers = Array.isArray(normalized.notenPlayers) ? normalized.notenPlayers : [];
+    normalized.tenpaiStatus = Array.isArray(normalized.tenpaiStatus) ? normalized.tenpaiStatus : [];
+    if (normalized.drawSettlement === undefined) normalized.drawSettlement = null;
+    return normalized;
+  }
+
   function normalize(record) {
     if (!record || typeof record !== "object" || !record.id || !Array.isArray(record.rounds) || record.rounds.length === 0) {
       throw new Error("牌譜データの形式が不正です。");
     }
     const normalized = clone(record);
-    normalized.version = Number(normalized.version) || 1;
-    normalized.eventSchemaVersion = Number(normalized.eventSchemaVersion) || 1;
+    normalized.version = Math.max(Number(normalized.version) || 1, 2);
+    normalized.eventSchemaVersion = Math.max(Number(normalized.eventSchemaVersion) || 1, 2);
     normalized.matchId = typeof normalized.matchId === "string" ? normalized.matchId : "";
     normalized.phase = Number(normalized.phase) || 8;
     normalized.phaseLabel = typeof normalized.phaseLabel === "string" ? normalized.phaseLabel : String(normalized.phase || "");
@@ -412,6 +577,7 @@
       round.riichiSticks = Number(round.riichiSticks) || 0;
       round.startingPoints = Array.isArray(round.startingPoints) ? round.startingPoints : [];
       round.pointMovement = Array.isArray(round.pointMovement) ? round.pointMovement : [];
+      round.result = normalizeResult(round.result);
       round.events = Array.isArray(round.events)
         ? pruneEvents(round.events)
         : [];
@@ -437,6 +603,9 @@
     MAX_ROUNDS,
     MAX_STRING_LENGTH,
     REQUIRED_PLAYER_COUNT,
+    YAKU_DISPLAY_NAMES,
+    yakuDisplayName,
+    normalizeYakuArray,
     create,
     addRound,
     addEvent,

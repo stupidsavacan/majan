@@ -20,6 +20,18 @@
     return position >= 0 ? position + 1 : null;
   }
 
+  function resultWinners(result) {
+    if (!result || typeof result !== "object") return [];
+    if (Array.isArray(result.winners) && result.winners.length) return result.winners;
+    return Number.isInteger(result.winnerIndex) ? [{
+      winnerIndex: result.winnerIndex,
+      winType: result.winType,
+      yaku: result.yaku,
+      yakuman: result.yakuman,
+      score: result.score,
+    }] : [];
+  }
+
   function scoreValue(result) {
     const score = result && result.score ? result.score : {};
     if (score.isYakuman) return 1000000 * Math.max(1, Number(score.yakumanCount) || 1)
@@ -31,8 +43,11 @@
     let highest = null;
     (record.rounds || []).forEach((round) => {
       const result = round && round.result;
-      if (!result || !result.score || !result.score.isValidWin) return;
-      if (!highest || scoreValue(result) > scoreValue(highest)) highest = result;
+      resultWinners(result).forEach((winner) => {
+        const candidate = Object.assign({}, result, winner, { score: winner.score || result.score });
+        if (!candidate.score || !candidate.score.isValidWin) return;
+        if (!highest || scoreValue(candidate) > scoreValue(highest)) highest = candidate;
+      });
     });
     return highest;
   }
@@ -53,23 +68,29 @@
       ? Number(record.finalPoints[playerIndex])
       : null;
     const rounds = Array.isArray(record.rounds) ? record.rounds : [];
-    const humanWins = rounds.filter((round) => round && round.result && round.result.winnerIndex === playerIndex).length;
-    const losses = rounds.filter((round) => (
-      round && round.result && Number.isInteger(round.result.winnerIndex) && round.result.winnerIndex !== playerIndex
-    )).length;
+    const humanWins = rounds.filter((round) => resultWinners(round && round.result)
+      .some((winner) => winner && winner.winnerIndex === playerIndex)).length;
+    const losses = rounds.filter((round) => {
+      const winners = resultWinners(round && round.result);
+      return winners.length > 0 && !winners.some((winner) => winner && winner.winnerIndex === playerIndex);
+    }).length;
     const yakuman = rounds.some((round) => (
       round && round.result && (
         (round.result.score && round.result.score.isYakuman)
         || (Array.isArray(round.result.yakuman) && round.result.yakuman.length > 0)
+        || resultWinners(round.result).some((winner) => (
+          (winner.score && winner.score.isYakuman)
+          || (Array.isArray(winner.yakuman) && winner.yakuman.length > 0)
+        ))
       )
     ));
     const highScore = rounds.some((round) => {
       const result = round && round.result;
-      return result && result.score && (
-        result.score.isYakuman
-        || Boolean(result.score.limitName)
-        || Number(result.score.han) >= 5
-      );
+      if (!result) return false;
+      return resultWinners(result).some((winner) => {
+        const score = (winner && winner.score) || result.score || {};
+        return score.isYakuman || Boolean(score.limitName) || Number(score.han) >= 5;
+      });
     });
     const tags = [];
     if (rank) tags.push(`${rank}位`);
@@ -77,6 +98,8 @@
     if (losses > 0) tags.push("敗北");
     if (yakuman) tags.push("役満");
     if (highScore) tags.push("高打点");
+    if (rounds.some((round) => round && round.result && round.result.type === "double_ron")) tags.push("ダブロン");
+    if (rounds.some((round) => round && round.result && round.result.type === "exhaustive_draw")) tags.push("流局");
     const mode = record.ruleConfig && (record.ruleConfig.matchLength || record.ruleConfig.gameLength);
     const modeLabel = mode === "single" ? "一局戦" : mode === "tonpuu" ? "東風戦" : mode === "hanchan" ? "半荘戦" : "対局";
     const summaryParts = [modeLabel];
@@ -123,6 +146,7 @@
   Sanma.RecordIndex = {
     humanIndex,
     finalRank,
+    resultWinners,
     scoreValue,
     highestHand,
     sizeBytes,

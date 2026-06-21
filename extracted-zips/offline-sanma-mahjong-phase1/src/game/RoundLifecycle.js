@@ -24,6 +24,45 @@
   const GameStateMachine = Sanma.GameStateMachine;
   const InvariantChecker = Sanma.InvariantChecker;
 
+  function compactWaits(analysis) {
+    const waits = analysis && Array.isArray(analysis.waits) ? analysis.waits : [];
+    return waits.map((wait) => ({
+      tileType: wait.tileType,
+      label: wait.label,
+    }));
+  }
+
+  function analyzePlayerTenpai(player, ruleConfig) {
+    if (!player) return { isTenpai: false, waits: [], reason: "プレイヤーが見つかりません。" };
+    const result = HandAnalysis.analyzeTenpaiWithMelds
+      ? HandAnalysis.analyzeTenpaiWithMelds(player.hand || [], player.melds || [], ruleConfig)
+      : HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(player), ruleConfig);
+    return {
+      isTenpai: Boolean(result && result.isTenpai),
+      waits: compactWaits(result),
+      reason: result && result.reason ? result.reason : "",
+    };
+  }
+
+  function buildDrawTenpaiStatus(players, ruleConfig) {
+    return (players || []).map((player, playerIndex) => {
+      const analysis = analyzePlayerTenpai(player, ruleConfig);
+      return {
+        playerIndex,
+        playerName: player && player.name ? player.name : `Player ${playerIndex + 1}`,
+        isTenpai: analysis.isTenpai,
+        waits: analysis.waits,
+        reason: analysis.reason,
+      };
+    });
+  }
+
+  function formatDelta(change) {
+    const delta = Number(change && change.delta) || 0;
+    const sign = delta > 0 ? "+" : "";
+    return `${change.playerName || `P${change.playerIndex}`} ${sign}${delta}`;
+  }
+
   Sanma.RoundLifecycle = {
         startRound() {
           this.round = this.matchManager.getRoundSnapshot();
@@ -166,11 +205,44 @@
 
         withDrawTenpai(result) {
           const safeResult = Object.assign({}, result || {});
-          if (safeResult.type !== "exhaustive_draw" || safeResult.dealerTenpai !== undefined) return safeResult;
-          const dealer = this.players[this.round.dealerIndex];
-          safeResult.dealerTenpai = HandAnalysis.analyzeTenpaiWithMelds
-            ? HandAnalysis.analyzeTenpaiWithMelds(dealer.hand, dealer.melds || [], this.ruleConfig).isTenpai
-            : HandAnalysis.analyzeTenpai(ActionResolver.getAnalysisTiles(dealer), this.ruleConfig).isTenpai;
+          if (safeResult.type !== "exhaustive_draw") return safeResult;
+          const tenpaiStatus = Array.isArray(safeResult.tenpaiStatus)
+            ? safeResult.tenpaiStatus.slice()
+            : buildDrawTenpaiStatus(this.players, this.ruleConfig);
+          const tenpaiPlayers = Array.isArray(safeResult.tenpaiPlayers)
+            ? safeResult.tenpaiPlayers.slice()
+            : tenpaiStatus.filter((status) => status.isTenpai).map((status) => status.playerIndex);
+          const notenPlayers = Array.isArray(safeResult.notenPlayers)
+            ? safeResult.notenPlayers.slice()
+            : tenpaiStatus.filter((status) => !status.isTenpai).map((status) => status.playerIndex);
+          safeResult.tenpaiStatus = tenpaiStatus;
+          safeResult.tenpaiPlayers = tenpaiPlayers;
+          safeResult.notenPlayers = notenPlayers;
+          safeResult.dealerTenpai = tenpaiPlayers.includes(this.round.dealerIndex);
+
+          if (!safeResult.settlement && Settlement && typeof Settlement.applyExhaustiveDrawSettlement === "function") {
+            safeResult.settlement = Settlement.applyExhaustiveDrawSettlement({
+              players: this.players,
+              tenpaiPlayers,
+              ruleConfig: this.ruleConfig,
+            });
+            safeResult.drawSettlement = safeResult.settlement;
+            if (typeof this.recordGameEvent === "function") {
+              this.recordGameEvent("score_settlement", {
+                type: "exhaustive_draw",
+                tenpaiPlayers,
+                notenPlayers,
+                changes: safeResult.settlement.changes || [],
+                reason: safeResult.settlement.reason || "",
+              });
+            }
+            const nonZeroChanges = (safeResult.settlement.changes || []).filter((change) => Number(change.delta) !== 0);
+            if (nonZeroChanges.length > 0 && typeof this.addLog === "function") {
+              this.addLog(`流局精算: ${nonZeroChanges.map(formatDelta).join(" / ")}`);
+            }
+          } else if (safeResult.settlement && !safeResult.drawSettlement) {
+            safeResult.drawSettlement = safeResult.settlement;
+          }
           return safeResult;
         },
 
