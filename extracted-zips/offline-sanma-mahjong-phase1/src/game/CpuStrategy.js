@@ -160,6 +160,12 @@
 
     const counts = tileTypeCounts(hand, ruleConfig);
     const openMeldCount = Array.isArray(player.melds) ? player.melds.length : 0;
+    const visibleCounts = Sanma.CpuVisibleTiles && options.state
+      ? Sanma.CpuVisibleTiles.getVisibleCountsForPlayer(options.state, player.id)
+      : Object.create(null);
+    const remainingByBaseId = Sanma.CpuVisibleTiles && options.state
+      ? Sanma.CpuVisibleTiles.getRemainingByBaseId(options.state, player.id)
+      : Object.create(null);
     const winningActionAvailable = Boolean(
       options.analysis
       && options.analysis.scoreResult
@@ -170,12 +176,24 @@
       remaining.splice(index, 1);
       const shanten = estimateShanten({ tiles: remaining, ruleConfig, openMeldCount });
       const tenpai = shanten <= 0;
+      const visibleInfo = {
+        count: visibleCounts[tile.baseId] || 0,
+        remaining: Number.isInteger(remainingByBaseId[tile.baseId]) ? remainingByBaseId[tile.baseId] : null,
+      };
       const described = describeCandidate(tile, counts, shanten, tenpai, winningActionAvailable);
+      if (visibleInfo.remaining === 0) {
+        described.score += 2;
+        described.reasons.push("可視残り0枚");
+      } else if (visibleInfo.remaining !== null) {
+        described.reasons.push(`可視残り${visibleInfo.remaining}枚`);
+      }
       const tieBreaker = random();
       return {
         tileInstanceId: tile.instanceId,
         tileLabel: Sanma.TileUtil.getTileAriaLabel(tile),
         tileType: tile.baseId,
+        visibleCount: visibleInfo.count,
+        remainingVisibleEstimate: visibleInfo.remaining,
         score: described.score + (tieBreaker / 1000),
         baseScore: described.score,
         shanten,

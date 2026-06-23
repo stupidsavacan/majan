@@ -58,6 +58,32 @@
     return moved.length ? moved : null;
   }
 
+  function getRonWinningTile(engine) {
+    if (engine && engine.lastDiscard && engine.lastDiscard.tile) return engine.lastDiscard.tile;
+    const attempt = engine && engine.pendingKanAttempt;
+    if (!attempt) return null;
+    return attempt.declaredTile || (attempt.requested && attempt.requested.tile) || null;
+  }
+
+  function snapshotRevealedHand(engine, playerIndex, winningTile) {
+    const player = engine && engine.players && engine.players[playerIndex];
+    if (!player || typeof engine.tileSnapshot !== "function") return null;
+    return {
+      playerIndex,
+      playerName: player.name,
+      concealedTiles: (player.hand || []).map((tile) => engine.tileSnapshot(tile)).filter(Boolean),
+      winningTile: winningTile ? engine.tileSnapshot(winningTile) : null,
+      melds: (player.melds || []).map((meld) => ({
+        type: meld.type,
+        kanType: meld.kanType || null,
+        open: meld.open !== false,
+        fromPlayerIndex: meld.fromPlayerIndex,
+        tiles: (meld.tiles || []).map((tile) => engine.tileSnapshot(tile)).filter(Boolean),
+      })),
+      kitaTiles: (player.kitaTiles || []).map((tile) => engine.tileSnapshot(tile)).filter(Boolean),
+    };
+  }
+
   Sanma.WinFlow = {
         tryCpuTsumo(player) {
           const analysis = ActionResolver.analyzeWin(this, player.id, "tsumo", null, null);
@@ -343,6 +369,7 @@
             return false;
           }
           const details = metadata || {};
+          const ronTile = getRonWinningTile(this);
           if (details.isChankan) moveAcceptedKakanChankanTile(this);
           this.phase = "win-ended";
           this.callWindow = null;
@@ -355,6 +382,7 @@
             score: analysis.scoreResult,
             settlement,
             context: analysis.context,
+            revealedHand: snapshotRevealedHand(this, winnerIndex, ronTile),
           };
           this.addLog(`${winner.name}がロン和了しました。${ronLimitLabel(analysis.scoreResult)} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
           if (details.isChankan) {
@@ -413,6 +441,7 @@
           }
 
           const details = metadata || {};
+          const ronTile = getRonWinningTile(this);
           const winners = ordered.map((candidate, index) => {
             const player = this.players[candidate.playerIndex];
             return {
@@ -424,6 +453,7 @@
               context: candidate.analysis.context,
               priorityOffset: candidate.priorityOffset,
               order: index,
+              revealedHand: snapshotRevealedHand(this, candidate.playerIndex, ronTile),
             };
           });
           const winnerIndexes = winners.map((winner) => winner.winnerIndex);
