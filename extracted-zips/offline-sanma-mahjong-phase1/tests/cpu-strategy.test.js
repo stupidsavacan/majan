@@ -44,6 +44,10 @@ assert(
   obviousHand.hand.find((ownedTile) => ownedTile.instanceId === obviousDecision.tileInstanceId).suit === "z",
   "明確な孤立字牌より有用な対子・順子候補を優先して捨てました"
 );
+assert(
+  obviousDecision.candidates.every((candidate) => Number.isInteger(candidate.danger) && candidate.pushFoldMode && Number.isFinite(candidate.handValue)),
+  "CPU discard strategy must attach danger, push/fold, and hand value diagnostics"
+);
 
 const manzuHand = playerWith([
   "1m", "9m",

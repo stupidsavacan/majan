@@ -110,6 +110,75 @@
     });
   }
 
+  function visibleDoraBaseIds(state) {
+    const indicators = state && state.wall && Array.isArray(state.wall.doraIndicators)
+      ? state.wall.doraIndicators
+      : Array.isArray(state && state.doraIndicators) ? state.doraIndicators : [];
+    return new Set(indicators.filter(Boolean).map((tile) => tile.baseId));
+  }
+
+  function estimateHandValue(player, tiles, state, ruleConfig) {
+    const handTiles = Array.isArray(tiles) ? tiles : [];
+    const counts = tileTypeCounts(handTiles, ruleConfig);
+    const doraBases = visibleDoraBaseIds(state);
+    let value = 0;
+    counts.forEach((count, index) => {
+      if (count >= 3) value += 24;
+      else if (count >= 2) value += 8;
+      if (index >= 27 && count >= 2) value += 6;
+    });
+    handTiles.forEach((tile) => {
+      if (!tile) return;
+      if (tile.isRed) value += 8;
+      if (doraBases.has(tile.baseId)) value += 6;
+      if (tile.suit === "z" && tile.rank >= 5) value += 4;
+    });
+    (player && player.melds || []).forEach((meld) => {
+      if (!meld) return;
+      value += meld.type === "kan" ? 24 : 14;
+      (meld.tiles || []).forEach((tile) => {
+        if (tile && doraBases.has(tile.baseId)) value += 5;
+      });
+    });
+    value += (player && player.kitaTiles ? player.kitaTiles.length : 0) * 8;
+    return value;
+  }
+
+  function estimateLiveShapeValue(tiles, ruleConfig, remainingByBaseId) {
+    const handTiles = Array.isArray(tiles) ? tiles : [];
+    const counts = tileTypeCounts(handTiles, ruleConfig);
+    let value = 0;
+    handTiles.forEach((tile) => {
+      if (!tile) return;
+      const remaining = Number.isInteger(remainingByBaseId[tile.baseId]) ? remainingByBaseId[tile.baseId] : 2;
+      const typeIndex = Sanma.HandAnalysis.getTypeIndex(tile);
+      if ((counts[typeIndex] || 0) >= 2) value += remaining * 3;
+      if (tile.suit === "p" || tile.suit === "s") {
+        [-2, -1, 1, 2].forEach((offset) => {
+          const rank = tile.rank + offset;
+          if (rank < 1 || rank > 9) return;
+          const baseId = Sanma.TileUtil.baseId(tile.suit, rank);
+          const liveCount = Number.isInteger(remainingByBaseId[baseId]) ? remainingByBaseId[baseId] : 2;
+          value += Math.abs(offset) === 1 ? liveCount * 2 : liveCount;
+        });
+      }
+    });
+    return value;
+  }
+
+  function dangerPenalty(mode, danger) {
+    if (mode === "fold") return danger * 2.1;
+    if (mode === "balanced") return danger * 0.85;
+    return danger * 0.3;
+  }
+
+  function dangerDetails(state, playerId, tile) {
+    if (Sanma.CpuRiskAnalysis && typeof Sanma.CpuRiskAnalysis.explainTileDanger === "function" && state) {
+      return Sanma.CpuRiskAnalysis.explainTileDanger(state, playerId, tile);
+    }
+    return { danger: 0, reasons: [] };
+  }
+
   function describeCandidate(tile, counts, shanten, tenpai, winningActionAvailable) {
     const reasons = [];
     let score = -shanten * 35;
@@ -160,6 +229,11 @@
 
     const counts = tileTypeCounts(hand, ruleConfig);
     const openMeldCount = Array.isArray(player.melds) ? player.melds.length : 0;
+    const currentShanten = estimateShanten({ tiles: hand, ruleConfig, openMeldCount });
+    const currentHandValue = estimateHandValue(player, hand, options.state, ruleConfig);
+    const pushFoldMode = Sanma.CpuRiskAnalysis && typeof Sanma.CpuRiskAnalysis.choosePushFoldMode === "function" && options.state
+      ? Sanma.CpuRiskAnalysis.choosePushFoldMode(options.state, player.id, currentHandValue, currentShanten)
+      : "balanced";
     const visibleCounts = Sanma.CpuVisibleTiles && options.state
       ? Sanma.CpuVisibleTiles.getVisibleCountsForPlayer(options.state, player.id)
       : Object.create(null);
@@ -181,12 +255,23 @@
         remaining: Number.isInteger(remainingByBaseId[tile.baseId]) ? remainingByBaseId[tile.baseId] : null,
       };
       const described = describeCandidate(tile, counts, shanten, tenpai, winningActionAvailable);
+      const handValue = estimateHandValue(player, remaining, options.state, ruleConfig);
+      const liveShapeValue = estimateLiveShapeValue(remaining, ruleConfig, remainingByBaseId);
+      const risk = dangerDetails(options.state, player.id, tile);
+      described.score += handValue * 0.12;
+      described.score += liveShapeValue * 0.25;
+      described.score -= dangerPenalty(pushFoldMode, risk.danger);
       if (visibleInfo.remaining === 0) {
-        described.score += 2;
+        described.score += pushFoldMode === "fold" ? 26 : 14;
         described.reasons.push("可視残り0枚");
       } else if (visibleInfo.remaining !== null) {
         described.reasons.push(`可視残り${visibleInfo.remaining}枚`);
       }
+      if (pushFoldMode === "fold" && risk.danger <= 12) {
+        described.score += 18;
+        described.reasons.push("安全寄せ");
+      }
+      if (risk.danger >= 70) described.reasons.push("危険度高");
       const tieBreaker = random();
       return {
         tileInstanceId: tile.instanceId,
@@ -194,6 +279,12 @@
         tileType: tile.baseId,
         visibleCount: visibleInfo.count,
         remainingVisibleEstimate: visibleInfo.remaining,
+        danger: risk.danger,
+        dangerReasons: risk.reasons,
+        pushFoldMode,
+        handValue,
+        liveShapeValue,
+        safetyReason: risk.danger <= 12 ? (risk.reasons[0] || "低危険度") : null,
         score: described.score + (tieBreaker / 1000),
         baseScore: described.score,
         shanten,
@@ -213,6 +304,9 @@
       reason: `${selected.reasons.join("、")}。シャンテン推定 ${selected.shanten}。`,
       candidates,
       score: selected.baseScore,
+      pushFoldMode: selected.pushFoldMode,
+      danger: selected.danger,
+      handValue: selected.handValue,
     };
   }
 
@@ -276,11 +370,74 @@
     return estimateShanten({ tiles: remaining, ruleConfig, openMeldCount });
   }
 
+  function remainingTilesAfterCall(candidate, player) {
+    const hand = Array.isArray(player && player.hand) ? player.hand : [];
+    const consumed = new Set(consumeIdsForCall(candidate));
+    if (consumed.size === 0) return hand.slice();
+    return hand.filter((tile) => !consumed.has(tile.instanceId));
+  }
+
+  function wallRemaining(state) {
+    if (state && state.wall && typeof state.wall.remainingCount === "function") return state.wall.remainingCount();
+    return Number.isFinite(state && state.wallRemaining) ? Number(state.wallRemaining) : 70;
+  }
+
+  function scoreMinkanCandidate(candidate, player, state, beforeShanten, random) {
+    const tieBreaker = typeof random === "function" ? random() : 0;
+    const afterShanten = shantenAfterOpenCall(candidate, player, state);
+    const ruleConfig = (state && state.ruleConfig) || {};
+    const remaining = remainingTilesAfterCall(candidate, player);
+    const handValue = estimateHandValue(player, remaining, state, ruleConfig) + 28;
+    const pushFoldMode = Sanma.CpuRiskAnalysis && typeof Sanma.CpuRiskAnalysis.choosePushFoldMode === "function"
+      ? Sanma.CpuRiskAnalysis.choosePushFoldMode(state, player.id, handValue, afterShanten)
+      : "balanced";
+    const liveWall = wallRemaining(state);
+    let score = (beforeShanten - afterShanten) * 38 + handValue + tieBreaker;
+    const reasons = [`明槓 ${beforeShanten}->${afterShanten}`];
+
+    if (afterShanten <= 0) {
+      score += 64;
+      reasons.push("聴牌以上");
+    } else if (afterShanten === 1) {
+      score += 28;
+      reasons.push("一向聴");
+    }
+    if (isYakuhaiCall(candidate, player, state)) {
+      score += 18;
+      reasons.push("役牌");
+    }
+    if (liveWall <= 8) {
+      score -= 36;
+      reasons.push("終盤");
+    }
+    if (pushFoldMode === "fold") {
+      score -= afterShanten <= 0 && handValue >= 70 ? 12 : 58;
+      reasons.push("守備寄り");
+    }
+
+    const accepted = afterShanten <= beforeShanten
+      && score >= 58
+      && !(pushFoldMode === "fold" && afterShanten > 0)
+      && liveWall > 0;
+    return {
+      accepted,
+      score,
+      reason: reasons.join(" / "),
+      afterShanten,
+      pushFoldMode,
+      handValue,
+    };
+  }
+
   function scoreCallCandidate(candidate, player, state, beforeShanten, random) {
     const actionId = actionIdForCall(candidate);
     const option = optionForCall(candidate) || {};
     const kanType = option.type || candidate.type;
     const tieBreaker = typeof random === "function" ? random() : 0;
+
+    if ((actionId === "kan" || kanType === "minkan") && kanType === "minkan") {
+      return scoreMinkanCandidate(candidate, player, state, beforeShanten, random);
+    }
 
     if (actionId === "kan" || kanType === "minkan") {
       return kanType === "minkan"

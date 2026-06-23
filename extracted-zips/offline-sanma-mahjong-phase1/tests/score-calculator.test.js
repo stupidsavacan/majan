@@ -27,6 +27,8 @@ for (const file of [
   "src/game/EndTurnYakuResolver.js",
   "src/game/SanmaRuleDetails.js",
   "src/game/ActionResolver.js",
+  "src/game/CpuVisibleTiles.js",
+  "src/game/CpuRiskAnalysis.js",
   "src/game/CpuStrategy.js",
   "src/game/AssistManager.js",
   "src/game/GameRecord.js",
@@ -45,6 +47,7 @@ for (const file of [
   "src/game/CallFlow.js",
   "src/game/KanFlow.js",
   "src/game/RecoveryFlow.js",
+  "src/game/UiStateView.js",
   "src/game/GameEngine.js",
 ]) {
   vm.runInThisContext(fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"), { filename: file });
