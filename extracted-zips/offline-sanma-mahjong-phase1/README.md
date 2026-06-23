@@ -1,39 +1,39 @@
-# Offline Sanma Mahjong - Canonical App Copy
+# オフライン三麻 - 正本アプリコピー
 
-This directory is the canonical app copy for the offline Sanma Mahjong browser runtime.
+このディレクトリは、オフライン三麻ブラウザランタイムの正本アプリコピーです。
 
-For normal play, open the repository root `index.html`. The root entry point mirrors this canonical app copy while using root-relative paths into `extracted-zips/offline-sanma-mahjong-phase1/`.
+通常プレイでは、リポジトリ直下の `index.html` を開いてください。root の入口は、この正本アプリコピーを参照しつつ、`extracted-zips/offline-sanma-mahjong-phase1/` へのroot相対パスで読み込みます。
 
-The detailed project overview is the root `README.md`. This file only records runtime notes that are easy to confuse when working inside the canonical copy.
+詳細なプロジェクト概要はrootの `README.md` にあります。このファイルでは、正本コピー内で作業するときに混乱しやすい実行時メモだけを記録します。
 
-## Runtime notes
+## 実行時メモ
 
-- User-facing entry point: root `index.html`.
-- Canonical copy entry point: `extracted-zips/offline-sanma-mahjong-phase1/index.html`.
-- Source modules: `src/game/`, `src/ui/`, and `src/storage/`.
-- Central test runner from the repository root: `node tests/run-all-tests.js`.
-- The runtime is browser JavaScript loaded by script tags. There is no bundler in the current runtime path.
-- The app does not require a CDN, external font fetch, server API, account service, or online multiplayer service.
-- Some filenames, storage keys, and diagnostics still contain historical `Phase` labels. Treat them as legacy labels.
+- 通常の入口: root `index.html`。
+- 正本コピー側の入口: `extracted-zips/offline-sanma-mahjong-phase1/index.html`。
+- ソースモジュール: `src/game/`、`src/ui/`、`src/storage/`。
+- リポジトリrootから実行する中央テストランナー: `node tests/run-all-tests.js`。
+- ランタイムは script タグで読み込むブラウザJavaScriptです。現在の実行経路にバンドラーはありません。
+- アプリはCDN、外部フォント取得、サーバーAPI、アカウントサービス、オンライン対戦サービスを必要としません。
+- 一部のファイル名、保存キー、診断表示には、歴史的な `Phase` ラベルが残っています。これは過去の名残です。
 
-## Implemented gameplay notes
+## 実装済みのゲームプレイメモ
 
-- CPU normal ron, chankan ron, pon, chi, and minkan/open kan are implemented.
-- Human call windows can present ron, pon, chi, minkan/open kan, and skip options when legal.
-- Pon and chi create open melds by consuming the caller's hand tiles and removing the called tile from the discarder river.
-- Minkan/open kan, ankan, and kakan go through `KanFlow` / `KanRules`.
-- Chankan, rinshan replacement draws, kan dora, and kan ura dora are handled only through the implemented kan rule paths and only when the relevant rules are enabled.
-- Default ron priority is head-bump. Double ron exists through `RuleConfig.doubleRonPolicy.allowed`, but it is off by default.
-- CPU decision-making uses shanten estimation, visible tile counts, simple risk analysis, push/fold mode, and call/minkan heuristics.
-- CPU fair-play logic uses visible information: its own hand, discards, open melds, kita tiles, visible dora indicators, and the current last discard. It does not use opponent concealed hands, the live wall, or dead-wall tiles for visible-count/risk decisions.
-- `GameEngine.getState()` and `UiStateView` provide GameEngine.getState() masking for UI output. CPU hands, raw wall/dead-wall information, full pending hidden analysis, and raw `tileLedger` internals are not exposed to normal rendering.
-- Ron results reveal the winning hand through `winResult.revealedHand`; non-winning CPU concealed hands remain hidden.
-- Records, replay, and stats are implemented through `GameRecordStorage`, `RecordPanel`, `ReplayViewer`, `RecordIndex`, and `AdvancedStats`.
+- CPUの通常ロン、槍槓ロン、ポン、チー、明槓は実装済みです。
+- 人間用の呼び出し窓には、合法な場合にロン、ポン、チー、明槓、スキップが表示されます。
+- ポンとチーは、鳴く側の手牌から消費牌を取り除き、鳴かれた牌を打牌者の河から取り除いて、副露として作成します。
+- 明槓、暗槓、加槓は `KanFlow` / `KanRules` を通ります。
+- 槍槓、嶺上牌取得、槓ドラ、槓裏ドラは、実装済みのカンルール経路を通り、関連ルールが有効な場合だけ処理されます。
+- 標準のロン優先度は頭ハネです。ダブロンは `RuleConfig.doubleRonPolicy.allowed` で有効化できますが、初期値では無効です。
+- CPU判断は、シャンテン推定、可視牌カウント、簡易危険度分析、押し引きモード、鳴き/明槓ヒューリスティックを使います。
+- CPUのフェアプレイ処理は可視情報を使います。具体的には、自分の手牌、河、公開副露、抜き北、見えているドラ表示牌、現在の直近打牌です。相手の伏せ手牌、生牌山、王牌の中身は、可視牌カウントや危険度分析に使いません。
+- `GameEngine.getState()` と `UiStateView` は、UI出力用の `GameEngine.getState()` マスキングを提供します。CPU手牌、生牌山/王牌の生情報、未公開の内部解析、`tileLedger` の内部詳細は通常描画に公開されません。
+- ロン成立時は、`winResult.revealedHand` で勝者の手牌だけを公開します。非勝者CPUの伏せ手牌は隠したままです。
+- 牌譜、リプレイ、成績は `GameRecordStorage`、`RecordPanel`、`ReplayViewer`、`RecordIndex`、`AdvancedStats` により実装されています。
 
-## Current limitations
+## 現在の制限
 
-- CPU play is heuristic and should not be described as a strong/full mahjong AI.
-- There is no online multiplayer, server-side account system, cloud save, or production-grade anti-cheat.
-- Rule support is broad but not exhaustive; local rules and rare variants may be disabled, deferred, or missing.
-- Browser `localStorage` limits apply to settings, records, and stats.
-- Older or imported records may replay partially if their event data is incomplete or pruned.
+- CPUはヒューリスティック実装であり、強い麻雀AIや完全な麻雀AIとして説明すべきではありません。
+- オンライン対戦、サーバー側アカウント、クラウド保存、本番級の不正対策はありません。
+- ルール対応は広めですが完全ではありません。ローカルルールや珍しい変種は、無効・保留・未実装の場合があります。
+- 設定、牌譜、成績はブラウザの `localStorage` 容量制限を受けます。
+- 古い牌譜やインポート牌譜は、イベントデータが不足または間引かれている場合、リプレイ表示が一部のみになることがあります。
