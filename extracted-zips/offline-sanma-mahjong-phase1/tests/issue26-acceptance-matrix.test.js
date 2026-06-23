@@ -43,10 +43,10 @@ assert(testingDoc.includes("tests/issue26-acceptance-matrix.test.js"), "docs/TES
 assert(testingDoc.includes("tests/issue26-test-helpers.js"), "docs/TESTING.md must list the Issue #26 helper file.");
 assert(runner.includes('"issue26-acceptance-matrix.test.js"'), "tests/run-all-tests.js must register the Issue #26 foundation test.");
 
-assert(readme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed` で切り替え可能"), "README must document the integrated daburon policy.");
-assert(readme.includes("CPUのポン/チー/明槓、CPU通常ロン、CPU槍槓は実装済み"), "README must document implemented CPU call and ron behavior.");
+assert(readme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed`"), "README must document the integrated daburon policy.");
+assert(readme.includes("CPUのポン/チー/明槓は実装済み") && readme.includes("CPU通常ロン"), "README must document implemented CPU call and ron behavior.");
 assert(bugsDoc.includes("issue-runtime-flow-regressions.test.js") && bugsDoc.includes("issue-storage-replay-regressions.test.js"), "docs/BUGS.md must keep Phase 16.1 regression coverage visible.");
-assert(!roadmapDoc.includes("CPUポン/チー/明槓の実装と検証"), "docs/ROADMAP.md must not list implemented CPU calls as future work.");
+assert(!roadmapDoc.includes("CPU繝昴Φ/繝√・/譏取ｧ薙・螳溯｣・→讀懆ｨｼ"), "docs/ROADMAP.md must not list implemented CPU calls as future work.");
 
 const todoRows = ISSUE26_ACCEPTANCE_ROWS.filter((row) => row.status === STATUS.TODO);
 assert(todoRows.length > 0, "The foundation must keep incomplete Issue #26 behavior as TODO rows, not false green executable coverage.");

@@ -60,12 +60,13 @@
       "RuleConfig", "TileUtil", "HandAnalysis", "DoraCalculator", "YakuAnalysis", "ScoreCalculator", "Settlement",
       "RoundManager", "HonbaManager", "RankingManager", "EndConditionManager", "MatchManager",
       "RiichiManager", "KanManager", "KitaManager", "FuritenManager", "RiichiRules", "KanRules",
-      "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuStrategy", "CallResolver", "AssistManager",
+      "EndTurnYakuResolver", "SanmaRuleDetails", "ActionResolver", "CpuVisibleTiles", "CpuRiskAnalysis", "CpuStrategy", "CallResolver", "AssistManager",
       "GameRecord", "CallWindow", "Wall", "SeedPolicy", "Player", "GameEngine", "SettingsStorage",
       "GameRecordStorage", "RenderTiles", "RenderTable", "SettingsPanel", "SettingsExportImport", "RecordPanel",
       "DebugEventLog", "GameStateMachine", "TileLedger", "InvariantChecker", "RecoveryManager", "SaveMigration",
       "RecordIndex", "AdvancedStats", "ReplayViewer", "RecordListPanel",
       "DrawContext", "RecordFlow", "RoundLifecycle", "TurnFlow", "WinFlow", "CallFlow", "KanFlow", "RecoveryFlow",
+      "UiStateView",
     ];
     const recordDiagnostics = Sanma.GameRecordStorage.getDiagnostics();
     const settingsDiagnostics = Sanma.SettingsStorage.getDiagnostics();
@@ -98,7 +99,9 @@
   }
 
   function commitCompletedRecord(state) {
-    const record = state.gameRecord;
+    const record = state && state.gameRecord && Array.isArray(state.gameRecord.rounds)
+      ? state.gameRecord
+      : engine && engine.gameRecord;
     if (!record || !record.completedAt || committedRecordIds.has(record.id) || failedRecordCommits.has(record.id)) {
       return { saved: false, skipped: true };
     }

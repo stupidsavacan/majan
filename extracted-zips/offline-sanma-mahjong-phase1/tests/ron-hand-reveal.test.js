@@ -53,6 +53,12 @@ assert(
   singleEngine.players[1].hand.map((tile) => tile.instanceId).join(",") === singleHandIdsBefore,
   "revealedHand snapshot must not mutate winner hand"
 );
+const singleUiState = singleEngine.getState();
+assert(singleUiState.players[1].hand.every((tile) => tile === null), "CPU hand must stay masked in UI state after ron");
+assert(
+  singleUiState.winResult.revealedHand.concealedTiles.length === singleEngine.players[1].hand.length,
+  "ron winner hand must be revealed only through winResult"
+);
 
 const doubleEngine = createEngine(Sanma, "ron-hand-reveal-double", {
   allowChi: true,
@@ -86,6 +92,12 @@ assert(doubleEngine.winResult.winners.length === 2, "double ron must keep every 
 doubleEngine.winResult.winners.forEach((winner) => {
   assertRevealedHandMatchesPlayer(winner.revealedHand, doubleEngine.players[winner.winnerIndex], doubleWinningTile);
 });
+const doubleUiState = doubleEngine.getState();
+doubleUiState.winResult.winners.forEach((winner) => {
+  assert(winner.revealedHand && winner.revealedHand.winningTile, "double ron UI state must keep each winner reveal");
+});
+assert(doubleUiState.players[1].hand.every((tile) => tile === null), "double ron UI state must still mask CPU 1 hand snapshot");
+assert(doubleUiState.players[2].hand.every((tile) => tile === null), "double ron UI state must still mask CPU 2 hand snapshot");
 
 const renderTableSource = fs.readFileSync(path.resolve(projectRoot, "src", "ui", "renderTable.js"), "utf8");
 const mainCss = fs.readFileSync(path.resolve(projectRoot, "src", "styles", "main.css"), "utf8");

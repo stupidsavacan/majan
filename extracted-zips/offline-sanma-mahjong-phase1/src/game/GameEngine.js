@@ -299,21 +299,22 @@
       const humanYakuAnalysis = humanWinAnalysis.yaku;
       const humanScoreAnalysis = humanWinAnalysis.score;
       const humanAvailableActions = ActionResolver.getAvailableActions(this, this.humanPlayer.id);
+      const view = Sanma.UiStateView;
       return {
         ruleConfig: snapshot(this.ruleConfig),
         ruleSummary: RuleConfig.describeRuleConfig(this.ruleConfig),
         round: snapshot(Object.assign({}, this.round, { label: this.getRoundLabel() })),
-        players: snapshot(this.players),
+        players: this.players.map((player) => view.playerSnapshot(this, player)),
         wallRemaining: this.wall.remainingCount(),
         doraIndicators: snapshot(this.wall.doraIndicators),
-        deadWallCount: this.wall.deadWall.length,
-        totalKnownTileCount: this.wall.totalKnownTileCount(this.players),
+        deadWallCount: null,
+        totalKnownTileCount: null,
         phase: this.phase,
         gameState: this.stateMachine.state,
         turnIndex: this.turnIndex,
         logs: this.logs.slice(0, 12),
-        cpuThinkingLog: this.cpuThinkingLog.slice(0, 20),
-        assistEvents: this.assistEvents.slice(0, 20),
+        cpuThinkingLog: this.cpuThinkingLog.slice(0, 20).map(view.cpuThinkingEntrySummary).filter(Boolean),
+        assistEvents: this.assistEvents.slice(0, 20).map(view.assistEventSummary),
         humanAgariAnalysis,
         humanTenpaiAnalysis,
         humanYakuAnalysis,
@@ -323,14 +324,14 @@
           ? RiichiRules.getDeclarationDiscardOptions(this, this.humanPlayer.id).map((tile) => tile.instanceId)
           : [],
         lastDiscard: snapshot(this.lastDiscard),
-        callWindow: snapshot(this.callWindow),
+        callWindow: view.callWindowSnapshot(this, this.callWindow),
         pendingKanChoice: snapshot(this.pendingKanChoice),
-        pendingKanAttempt: snapshot(this.pendingKanAttempt),
+        pendingKanAttempt: view.kanAttemptSummary(this, this.pendingKanAttempt),
         winResult: snapshot(this.winResult),
         matchState: this.matchManager.getState(),
-        gameRecord: snapshot(this.gameRecord),
-        invariantReport: snapshot(this.lastInvariantReport),
-        tileLedger: snapshot(this.lastInvariantReport.tileLedger),
+        gameRecord: view.gameRecordSummary(this.gameRecord),
+        invariantReport: view.invariantSummary(this.lastInvariantReport),
+        tileLedger: view.tileLedgerSummary(this.lastInvariantReport),
         debugEvents: snapshot(DebugEventLog.list(this.debugEventLog)),
         seed: this.seed,
       };

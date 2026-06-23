@@ -42,6 +42,7 @@ assert(visibleCounts.z4 === 1, "CPU visible count must include kita tiles");
 assert(visibleCounts.z7 === 1, "CPU visible count must include public dora indicators");
 assert(visibleCounts["5p"] === 2, "lastDiscard should be counted once when it is not already in a river");
 assert(!visibleTiles.some((visible) => visible.baseId === "9m"), "CPU visible count must not inspect wall tiles");
+assert(!visibleTiles.some((visible) => visible.baseId === "1m"), "CPU visible count must not inspect dead wall tiles");
 assert(!visibleTiles.some((visible) => visible.baseId === "1s"), "CPU visible count must not inspect opponent concealed hands");
 
 const disabledNorthState = Object.assign({}, visibleState, {
@@ -65,6 +66,10 @@ assert(
 assert(
   decision.candidates.every((candidate) => candidate.remainingVisibleEstimate === null || Number.isInteger(candidate.remainingVisibleEstimate)),
   "CPU discard candidates must expose visible remaining estimates"
+);
+assert(
+  decision.candidates.every((candidate) => Number.isInteger(candidate.danger) && candidate.pushFoldMode),
+  "CPU discard candidates must expose danger and push/fold diagnostics"
 );
 
 console.log("CPU visible tile tests passed.");

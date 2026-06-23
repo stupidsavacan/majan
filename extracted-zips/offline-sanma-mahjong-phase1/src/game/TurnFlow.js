@@ -41,6 +41,40 @@
     };
   }
 
+  function sanitizeAssistEvent(event) {
+    if (!event) return null;
+    return {
+      type: event.type,
+      phase: event.phase,
+      playerIndex: event.playerIndex,
+      enabled: event.enabled,
+      applied: event.applied,
+      reason: event.reason,
+      beforeShanten: event.beforeShanten,
+      afterShanten: event.afterShanten,
+      integrityValid: event.integrityValid,
+    };
+  }
+
+  function sanitizeCpuDiscardCandidates(candidates) {
+    return (Array.isArray(candidates) ? candidates : []).slice(0, 8).map((candidate, index) => ({
+      index,
+      score: candidate.score,
+      baseScore: candidate.baseScore,
+      shanten: candidate.shanten,
+      tenpai: candidate.tenpai,
+      visibleCount: candidate.visibleCount,
+      remainingVisibleEstimate: candidate.remainingVisibleEstimate,
+      danger: candidate.danger,
+      dangerReasons: candidate.dangerReasons,
+      pushFoldMode: candidate.pushFoldMode,
+      handValue: candidate.handValue,
+      liveShapeValue: candidate.liveShapeValue,
+      safetyReason: candidate.safetyReason,
+      reasons: candidate.reasons,
+    }));
+  }
+
   Sanma.TurnFlow = {
         discardHumanTile(instanceId) {
           const validation = this.validateAction("打牌", ["waitingForDiscard"]);
@@ -374,14 +408,17 @@
             phase: "Phase 7 CPU思考",
             action: "打牌",
             selectedDiscard: TileUtil.getTileAriaLabel(tile),
-            selectedTileInstanceId: tile.instanceId,
             reason: index >= 0 ? decision.reason : "候補牌が見つからなかったため先頭牌を選択しました。",
             score: decision.score,
             shanten: decision.candidates[0] ? decision.candidates[0].shanten : null,
             tenpai: decision.candidates[0] ? decision.candidates[0].tenpai : false,
-            candidates: decision.candidates.slice(0, 8),
-            assist: this.assistEvents[0] || null,
-            hand: player.hand.map(TileUtil.getTileShortLabel).join(" "),
+            danger: decision.danger,
+            pushFoldMode: decision.pushFoldMode,
+            handValue: decision.handValue,
+            handCount: player.hand.length,
+            candidateCount: decision.candidates.length,
+            candidates: sanitizeCpuDiscardCandidates(decision.candidates),
+            assist: sanitizeAssistEvent(this.assistEvents[0] || null),
           });
           this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
           return safeIndex;
@@ -455,7 +492,7 @@
             phase: "Phase 7 CPU思考",
             action,
             reason,
-            assist: this.assistEvents[0] || null,
+            assist: sanitizeAssistEvent(this.assistEvents[0] || null),
           });
           this.cpuThinkingLog = this.cpuThinkingLog.slice(0, 20);
           DebugEventLog.add(this.debugEventLog, "cpuDecision", {

@@ -13,6 +13,7 @@ const preEngineModules = [
   "CallFlow",
   "KanFlow",
   "RecoveryFlow",
+  "UiStateView",
 ];
 const canonicalIndex = fs.readFileSync(path.resolve(projectRoot, "index.html"), "utf8");
 const rootIndex = fs.readFileSync(path.resolve(projectRoot, "..", "..", "index.html"), "utf8");

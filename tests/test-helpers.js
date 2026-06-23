@@ -31,6 +31,7 @@ const gameModules = [
   "src/game/SanmaRuleDetails.js",
   "src/game/ActionResolver.js",
   "src/game/CpuVisibleTiles.js",
+  "src/game/CpuRiskAnalysis.js",
   "src/game/CpuStrategy.js",
   "src/game/CallResolver.js",
   "src/game/AssistManager.js",
@@ -54,6 +55,7 @@ const gameModules = [
   "src/game/CallFlow.js",
   "src/game/KanFlow.js",
   "src/game/RecoveryFlow.js",
+  "src/game/UiStateView.js",
   "src/game/GameEngine.js",
 ];
 
