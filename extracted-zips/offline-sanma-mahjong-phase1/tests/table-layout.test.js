@@ -25,6 +25,11 @@ assert(
   "ダブロン表示で複数勝者ごとの結果を描画する分岐がありません"
 );
 assert(
+  /for \(let i = 0; i < player\.hand\.length; i \+= 1\) \{[\s\S]*?tile-back-mini/.test(renderTableSource)
+    && !renderTableSource.includes("RenderTiles.renderTileRow(handBacks, player.hand"),
+  "CPU concealed hands must render as face-down backs, not face-up tile identities"
+);
+assert(
   /\.center-board\s*\{[^}]*grid-template-columns:1fr minmax\(12rem,.35fr\)/s.test(mainCss),
   "デスクトップのcenter-boardが河メイン列・ドラサイド列の2列構成ではありません"
 );

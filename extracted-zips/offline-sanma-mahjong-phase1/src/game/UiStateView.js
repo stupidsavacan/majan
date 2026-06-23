@@ -6,9 +6,26 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function renderableLabel(tile, safe) {
+    if (safe && safe.label !== undefined) return safe.label;
+    if (tile.label !== undefined) return tile.label;
+    if (Sanma.TileUtil && typeof Sanma.TileUtil.getTileShortLabel === "function") {
+      return Sanma.TileUtil.getTileShortLabel(tile);
+    }
+    return tile.baseId || "";
+  }
+
   function tileSnapshot(engine, tile) {
     if (!tile) return null;
-    return typeof engine.tileSnapshot === "function" ? engine.tileSnapshot(tile) : snapshot(tile);
+    const safe = typeof engine.tileSnapshot === "function" ? engine.tileSnapshot(tile) : snapshot(tile);
+    return Object.assign({}, safe || {}, {
+      instanceId: tile.instanceId,
+      baseId: tile.baseId,
+      suit: tile.suit,
+      rank: tile.rank,
+      label: renderableLabel(tile, safe),
+      isRed: Boolean(tile.isRed),
+    });
   }
 
   function tileSnapshots(engine, tiles) {
@@ -36,7 +53,7 @@
       isHuman,
       seatWind: player.seatWind,
       points: player.points,
-      hand: isHuman ? tileSnapshots(engine, player.hand) : new Array(handCount).fill(null),
+      hand: tileSnapshots(engine, player.hand),
       handCount,
       discards: tileSnapshots(engine, player.discards),
       melds: (Array.isArray(player.melds) ? player.melds : []).map((meld) => meldSnapshot(engine, meld)).filter(Boolean),

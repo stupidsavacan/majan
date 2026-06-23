@@ -31,6 +31,7 @@ const visibleState = {
   },
   lastDiscard: { playerIndex: 1, tile: lastDiscard },
 };
+visibleState.players.forEach((entry, index) => { entry.id = index; });
 
 const visibleTiles = Sanma.CpuVisibleTiles.getVisibleTilesForPlayer(visibleState, 0);
 const visibleCounts = Sanma.CpuVisibleTiles.getVisibleCountsForPlayer(visibleState, 0);
@@ -53,12 +54,29 @@ assert(
   "north remaining estimate must be 0 when northMode is disabled"
 );
 
+let visibleCountsCalls = 0;
+let remainingByBaseIdCalls = 0;
+const originalGetVisibleCountsForPlayer = Sanma.CpuVisibleTiles.getVisibleCountsForPlayer;
+const originalGetRemainingByBaseId = Sanma.CpuVisibleTiles.getRemainingByBaseId;
+Sanma.CpuVisibleTiles.getVisibleCountsForPlayer = function wrappedGetVisibleCountsForPlayer(state, playerIndex) {
+  visibleCountsCalls += 1;
+  return originalGetVisibleCountsForPlayer.call(this, state, playerIndex);
+};
+Sanma.CpuVisibleTiles.getRemainingByBaseId = function wrappedGetRemainingByBaseId(state, playerIndex) {
+  remainingByBaseIdCalls += 1;
+  return originalGetRemainingByBaseId.call(this, state, playerIndex);
+};
 const decision = Sanma.CpuStrategy.chooseDiscard({
   player: visibleState.players[0],
   state: visibleState,
   ruleConfig: visibleState.ruleConfig,
   random: () => 0,
 });
+Sanma.CpuVisibleTiles.getVisibleCountsForPlayer = originalGetVisibleCountsForPlayer;
+Sanma.CpuVisibleTiles.getRemainingByBaseId = originalGetRemainingByBaseId;
+
+assert(visibleCountsCalls > 0, "CPU discard strategy must use CpuVisibleTiles.getVisibleCountsForPlayer");
+assert(remainingByBaseIdCalls > 0, "CPU discard strategy must use CpuVisibleTiles.getRemainingByBaseId");
 assert(
   decision.candidates.every((candidate) => Number.isInteger(candidate.visibleCount)),
   "CPU discard candidates must expose visible counts"
