@@ -21,18 +21,26 @@ const runner = read("tests/run-all-tests.js");
 const archiveFiles = fs.readdirSync(path.resolve(repositoryRoot, "docs", "archive"))
   .filter((file) => /^PHASE.*\.md$/.test(file));
 
-assert(readme.startsWith("# Offline Sanma Mahjong - Phase 16"), "README must be the Phase 16 current entry");
-assert(readme.includes("Flow モジュールへ分割") && readme.includes("GameEngine.js"), "README must describe Phase 16 GameEngine split");
-assert(readme.includes("CPUのポン/チー/明槓は実装済み"), "README must document current CPU call support");
-assert(readme.includes("簡易リスク分析") && readme.includes("押し引きモード") && readme.includes("明槓判断"), "README must document current CPU risk/call strategy");
-assert(readme.includes("GameEngine.getState()") && readme.includes("CPU 手牌") && readme.includes("tileLedger"), "README must document UI state masking");
+assert(readme.startsWith("# Offline Sanma Mahjong"), "README must be the current project entry");
+assert(readme.includes("offline, single-player Sanma") && readme.includes("You play against two CPU seats"), "README must describe the current offline single-player game");
+assert(readme.includes("root `index.html`") && readme.includes("canonical app copy"), "README must explain current entry points");
+assert(readme.includes("legacy `Phase`") && readme.includes("historical implementation names"), "README must explain remaining legacy phase labels conservatively");
+assert(readme.includes("Flow modules") && readme.includes("GameEngine.js"), "README must describe the GameEngine/flow-module architecture");
+assert(readme.includes("shanten estimation") && readme.includes("visible tile counts") && readme.includes("push/fold mode"), "README must document current CPU strategy inputs");
+assert(readme.includes("does not use opponent concealed hands, the live wall, or dead-wall tiles"), "README must document CPU fair-play visible-information limits");
+assert(readme.includes("minkan/open kan") && readme.includes("chankan") && readme.includes("rinshan") && readme.includes("kan dora"), "README must document current call/kan behavior");
+assert(readme.includes("GameEngine.getState()") && readme.includes("CPU hands") && readme.includes("tileLedger"), "README must document UI state masking");
 assert(readme.includes("winResult.revealedHand"), "README must document ron hand reveal");
+assert(readme.includes("localStorage") && readme.includes("latest 20 records") && readme.includes("ReplayViewer"), "README must document storage, records, and replay");
 assert(!readme.includes("CPUは鳴き・ロンを自動スキップ"), "README must not retain stale CPU skip claims");
 assert(!readme.includes("押し引き未実装"), "README must not say push/fold is unimplemented");
 
-assert(canonicalReadme.includes("ダブロンは `RuleConfig.doubleRonPolicy.allowed`"), "canonical README must document double ron support");
-assert(canonicalReadme.includes("CPU の通常ロン、槍槓ロン、ポン、チー、明槓は実装済み"), "canonical README must document current CPU call support");
-assert(canonicalReadme.includes("簡易リスク分析") && canonicalReadme.includes("getState()"), "canonical README must summarize current CPU and masking behavior");
+assert(canonicalReadme.startsWith("# Offline Sanma Mahjong - Canonical App Copy"), "canonical README must identify the canonical app copy");
+assert(canonicalReadme.includes("root `index.html`") && canonicalReadme.includes("canonical app copy"), "canonical README must explain entry points");
+assert(canonicalReadme.includes("CPU normal ron, chankan ron, pon, chi, and minkan/open kan"), "canonical README must document current CPU call support");
+assert(canonicalReadme.includes("visible information") && canonicalReadme.includes("does not use opponent concealed hands"), "canonical README must document CPU fair-play limits");
+assert(canonicalReadme.includes("GameEngine.getState() masking") && canonicalReadme.includes("tileLedger"), "canonical README must summarize current masking behavior");
+assert(canonicalReadme.includes("Records, replay, and stats"), "canonical README must document current record/replay/stat support");
 assert(!canonicalReadme.includes("CPUは鳴き・ロンを自動スキップ"), "canonical README must not retain stale CPU skip claims");
 
 assert(index.includes("PHASE16_GAME_ENGINE_SPLIT.md"), "docs/INDEX.md must point to Phase 16 source of truth");
@@ -63,4 +71,4 @@ archiveFiles.forEach((file) => {
   assert(read(path.join("docs", "archive", file)).replace(/^\uFEFF/, "").startsWith("> "), `${file} must retain an archive warning`);
 });
 
-console.log("Phase 16 documentation current-truth tests passed.");
+console.log("Documentation current-truth tests passed.");
