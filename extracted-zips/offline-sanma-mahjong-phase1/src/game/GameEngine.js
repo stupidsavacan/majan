@@ -306,7 +306,7 @@
         round: snapshot(Object.assign({}, this.round, { label: this.getRoundLabel() })),
         players: this.players.map((player) => view.playerSnapshot(this, player)),
         wallRemaining: this.wall.remainingCount(),
-        doraIndicators: snapshot(this.wall.doraIndicators),
+        doraIndicators: (this.wall.doraIndicators || []).map((tile) => this.tileSnapshot(tile)).filter(Boolean),
         deadWallCount: null,
         totalKnownTileCount: null,
         phase: this.phase,
