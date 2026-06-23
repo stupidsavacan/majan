@@ -60,6 +60,8 @@
           return {
             instanceId: tile.instanceId,
             baseId: tile.baseId,
+            suit: tile.suit,
+            rank: tile.rank,
             label: TileUtil.getTileShortLabel(tile),
             isRed: Boolean(tile.isRed),
           };
