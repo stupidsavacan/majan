@@ -336,6 +336,45 @@
       : (safeScore.payments && safeScore.payments.tsumo ? safeScore.payments.tsumo.total : 0);
   }
 
+  function renderRevealedHand(revealedHand) {
+    if (!revealedHand) return null;
+    const wrap = el("div", "revealed-hand");
+    wrap.appendChild(el("h3", "revealed-hand-title", `${revealedHand.playerName || "勝者"} の公開手牌`));
+
+    const concealedRow = el("div", "tile-row revealed-hand-row");
+    RenderTiles.renderTileRow(concealedRow, revealedHand.concealedTiles || [], { small: true });
+    wrap.appendChild(concealedRow);
+
+    if (revealedHand.winningTile) {
+      const winTileBlock = el("div", "revealed-winning-tile");
+      winTileBlock.appendChild(el("span", "mini-title", "ロン牌"));
+      const winTileRow = el("div", "tile-row");
+      RenderTiles.renderTileRow(winTileRow, [revealedHand.winningTile], { small: true });
+      winTileBlock.appendChild(winTileRow);
+      wrap.appendChild(winTileBlock);
+    }
+
+    (revealedHand.melds || []).forEach((meld) => {
+      const meldBlock = el("div", "revealed-meld");
+      meldBlock.appendChild(el("span", "mini-title", getMeldTypeLabel(meld)));
+      const row = el("div", "tile-row");
+      RenderTiles.renderTileRow(row, meld.tiles || [], { small: true });
+      meldBlock.appendChild(row);
+      wrap.appendChild(meldBlock);
+    });
+
+    if ((revealedHand.kitaTiles || []).length > 0) {
+      const kitaBlock = el("div", "revealed-kita");
+      kitaBlock.appendChild(el("span", "mini-title", "抜き北"));
+      const row = el("div", "tile-row");
+      RenderTiles.renderTileRow(row, revealedHand.kitaTiles, { small: true });
+      kitaBlock.appendChild(row);
+      wrap.appendChild(kitaBlock);
+    }
+
+    return wrap;
+  }
+
   function renderWinResult(winResult) {
     const score = winResult.score || {};
     const settlement = winResult.settlement || {};
@@ -353,6 +392,8 @@
         ));
         row.appendChild(el("div", "win-result-payment", `支払い合計: ${paymentTotal(winnerScore, winner.winType || "ron").toLocaleString()}点`));
         row.appendChild(el("div", "win-result-yaku", `役: ${yakuNamesFrom(winner.yaku).join("、") || "なし"}`));
+        const revealed = renderRevealedHand(winner.revealedHand);
+        if (revealed) row.appendChild(revealed);
         panel.appendChild(row);
       });
       const changes = el("ul", "win-result-changes");
@@ -373,6 +414,8 @@
       ? (score.payments && score.payments.ron ? score.payments.ron.amount : 0)
       : (score.payments && score.payments.tsumo ? score.payments.tsumo.total : 0);
     panel.appendChild(el("div", "win-result-payment", `支払い合計: ${payment.toLocaleString()}点`));
+    const revealed = renderRevealedHand(winResult.revealedHand);
+    if (revealed) panel.appendChild(revealed);
     const yakuNames = [
       ...((winResult.yaku && winResult.yaku.yaku) || []).map((item) => item.name),
       ...((winResult.yaku && winResult.yaku.dora) || []).map((item) => `${item.name} ${item.han}`),
