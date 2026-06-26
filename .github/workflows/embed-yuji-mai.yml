@@ -14,6 +14,10 @@ concurrency:
   group: embed-yuji-mai
   cancel-in-progress: false
 
+env:
+  YUJI_MAI_SUBSET_TEXT: "一二三四五六七八九萬東南西北發中"
+  YUJI_MAI_UNICODE_RANGE: "U+4E00, U+4E8C, U+4E09, U+56DB, U+4E94, U+516D, U+4E03, U+516B, U+4E5D, U+842C, U+6771, U+5357, U+897F, U+5317, U+767C, U+4E2D"
+
 jobs:
   embed:
     runs-on: ubuntu-latest
@@ -22,23 +26,52 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate embedded font CSS
+      - name: Install font subsetting tools
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input fonttools brotli
+
+      - name: Generate embedded subset font CSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_font="assets/fonts/YujiMai-Regular.ttf"
+          subset_font="$(mktemp --suffix=.woff2)"
           output="extracted-zips/offline-sanma-mahjong-phase1/src/styles/yuji-mai-embedded.css"
+
+          if [ ! -f "$source_font" ]; then
+            echo "Missing source font: $source_font" >&2
+            exit 1
+          fi
+
+          pyftsubset "$source_font" \
+            --text="$YUJI_MAI_SUBSET_TEXT" \
+            --flavor=woff2 \
+            --layout-features='*' \
+            --name-IDs='*' \
+            --name-legacy \
+            --no-hinting \
+            --output-file="$subset_font"
+
           mkdir -p "$(dirname "$output")"
           {
+            printf '%s\n' '/* Generated from YujiMai-Regular.ttf, subset for mahjong tile glyphs only. */'
+            printf '%s\n' '/* Included glyphs: 一二三四五六七八九萬東南西北發中 */'
             printf '%s\n' '@font-face {'
-            printf '%s' '  font-family: "Yuji Mai Embedded";'
-            printf '\n%s' '  src: url("data:font/ttf;base64,'
-            base64 -w 0 assets/fonts/YujiMai-Regular.ttf
-            printf '%s\n' '") format("truetype");'
+            printf '%s\n' '  font-family: "Yuji Mai Embedded";'
+            printf '%s' '  src: url("data:font/woff2;base64,'
+            base64 -w 0 "$subset_font"
+            printf '%s\n' '") format("woff2");'
             printf '%s\n' '  font-weight: 400;'
             printf '%s\n' '  font-style: normal;'
             printf '%s\n' '  font-display: block;'
+            printf '  unicode-range: %s;\n' "$YUJI_MAI_UNICODE_RANGE"
             printf '%s\n' '}'
           } > "$output"
+
+          echo "Subset font bytes: $(wc -c < "$subset_font")"
+          echo "Embedded CSS bytes: $(wc -c < "$output")"
 
       - name: Commit embedded font CSS
         shell: bash
@@ -51,6 +84,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Embed Yuji Mai font for offline use"
+          git commit -m "Embed subset Yuji Mai font for offline tile glyphs"
           git pull --rebase origin main
           git push
