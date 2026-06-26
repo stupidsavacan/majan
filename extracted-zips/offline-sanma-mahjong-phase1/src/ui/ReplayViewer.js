@@ -209,6 +209,14 @@
       const sourceDiscards = playerZone(view, "discards", data.fromPlayerIndex);
       if (data.kanType === "minkan" && sourceDiscards) removeOrWarn(view, sourceDiscards, data.calledTile, "minkan discard");
     } else if (
+      event.type === "chankan_tile_move"
+      && playerZone(view, "hands", playerIndex)
+      && playerZone(view, "discards", playerIndex)
+      && data.tile
+    ) {
+      removeOrWarn(view, playerZone(view, "hands", playerIndex), data.tile, "chankan tile move");
+      playerZone(view, "discards", playerIndex).push(data.tile);
+    } else if (
       event.type === "assist"
       && playerZone(view, "hands", playerIndex)
       && data.outgoing

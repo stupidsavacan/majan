@@ -58,6 +58,21 @@
     return moved.length ? moved : null;
   }
 
+  function recordChankanTileMove(engine, movedTiles, attemptSnapshot) {
+    const attempt = attemptSnapshot || (engine && engine.pendingKanAttempt);
+    if (!attempt || attempt.kanType !== "kakan" || !Array.isArray(movedTiles) || movedTiles.length === 0) return;
+    movedTiles.forEach((tile) => {
+      engine.recordGameEvent("chankan_tile_move", {
+        playerIndex: attempt.playerIndex,
+        playerName: engine.players[attempt.playerIndex] && engine.players[attempt.playerIndex].name,
+        kanType: attempt.kanType,
+        tile: engine.tileSnapshot(tile),
+        from: "hand",
+        to: "discards",
+      });
+    });
+  }
+
   function getRonWinningTile(engine) {
     if (engine && engine.lastDiscard && engine.lastDiscard.tile) return engine.lastDiscard.tile;
     const attempt = engine && engine.pendingKanAttempt;
@@ -345,7 +360,7 @@
           const ronCandidates = Array.isArray(this.callWindow.ronCandidates)
             ? orderedRonCandidates(this.callWindow.ronCandidates)
             : [];
-          if (!metadata.isChankan && isDoubleRonEnabled(this.ruleConfig) && ronCandidates.length > 1) {
+          if (isDoubleRonEnabled(this.ruleConfig) && ronCandidates.length > 1) {
             return Sanma.WinFlow.resolveMultiRonWin.call(this, ronCandidates, metadata);
           }
           return this.resolveRonWin(this.humanPlayer.id, analysis, metadata);
@@ -370,7 +385,8 @@
           }
           const details = metadata || {};
           const ronTile = getRonWinningTile(this);
-          if (details.isChankan) moveAcceptedKakanChankanTile(this);
+          const chankanAttempt = details.isChankan ? this.pendingKanAttempt : null;
+          const movedChankanTiles = details.isChankan ? moveAcceptedKakanChankanTile(this) : null;
           this.phase = "win-ended";
           this.callWindow = null;
           this.pendingKanAttempt = null;
@@ -386,6 +402,7 @@
           };
           this.addLog(`${winner.name}がロン和了しました。${ronLimitLabel(analysis.scoreResult)} / ${analysis.scoreResult.payments.ron.amount.toLocaleString()}点。`);
           if (details.isChankan) {
+            recordChankanTileMove(this, movedChankanTiles, chankanAttempt);
             this.recordGameEvent("chankan", {
               playerIndex: winnerIndex,
               playerName: winner.name,
@@ -442,6 +459,8 @@
 
           const details = metadata || {};
           const ronTile = getRonWinningTile(this);
+          const chankanAttempt = details.isChankan ? this.pendingKanAttempt : null;
+          const movedChankanTiles = details.isChankan ? moveAcceptedKakanChankanTile(this) : null;
           const winners = ordered.map((candidate, index) => {
             const player = this.players[candidate.playerIndex];
             return {
@@ -453,6 +472,9 @@
               context: candidate.analysis.context,
               priorityOffset: candidate.priorityOffset,
               order: index,
+              isChankan: Boolean(details.isChankan),
+              kanType: details.kanType || null,
+              isAnkanKokushiException: Boolean(details.isAnkanKokushiException),
               revealedHand: snapshotRevealedHand(this, candidate.playerIndex, ronTile),
             };
           });
@@ -472,10 +494,28 @@
             context: winners[0].context,
             winners,
             isMultiRon: true,
+            isChankan: Boolean(details.isChankan),
+            kanType: details.kanType || null,
+            isAnkanKokushiException: Boolean(details.isAnkanKokushiException),
             reason: `ダブロン: ${winners.map((winner) => winner.winnerName).join("、")}`,
           };
 
           this.addLog(`ダブロン: ${winners.map((winner) => winner.winnerName).join("、")}がロン和了しました。`);
+          if (details.isChankan) {
+            recordChankanTileMove(this, movedChankanTiles, chankanAttempt);
+            winners.forEach((winner) => {
+              this.recordGameEvent("chankan", {
+                playerIndex: winner.winnerIndex,
+                playerName: winner.winnerName,
+                fromPlayerIndex: winner.context.loserIndex,
+                kanType: details.kanType,
+                isAnkanKokushiException: details.isAnkanKokushiException,
+                decision: "accept",
+                multiRon: true,
+                winnerIndexes,
+              });
+            });
+          }
           winners.forEach((winner) => {
             this.addLog(`${winner.winnerName}がロン和了しました。${ronLimitLabel(winner.score)} / ${winner.score.payments.ron.amount.toLocaleString()}点。`);
             this.recordGameEvent("win", {

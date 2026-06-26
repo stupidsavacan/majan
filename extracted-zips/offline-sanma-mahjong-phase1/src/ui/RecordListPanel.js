@@ -15,10 +15,21 @@
     return node;
   }
 
+  function yakumanLimitLabel(score) {
+    const count = Math.max(1, Number(score && score.yakumanCount) || 1);
+    if (Sanma.ScoreCalculator && typeof Sanma.ScoreCalculator.yakumanLimitName === "function") {
+      return Sanma.ScoreCalculator.yakumanLimitName(count);
+    }
+    if (count === 1) return score.limitName || "役満";
+    if (count === 2) return "ダブル役満";
+    if (count === 3) return "三倍役満";
+    return `${count}倍役満`;
+  }
+
   function highestHandLabel(entry) {
     const result = entry.highestHand;
     if (!result || !result.score) return "最高打点: 集計不可";
-    if (result.score.isYakuman) return `最高打点: ${result.score.limitName || "役満"}`;
+    if (result.score.isYakuman) return `最高打点: ${yakumanLimitLabel(result.score)}`;
     const parts = [];
     if (result.score.limitName) parts.push(result.score.limitName);
     if (Number(result.score.han)) parts.push(`${result.score.han}翻`);

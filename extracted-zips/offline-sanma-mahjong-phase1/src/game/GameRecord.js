@@ -493,6 +493,9 @@
       yakuman: normalizeYakuArray(source.yakuman).concat(groups.yakuman).filter((name, index, array) => array.indexOf(name) === index),
       score: compactScore(source.score || {}),
       pointTransfers: Array.isArray(source.pointTransfers) ? clone(source.pointTransfers) : [],
+      isChankan: Boolean(source.isChankan),
+      kanType: source.kanType || null,
+      isAnkanKokushiException: Boolean(source.isAnkanKokushiException),
     };
   }
 
@@ -533,6 +536,9 @@
         after: change.after,
       })),
       pointTransfers: Array.isArray(input.pointTransfers) ? clone(input.pointTransfers) : [],
+      isChankan: Boolean(input.isChankan || (firstWinner && firstWinner.isChankan)),
+      kanType: input.kanType || (firstWinner && firstWinner.kanType) || null,
+      isAnkanKokushiException: Boolean(input.isAnkanKokushiException || (firstWinner && firstWinner.isAnkanKokushiException)),
       reason: input.reason || "",
     };
   }
@@ -580,6 +586,9 @@
       yakuman: normalizeYakuArray(winner.yakuman),
       score: compactScore(winner.score || {}),
       pointTransfers: Array.isArray(winner.pointTransfers) ? winner.pointTransfers : [],
+      isChankan: Boolean(winner.isChankan),
+      kanType: winner.kanType || null,
+      isAnkanKokushiException: Boolean(winner.isAnkanKokushiException),
     };
   }
 

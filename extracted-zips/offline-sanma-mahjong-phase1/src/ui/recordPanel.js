@@ -44,7 +44,8 @@
         ["ツモ和了", Sanma.AdvancedStats.display(stats.hand.tsumoWinCount)],
         ["ロン和了", Sanma.AdvancedStats.display(stats.hand.ronWinCount)],
         ["最高獲得点", Sanma.AdvancedStats.display(stats.hand.highestScore, "点")],
-        ["役満", Sanma.AdvancedStats.display(stats.hand.yakumanCount)],
+        ["役満和了", Sanma.AdvancedStats.display(stats.hand.yakumanHands !== undefined ? stats.hand.yakumanHands : stats.hand.yakumanCount)],
+        ["役満単位", Sanma.AdvancedStats.display(stats.hand.yakumanUnits !== undefined ? stats.hand.yakumanUnits : stats.hand.yakumanCount)],
       ])
     );
     const yaku = el("div", "advanced-yaku");

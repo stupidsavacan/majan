@@ -121,7 +121,7 @@
       : 0;
     if (yakumanCount) {
       return {
-        limitName: "役満",
+        limitName: yakumanLimitName(yakumanCount),
         basePoints: 8000 * yakumanCount,
         isYakuman: true,
         yakumanCount,
@@ -204,6 +204,14 @@
       : fallback;
   }
 
+  function yakumanLimitName(yakumanCount) {
+    const count = Math.max(1, Number(yakumanCount) || 1);
+    if (count === 1) return "役満";
+    if (count === 2) return "ダブル役満";
+    if (count === 3) return "三倍役満";
+    return `${count}倍役満`;
+  }
+
   function distributeHonbaTotal(total, payerCount) {
     if (!payerCount) return [];
     const units = Math.floor(total / 100);
@@ -274,5 +282,6 @@
   Sanma.ScoreCalculator = {
     calculateScore,
     roundUp100,
+    yakumanLimitName,
   };
 })(window);

@@ -75,6 +75,22 @@
     }));
   }
 
+  function cpuCanProgressWithoutWall(state) {
+    const player = state && typeof state.getCurrentPlayer === "function" ? state.getCurrentPlayer() : null;
+    return Boolean(player && !player.isHuman && (
+      player.lastDraw
+      || state.pendingCpuCallDiscardIndex === player.id
+    ));
+  }
+
+  function canRunCpuStep(state) {
+    return Boolean(
+      state
+      && state.turnIndex !== state.humanPlayer.id
+      && (state.wall.remainingCount() > 0 || cpuCanProgressWithoutWall(state))
+    );
+  }
+
   Sanma.TurnFlow = {
         discardHumanTile(instanceId) {
           const validation = this.validateAction("打牌", ["waitingForDiscard"]);
@@ -246,7 +262,7 @@
 
         runCpuUntilHumanTurnUnlocked() {
           let cpuSteps = 0;
-          while (this.turnIndex !== this.humanPlayer.id && this.wall.remainingCount() > 0) {
+          while (canRunCpuStep(this)) {
             cpuSteps += 1;
             if (cpuSteps > 12) {
               this.endRoundForInvalidDraw("CPU処理の安全上限を超えました。");
@@ -329,7 +345,7 @@
             this.turnIndex = (this.turnIndex + 1) % this.players.length;
           }
 
-          if (this.wall.remainingCount() <= 0) {
+          if (this.wall.remainingCount() <= 0 && !(this.turnIndex === this.humanPlayer.id && this.humanPlayer.lastDraw)) {
             this.phase = "round-ended";
             this.addLog("山がなくなりました。簡易流局として終了します。");
             this.finishGameRecord({ type: "exhaustive_draw", reason: "山がなくなりました。" });

@@ -230,9 +230,16 @@
         },
 
         openOrResolveChankan(interrupts, attempt) {
-          const priority = this.selectHeadBumpCandidates(interrupts);
+          const ordered = (interrupts || []).slice().sort((left, right) => left.priorityOffset - right.priorityOffset);
+          const priority = this.selectHeadBumpCandidates(ordered);
           const primary = priority.primary;
-          const offered = primary && this.players[primary.playerIndex].isHuman && priority.fallbackCpu
+          const doubleRonEnabled = this.ruleConfig
+            && this.ruleConfig.doubleRonPolicy
+            && this.ruleConfig.doubleRonPolicy.allowed === true;
+          const humanCandidate = ordered.find((interrupt) => this.players[interrupt.playerIndex].isHuman) || null;
+          const offered = doubleRonEnabled
+            ? ordered
+            : primary && this.players[primary.playerIndex].isHuman && priority.fallbackCpu
             ? [primary, priority.fallbackCpu]
             : primary ? [primary] : [];
           offered.forEach((interrupt) => {
@@ -246,6 +253,46 @@
             });
           });
           if (!primary) return false;
+          if (doubleRonEnabled && !humanCandidate && ordered.length > 1) {
+            return this.resolveMultiRonWin(ordered, {
+              isChankan: true,
+              kanType: attempt.kanType,
+              isAnkanKokushiException: ordered.some((interrupt) => interrupt.isAnkanKokushiException),
+            });
+          }
+          if (doubleRonEnabled && humanCandidate) {
+            const fallbackCpu = ordered.find((interrupt) => !this.players[interrupt.playerIndex].isHuman) || null;
+            this.markOpeningInterrupted("槍槓選択窓");
+            this.pendingWinContext = {
+              isChankan: true,
+              sourcePlayerIndex: attempt.playerIndex,
+              winningTile: attempt.declaredTile,
+              kanType: attempt.kanType,
+              isAnkanKokushiException: humanCandidate.isAnkanKokushiException,
+            };
+            this.callWindow = {
+              isOpen: true,
+              kind: "chankan",
+              playerIndex: humanCandidate.playerIndex,
+              fromPlayerIndex: attempt.playerIndex,
+              tile: attempt.declaredTile,
+              kanType: attempt.kanType,
+              isAnkanKokushiException: humanCandidate.isAnkanKokushiException,
+              pendingCpuRonCandidate: fallbackCpu,
+              ronCandidates: ordered,
+              actions: [{
+                id: "ron",
+                label: "槍槓ロン",
+                enabled: true,
+                reason: "カン宣言牌でロン和了できます。",
+                analysis: humanCandidate.analysis,
+              }],
+            };
+            this.phase = "human-call";
+            this.addLog("槍槓ロンを選択できます。");
+            this.emitChange();
+            return true;
+          }
           if (!this.players[primary.playerIndex].isHuman) {
             return this.resolveRonWin(primary.playerIndex, primary.analysis, {
               isChankan: true,
@@ -270,6 +317,7 @@
             kanType: attempt.kanType,
             isAnkanKokushiException: primary.isAnkanKokushiException,
             pendingCpuRonCandidate: priority.fallbackCpu,
+            ronCandidates: offered,
             actions: [{
               id: "ron",
               label: "槍槓ロン",

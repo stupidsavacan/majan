@@ -47,6 +47,16 @@
     });
   }
 
+  function yakumanUnitsForWinner(winner, result) {
+    const winnerScore = (winner && winner.score) || (result && result.score) || {};
+    const scoreCount = Math.max(0, Number(winnerScore.yakumanCount) || 0);
+    if (winnerScore && winnerScore.isYakuman) return Math.max(1, scoreCount);
+    const winnerYakuman = Array.isArray(winner && winner.yakuman) ? winner.yakuman : [];
+    const resultYakuman = Array.isArray(result && result.yakuman) ? result.yakuman : [];
+    const nameCount = winnerYakuman.length || resultYakuman.length;
+    return nameCount > 0 ? Math.max(1, nameCount) : 0;
+  }
+
   function calculate(records) {
     const safeRecords = Array.isArray(records) ? records : [];
     const officialRecords = safeRecords.filter(isStatsEligible);
@@ -66,6 +76,8 @@
     let tsumoWins = 0;
     let ronWins = 0;
     let yakumanCount = 0;
+    let yakumanHands = 0;
+    let yakumanUnits = 0;
     let dealInCount = 0;
     let dealInKnownRounds = 0;
     let doubleRonCount = 0;
@@ -101,10 +113,12 @@
           if (Number.isFinite(score)) winScores.push(score);
           addNameCounter(yakuFrequency, humanWinner.yaku || result.yaku);
           addNameCounter(yakumanNames, humanWinner.yakuman || result.yakuman);
-          const winnerScore = humanWinner.score || result.score || {};
-          if ((winnerScore && winnerScore.isYakuman)
-            || (Array.isArray(humanWinner.yakuman) && humanWinner.yakuman.length)
-            || (Array.isArray(result.yakuman) && result.yakuman.length)) yakumanCount += 1;
+          const units = yakumanUnitsForWinner(humanWinner, result);
+          if (units > 0) {
+            yakumanCount += 1;
+            yakumanHands += 1;
+            yakumanUnits += units;
+          }
         } else {
           losses += 1;
           if (winners.some((winner) => (winner && winner.winType === "ron") || result.winType === "ron")
@@ -135,6 +149,8 @@
         ronWinCount: ronWins,
         highestScore: winScores.length ? Math.max(...winScores) : null,
         yakumanCount,
+        yakumanHands,
+        yakumanUnits,
         doubleRonCount,
         exhaustiveDrawCount,
         tenpaiDrawCount,
