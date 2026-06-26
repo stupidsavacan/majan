@@ -91,6 +91,7 @@ const testFiles = [
   "ron-hand-reveal.test.js",
   "smoke.test.js",
   "regression.test.js",
+  "font-subset-workflow.test.js",
   "source-format.test.js",
 ];
 
