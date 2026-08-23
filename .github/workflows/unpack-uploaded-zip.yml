@@ -63,6 +63,7 @@ jobs:
         with:
           name: extracted-zips
           path: extracted-zips
+          retention-days: 7
 
       - name: Run full test suite
         run: node tests/run-all-tests.js
